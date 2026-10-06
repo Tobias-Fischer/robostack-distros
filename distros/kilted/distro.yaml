@@ -1,0 +1,3 @@
+# Settings of ros-kilted that differ from the other distributions
+# (everything else is shared, see the README).
+{channel_name: robostack-kilted, upload_target: anaconda}

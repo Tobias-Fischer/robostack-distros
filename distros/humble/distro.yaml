@@ -1,0 +1,10 @@
+# Settings of ros-humble that differ from the other distributions
+# (everything else is shared, see the README).
+channel_name: robostack-staging
+upload_target: anaconda
+conda_forge_pinning_version: 2026.09.01.16.28.00
+conda_forge_migrations: [giflib6, go_macos, gstreamer128, hdf52, libboost190, pybind11_abi11, urdfdom6,
+  vtk970]
+pinning_overrides:
+  libzenohc: [1.10.0]
+  libzenohcxx: [1.10.0]

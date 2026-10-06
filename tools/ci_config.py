@@ -1,0 +1,62 @@
+"""Apply the PR-build cache controls from the distribution-owned ci.yaml.
+
+testpr.yml restores the build cache of the pull request and then runs this
+script, so temporary rebuild controls live in ci.yaml instead of in the
+(template-owned) workflow file:
+
+    full_rebuild: true          # ignore the cache and rebuild everything
+    evict_cache:                # drop these packages from the cache
+      - rosidl_generator_py     # ROS name (dashes or underscores)
+      - roboplan*               # or a glob
+
+Each evict_cache entry matches both package name prefixes (``ros2-`` and
+``ros-<distro>-``), so the same entry works with ``package_name_mode: both``.
+"""
+
+import argparse
+import shutil
+import sys
+from pathlib import Path
+
+import yaml
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--cache-dir", required=True, type=Path)
+    parser.add_argument("--config", default="ci.yaml", type=Path)
+    parser.add_argument("--vinca", default="vinca.yaml", type=Path)
+    args = parser.parse_args()
+
+    config = {}
+    if args.config.exists():
+        config = yaml.safe_load(args.config.read_text()) or {}
+    distro = yaml.safe_load(args.vinca.read_text())["ros_distro"]
+    cache = args.cache_dir
+    if not cache.is_dir():
+        print(f"No cache directory {cache}; nothing to do.")
+        return 0
+
+    if config.get("full_rebuild", False):
+        print("ci.yaml: full_rebuild is set, ignoring the restored cache.")
+        for child in cache.iterdir():
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+        return 0
+
+    for entry in config.get("evict_cache") or []:
+        name = str(entry).replace("_", "-")
+        # A plain name only matches that package (name-version-build.conda);
+        # a glob is used as given.
+        suffix = name if "*" in name else f"{name}-[0-9]*"
+        for prefix in ("ros2-", f"ros-{distro}-"):
+            for path in sorted(cache.glob(prefix + suffix)):
+                print(f"ci.yaml: evicting {path.name}")
+                path.unlink()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

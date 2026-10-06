@@ -1,0 +1,5 @@
+# This file is generated from ros-distro-template (template/.gitattributes).
+# If you change it here, upstream the change: comment `@robostack-bot upstream-to-template` on your PR.
+
+# GitHub syntax highlighting
+pixi.lock linguist-language=YAML linguist-generated=true
