@@ -178,6 +178,16 @@ jobs:
         if-no-files-found: warn
         retention-days: 7
 
+    - name: Drop the package a cancellation may have cut short
+      # Cancelling can kill the compiler while the build script carries on, and
+      # rattler-build then packages an empty build (seen on Windows); the newest
+      # artifact is the only one that can be affected.
+      if: ${{ always() && steps.build-recipes.outcome == 'cancelled' }}
+      shell: bash -l {0}
+      run: |
+        newest=$(ls -t "$CACHE_DIR"/*.conda 2>/dev/null | head -1)
+        if [ -n "$newest" ]; then echo "Removing $newest"; rm -f "$newest"; fi
+
     - name: Save build cache
       if: ${{ always() && contains(fromJSON('["success","failure","cancelled"]'), steps.build-recipes.outcome) }}
       uses: actions/cache/save@v5

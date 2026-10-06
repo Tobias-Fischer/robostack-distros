@@ -5,4 +5,7 @@ tests:
       then:
         - test -f ${PREFIX}/share/bash-completion/completions/ros2-argcomplete.bash
         - test -f ${PREFIX}/share/zsh/site-functions/ros2-argcomplete.zsh
+[% if distro in ("rolling", "lyrical") %]
+        # only their ros2cli patch installs a fish completion
         - test -f ${PREFIX}/share/fish/vendor_completions.d/ros2-argcomplete.fish
+[% endif %]

@@ -1,0 +1,58 @@
+Use conda-forge's tl-expected (cpp-expected) instead of the ROS tl_expected package,
+as in upstream PickNikRobotics/generate_parameter_library#322.
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 41aa062..4a2e985 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -7,11 +7,7 @@ find_package(fmt REQUIRED)
+ find_package(rclcpp REQUIRED)
+ find_package(rsl REQUIRED)
+ find_package(tcb_span REQUIRED)
+-# for backward compatibility
+-# remove once this redirection is removed
+-# https://github.com/PickNikRobotics/cpp_polyfills/pull/12
+-set(tl_expected_DEPRECATED_QUIET TRUE)
+-find_package(tl_expected REQUIRED)
++find_package(tl-expected REQUIRED)
+ 
+ add_library(parameter_traits INTERFACE)
+ target_include_directories(parameter_traits INTERFACE
+@@ -24,7 +20,7 @@ target_link_libraries(parameter_traits
+     rclcpp::rclcpp
+     rsl::rsl
+     tcb_span::tcb_span
+-    tl_expected::tl_expected
++    tl::expected
+ )
+ 
+ install(
+@@ -41,5 +37,5 @@ install(
+ )
+ 
+ ament_export_targets(export_parameter_traits HAS_LIBRARY_TARGET)
+-ament_export_dependencies(fmt rclcpp rsl tcb_span tl_expected)
++ament_export_dependencies(fmt rclcpp rsl tcb_span tl-expected)
+ ament_package()
+diff --git a/include/parameter_traits/parameter_traits.hpp b/include/parameter_traits/parameter_traits.hpp
+index a62153d..148b1f7 100644
+--- a/include/parameter_traits/parameter_traits.hpp
++++ b/include/parameter_traits/parameter_traits.hpp
+@@ -34,7 +34,7 @@
+ #include <vector>
+ 
+ #include <rsl/algorithm.hpp>
+-#include <tl_expected/expected.hpp>
++#include <tl/expected.hpp>
+ 
+ #ifndef SILENCE_DEPRECATION_WARNINGS
+ #ifdef _MSC_VER
+@@ -53,7 +53,7 @@ namespace parameter_traits {
+ 
+ using Result
+     [[deprecated("Use tl::expected<void, std::string> for return instead. "
+-                 "`#include <tl_expected/expected.hpp>`.")]] =
++                 "`#include <tl/expected.hpp>`.")]] =
+         tl::expected<void, std::string>;
+ 
+ template <typename... Args>

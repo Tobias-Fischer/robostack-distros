@@ -28,3 +28,5 @@ evict_cache:
   # skipped them; the conda-forge packages must be used instead
   - cpp-expected
   - sophus
+  # empty win-64 build from a cancelled run
+  - rmw_fastrtps_shared_cpp

@@ -1,0 +1,85 @@
+From c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d Mon Sep 17 00:00:00 2001
+From: Esteve Fernandez <esteve.fernandez@bonsairobotics.ai>
+Date: Mon, 11 May 2026 14:24:03 +0100
+Subject: [PATCH] fix(autoware_trajectory): migrate tl_expected to libexpected-dev
+
+Signed-off-by: Esteve Fernandez <esteve.fernandez@bonsairobotics.ai>
+---
+ include/autoware/trajectory/interpolator/result.hpp  | 2 +-
+ include/autoware/trajectory/temporal_trajectory.hpp  | 2 +-
+ include/autoware/trajectory/utils/reference_path.hpp | 2 +-
+ include/autoware/trajectory/utils/shift.hpp          | 2 +-
+ package.xml                                           | 2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/include/autoware/trajectory/interpolator/result.hpp b/include/autoware/trajectory/interpolator/result.hpp
+index 5ea3257..f06b16e 100644
+--- a/include/autoware/trajectory/interpolator/result.hpp
++++ b/include/autoware/trajectory/interpolator/result.hpp
+@@ -15,7 +15,7 @@
+ #ifndef AUTOWARE__TRAJECTORY__INTERPOLATOR__RESULT_HPP_
+ #define AUTOWARE__TRAJECTORY__INTERPOLATOR__RESULT_HPP_
+ 
+-#include <tl_expected/expected.hpp>
++#include <tl/expected.hpp>
+ 
+ #include <string>
+ 
+diff --git a/include/autoware/trajectory/temporal_trajectory.hpp b/include/autoware/trajectory/temporal_trajectory.hpp
+index 443d407..4fe6b2a 100644
+--- a/include/autoware/trajectory/temporal_trajectory.hpp
++++ b/include/autoware/trajectory/temporal_trajectory.hpp
+@@ -18,7 +18,7 @@
+ #include "autoware/trajectory/detail/time_distance_mapping.hpp"
+ #include "autoware/trajectory/trajectory_point.hpp"
+ 
+-#include <tl_expected/expected.hpp>
++#include <tl/expected.hpp>
+ 
+ #include <memory>
+ #include <utility>
+diff --git a/include/autoware/trajectory/utils/reference_path.hpp b/include/autoware/trajectory/utils/reference_path.hpp
+index df92ef9..bf52e8c 100644
+--- a/include/autoware/trajectory/utils/reference_path.hpp
++++ b/include/autoware/trajectory/utils/reference_path.hpp
+@@ -17,7 +17,7 @@
+ 
+ #include "autoware/trajectory/forward.hpp"
+ 
+-#include <tl_expected/expected.hpp>
++#include <tl/expected.hpp>
+ 
+ #include <autoware_internal_planning_msgs/msg/path_with_lane_id.hpp>
+ 
+diff --git a/include/autoware/trajectory/utils/shift.hpp b/include/autoware/trajectory/utils/shift.hpp
+index 552cbed..1c64049 100644
+--- a/include/autoware/trajectory/utils/shift.hpp
++++ b/include/autoware/trajectory/utils/shift.hpp
+@@ -19,7 +19,7 @@
+ #include "autoware/trajectory/forward.hpp"
+ 
+ #include <range/v3/view/zip.hpp>
+-#include <tl_expected/expected.hpp>
++#include <tl/expected.hpp>
+ 
+ #include <string>
+ #include <utility>
+diff --git a/package.xml b/package.xml
+index b49e295..c5f5a10 100644
+--- a/package.xml
++++ b/package.xml
+@@ -28,11 +28,11 @@
+   <depend>fmt</depend>
+   <depend>geometry_msgs</depend>
+   <depend>lanelet2_core</depend>
++  <depend>libexpected-dev</depend>
+   <depend>rclcpp</depend>
+   <depend>tf2</depend>
+   <depend>tf2_geometry_msgs</depend>
+-  <depend>tl_expected</depend>
+ 
+   <test_depend>ament_cmake_auto</test_depend>
+   <test_depend>ament_index_cpp</test_depend>
+-- 
+2.54.0
+
