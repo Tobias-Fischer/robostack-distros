@@ -237,6 +237,10 @@ def check() -> Result:
         if rs.task(distro, "render-pinning", []) or rendered.read_text() != before:
             problems.append(f"{distro}: conda_build_config.yaml is out of date (pixi run rs {distro} render-pinning)")
             rendered.write_text(before)
+    for wf in sorted((rs.ROOT / ".github" / "workflows").glob("*.yml")):
+        text = wf.read_text()
+        if "\non:" not in "\n" + text or "\ntrue:" in "\n" + text:
+            problems.append(f"{wf.name}: no top-level `on:` trigger")
     sort = subprocess.run(["pixi", "run", "sort", "--check"], cwd=rs.ROOT, capture_output=True, text=True)
     if sort.returncode:
         problems.append("YAML files are not sorted (pixi run sort):\n" + tail(sort.stdout + sort.stderr, 10))

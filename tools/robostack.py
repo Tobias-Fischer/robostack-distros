@@ -321,20 +321,21 @@ def generate_gha(distro: str, args: list[str]) -> int:
               "--batch_size", ns.batch_size], d)
     if rc:
         return rc
-    import yaml
-
+    # Edit the text: a YAML round trip would turn the `on:` key into `true:` (YAML 1.1).
     for wf in sorted(set(d.glob("*.yml")) - before):
-        data = yaml.safe_load(wf.read_text())
-        data["name"] = f"{distro} {data.get('name', wf.stem)}"
-        data["env"] = {
-            **(data.get("env") or {}),
-            "ROBOSTACK_DISTRO": distro,
-            # uploads go elsewhere (a test channel) or nowhere outside the RoboStack org
-            "ROBOSTACK_UPLOAD_CHANNEL": "${{ vars.ROBOSTACK_UPLOAD_CHANNEL || "
+        lines = wf.read_text().splitlines()
+        lines = [f"name: {distro} {l[6:]}" if l.startswith("name: ") else l for l in lines]
+        if any(l.startswith("env:") for l in lines):
+            raise SystemExit(f"{wf}: unexpected top-level env in the vinca-gha output")
+        lines += [
+            "env:",
+            f"  ROBOSTACK_DISTRO: {distro}",
+            "  # uploads go elsewhere (a test channel) or nowhere outside the RoboStack org",
+            "  ROBOSTACK_UPLOAD_CHANNEL: ${{ vars.ROBOSTACK_UPLOAD_CHANNEL || "
             "(github.repository_owner != 'RoboStack' && 'none' || '') }}",
-        }
+        ]
         dest = ROOT / ".github" / "workflows" / f"build_{distro}_{wf.stem}.yml"
-        dest.write_text(yaml.safe_dump(data, sort_keys=False, width=1000))
+        dest.write_text("\n".join(lines) + "\n")
         wf.unlink()
         print(f"wrote {dest.relative_to(ROOT)} (trigger branch {branch})")
     return 0
