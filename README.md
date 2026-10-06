@@ -10,23 +10,56 @@ The data is copied from those repositories (rolling, humble, lyrical and kilted
 ## Layout
 
 ```
-distros/<distro>/          everything specific to one distribution
+distros/<distro>/          only what is specific to one distribution
   distro.yaml              channel, upload target, conda-forge pinning version/migrations, own pins
-  vinca.yaml               package selection, build number, mutex
-  pkg_additional_info.yaml, rosdistro_additional_recipes.yaml, rosdistro_snapshot.yaml
-  patch/
+  vinca.yaml               ros_distro, build number, mutex, its own package selection
+  pkg_additional_info.yaml its own per-package settings (build numbers, version-specific cmake args)
+  patch/                   its patches; patch/dependencies.yaml its own dependency fixes
+  rosdistro_snapshot.yaml, rosdistro_additional_recipes.yaml
   ci.yaml                  temporary PR-build controls (full rebuild, cache evictions)
   conda_build_config.yaml  generated: `pixi run rs <distro> render-pinning`
+  work/                    generated, git-ignored: what vinca and rattler-build actually run on
 shared/                    the same for every distribution
+  vinca.yaml               settings and packages selected in every distribution
+  pkg_additional_info.yaml per-package settings that are the same everywhere
+  dependencies.yaml        dependency fixes that are the same everywhere
   robostack.yaml, packages-ignore.yaml   rosdep key -> conda package mapping
   pinning/                 conda-forge pinning version, migrations and overrides
   tests/                   package tests (ros2-<pkg>.yaml; *.jinja for distro-specific bits)
-tools/robostack.py         `pixi run rs <distro> <task>`: runs everything for one distribution
+tools/robostack.py         `pixi run rs <distro> <task>`: assembles work/ and runs everything there
 tools/*.py                 check_patches_clean_apply, check_dependency_compat, ...
 .scripts/                  staged build scripts (build_unix.sh, build_win.bat)
 .github/workflows/         testpr.yml (PR builds), main.yml (staged build branches)
 pixi.toml                  one environment for all distributions (one vinca, one rattler-build)
 ```
+
+### How shared and distribution files combine
+
+`pixi run rs <distro> <task>` first assembles `distros/<distro>/work/`:
+
+- **`vinca.yaml`:** lists (`packages_select_by_deps`, `packages_skip_by_deps`,
+  `packages_remove_from_deps`) are `shared/` + the distribution's. Other keys come
+  from the distribution if it sets them, else from `shared/`. A distribution that
+  differs from a shared setting just sets it, e.g. kilted's `package_name_mode: legacy`.
+  `skip_existing`, `conda_index`, `patch_dir` and the snapshot paths are filled in.
+- **`pkg_additional_info.yaml`, `patch/dependencies.yaml`:** per package, the
+  distribution's keys win over the shared ones. For example, a shared
+  `additional_cmake_args` plus the distribution's own `build_number`.
+- **`tests/`:** shared tests, with `*.jinja` rendered for the distribution.
+
+**What is shared:** an entry moves to `shared/` when every distribution that has it
+agrees, and no other distribution contains that package. Adding the entry there
+can't change anything.
+
+**Checked by regenerating the full linux-64 recipe sets:** the split leaves the recipes
+unchanged. rolling (1,927), humble (2,214) and lyrical (1,885) are byte-identical before
+and after.
+
+**Sharing more is a decision:**
+- a package selected in only some distributions;
+- a cmake flag that differs between versions.
+
+For each, either keep it per distribution or decide to unify, as with `robostack.yaml`.
 
 ## Working with it
 

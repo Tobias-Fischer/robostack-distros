@@ -18,7 +18,7 @@ export PYTHONUNBUFFERED=1
 
 # ROBOSTACK_DISTRO is set by the generated build workflow (tools/robostack.py gha).
 : "${ROBOSTACK_DISTRO:?ROBOSTACK_DISTRO is not set}"
-cd "distros/${ROBOSTACK_DISTRO}"
+cd "distros/${ROBOSTACK_DISTRO}/work"
 export FEEDSTOCK_ROOT=`pwd`
 export "CONDA_BLD_PATH=$HOME/conda-bld/"
 

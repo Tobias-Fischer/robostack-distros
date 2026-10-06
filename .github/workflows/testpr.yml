@@ -81,8 +81,8 @@ jobs:
     env:
       DISTRO: ${{ matrix.distro }}
       PLATFORM: ${{ matrix.target.platform }}
-      # rattler-build writes to ./output of the distribution, or to CONDA_BLD_PATH (win-64)
-      CACHE_DIR: ${{ matrix.target.platform == 'win-64' && 'C:/bld/win-64' || format('distros/{0}/output/{1}', matrix.distro, matrix.target.platform) }}
+      # rattler-build writes to distros/<d>/work/output, or to CONDA_BLD_PATH (win-64)
+      CACHE_DIR: ${{ matrix.target.platform == 'win-64' && 'C:/bld/win-64' || format('distros/{0}/work/output/{1}', matrix.distro, matrix.target.platform) }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -145,7 +145,7 @@ jobs:
     - name: Apply ci.yaml cache controls
       shell: bash -l {0}
       run: |
-        pixi run python tools/ci_config.py --cache-dir "$CACHE_DIR" --config "distros/$DISTRO/ci.yaml" --vinca "distros/$DISTRO/vinca.yaml"
+        pixi run python tools/ci_config.py --cache-dir "$CACHE_DIR" --config "distros/$DISTRO/ci.yaml" --vinca "distros/$DISTRO/work/vinca.yaml"
         mkdir -p "$CACHE_DIR"
         pixi run rattler-index fs "$CACHE_DIR/.." --force
 

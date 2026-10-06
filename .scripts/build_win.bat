@@ -8,7 +8,7 @@ rmdir /Q/S C:\Strawberry\
 rmdir /Q/S "C:\Program Files (x86)\Windows Kits\10\Include\10.0.17763.0\"
 
 :: ROBOSTACK_DISTRO is set by the generated build workflow (tools/robostack.py gha).
-cd distros\%ROBOSTACK_DISTRO%
+cd distros\%ROBOSTACK_DISTRO%\work
 set "FEEDSTOCK_ROOT=%cd%"
 
 mkdir %CONDA_BLD_PATH%

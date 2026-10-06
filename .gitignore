@@ -2,11 +2,5 @@
 __pycache__
 *.egg-info
 .DS_Store
-# generated per distribution by tools/robostack.py
-distros/*/recipes/
-distros/*/recipes_only_patch/
-distros/*/tests/
-distros/*/vinca_pinning.yaml
-distros/*/output/
-distros/*/*.json
-distros/*/buildorder.txt
+# assembled per distribution by tools/robostack.py (prepare)
+distros/*/work/
