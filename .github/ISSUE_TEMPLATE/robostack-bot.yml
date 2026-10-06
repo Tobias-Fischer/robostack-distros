@@ -12,6 +12,7 @@ body:
 
         | command | what it does |
         |---|---|
+        | `add-package` | Add ROS packages to the package selection of the given (default: every) distribution that has them; the PR lists what will be built. E.g. `@robostack-bot add-package foxglove_bridge humble jazzy`. |
         | `update-rosdistro-snapshot` | Refresh the distribution's `rosdistro_snapshot.yaml` to the latest rosdistro release; the PR lists the version bumps. Runs weekly for every distribution. |
         | `find-stale-packages` | List the distribution's published packages that were built against pins that no longer match, with the build-number snippet to rebuild them. Replies only. |
         | `update-conda-forge-pinning` | Move the shared conda-forge pinning (`shared/pinning/conda_forge.yaml`) to the latest version, with migrations selected for all distributions; re-renders `conda_build_config.yaml` of those that follow it. Runs weekly. |
@@ -20,6 +21,7 @@ body:
     attributes:
       label: Command
       options: [update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning]
+      description: For add-package use the "Package request" form or a comment
     validations:
       required: true
   - type: dropdown

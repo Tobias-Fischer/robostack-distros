@@ -106,6 +106,7 @@ pixi run sort                                 # all YAML files of all distributi
 
 | command | what it does |
 |---|---|
+| `add-package <pkg>... [<distro>...]` | Add ROS packages to the selection of the given (default: every) distribution that has them, in `shared/vinca.yaml` if that's all of them. The PR lists the packages that will be built (linux-64), and those that are already published as dependencies. Anyone can open a *Package request* issue: the bot replies with a preview, and a maintainer's `@robostack-bot add-package ...` opens the PR (which closes the issue). |
 | `update-rosdistro-snapshot <distro>` | `create-snapshot` for one distribution; the PR lists the version bumps. Weekly for every distribution. |
 | `find-stale-packages <distro>` | Published packages built against pins that no longer match, with the build-number snippet. Replies only. |
 | `update-conda-forge-pinning` | Moves `shared/pinning/conda_forge.yaml` forward (migrations selected for all distributions), re-renders the `conda_build_config.yaml` of the distributions that follow it. Weekly. |

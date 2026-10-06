@@ -356,7 +356,7 @@ def changed_distros(base: str) -> list[str]:
     return sorted({f.split("/")[1] for f in out if f.count("/") >= 2} & set(distros()))
 
 
-REPO_COMMANDS = ("check", "update-pinning", "new-distro", "parse-command")
+REPO_COMMANDS = ("check", "update-pinning", "new-distro", "parse-command", "add-package")
 
 
 def main() -> int:

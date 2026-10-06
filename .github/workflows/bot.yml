@@ -6,7 +6,9 @@
 #     Actions > robostack-bot > Run workflow, an issue from the "robostack-bot command"
 #     template, or a comment: @robostack-bot <command> [<distro>]
 #   commands: update-rosdistro-snapshot <distro> | find-stale-packages <distro> |
-#             update-conda-forge-pinning
+#             update-conda-forge-pinning | add-package <pkg>... [<distro>...]
+# - package requests (the "Package request" issue form, anyone): a preview of what
+#   would be built; a maintainer's `@robostack-bot add-package ...` opens the PR
 #
 # PRs are opened with the robostack-bot GitHub App (vars.ROBOSTACK_BOT_APP_ID +
 # secrets.ROBOSTACK_BOT_PRIVATE_KEY, falling back to secrets.GHA_PAT) so CI runs on them.
@@ -19,9 +21,12 @@ on:
     inputs:
       command:
         type: choice
-        options: [update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning]
+        options: [add-package, update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning]
       distro:
         description: Distribution (for update-rosdistro-snapshot / find-stale-packages)
+        required: false
+      packages:
+        description: For add-package, ROS packages and optionally distributions, e.g. "foxglove_bridge humble jazzy"
         required: false
   issue_comment:
     types: [created]
@@ -36,7 +41,8 @@ jobs:
     if: >-
       github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@robostack-bot')) ||
-      (github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'robostack-bot'))
+      (github.event_name == 'issues' && (contains(github.event.issue.labels.*.name, 'robostack-bot') ||
+                                         contains(github.event.issue.labels.*.name, 'package-request')))
     runs-on: ubuntu-latest
     outputs:
       jobs: ${{ steps.plan.outputs.jobs }}
@@ -53,18 +59,19 @@ jobs:
           EVENT: ${{ github.event_name }}
           COMMAND: ${{ inputs.command }}
           DISTRO: ${{ inputs.distro }}
+          PACKAGES: ${{ inputs.packages }}
           BODY: ${{ github.event.comment.body || github.event.issue.body }}
           ASSOCIATION: ${{ github.event.comment.author_association || github.event.issue.author_association }}
         run: |
           case "$EVENT" in
             schedule)
               jobs=$(pixi run -q python tools/robostack.py changed-distros --base HEAD --all \
-                | python3 -c 'import json,sys; print(json.dumps([{"command":"update-rosdistro-snapshot","distro":d} for d in json.load(sys.stdin)] + [{"command":"update-conda-forge-pinning","distro":""}]))') ;;
+                | python3 -c 'import json,sys; print(json.dumps([{"command":"update-rosdistro-snapshot","distro":d,"args":"","preview":False} for d in json.load(sys.stdin)] + [{"command":"update-conda-forge-pinning","distro":"","args":"","preview":False}]))') ;;
             workflow_dispatch)
-              jobs=$(python3 -c 'import json,os; print(json.dumps([{"command":os.environ["COMMAND"],"distro":os.environ["DISTRO"]}]))') ;;
+              jobs=$(python3 -c 'import json,os; print(json.dumps([{"command":os.environ["COMMAND"],"distro":os.environ["DISTRO"],"args":os.environ["PACKAGES"],"preview":False}]))') ;;
             *)
               parsed=$(pixi run -q rs parse-command --body "$BODY" --association "$ASSOCIATION")
-              jobs=$(echo "$parsed" | python3 -c 'import json,sys; c=json.load(sys.stdin); print(json.dumps([c] if c["command"] else []))') ;;
+              jobs=$(echo "$parsed" | python3 -c 'import json,sys; c=json.load(sys.stdin); print(json.dumps([c] if c.get("command") else []))') ;;
           esac
           echo "jobs=$jobs" | tee -a "$GITHUB_OUTPUT"
 
@@ -100,10 +107,16 @@ jobs:
         env:
           COMMAND: ${{ matrix.command }}
           DISTRO: ${{ matrix.distro }}
+          ARGS: ${{ matrix.args }}
+          PREVIEW: ${{ matrix.preview }}
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set +e
           case "$COMMAND" in
+            add-package)
+              extra=(); [ "$PREVIEW" == "true" ] && extra+=(--preview)
+              # shellcheck disable=SC2086  # ARGS is a list of names
+              pixi run rs add-package $ARGS "${extra[@]}" --summary "$RUNNER_TEMP/summary.md" ;;
             update-rosdistro-snapshot) pixi run rs "$DISTRO" update-snapshot --summary "$RUNNER_TEMP/summary.md" ;;
             find-stale-packages) pixi run rs "$DISTRO" find-stale --summary "$RUNNER_TEMP/summary.md" ;;
             update-conda-forge-pinning) pixi run rs update-pinning --summary "$RUNNER_TEMP/summary.md" ;;
@@ -111,12 +124,15 @@ jobs:
           status=$?
           cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null
           exit $status
+      - name: Link the request
+        if: steps.bot.outputs.changed == 'true' && github.event.issue.number
+        run: echo -e "\nCloses #${{ github.event.issue.number }}" >> "$RUNNER_TEMP/summary.md"
       - name: Open or update the pull request
-        if: steps.bot.outputs.changed == 'true'
+        if: steps.bot.outputs.changed == 'true' && !matrix.preview
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ steps.app.outputs.token || secrets.GHA_PAT || github.token }}
-          branch: bot/${{ matrix.command }}${{ matrix.distro && format('-{0}', matrix.distro) || '' }}
+          branch: bot/${{ matrix.command }}${{ matrix.distro && format('-{0}', matrix.distro) || '' }}${{ matrix.command == 'add-package' && format('-{0}', github.run_id) || '' }}
           delete-branch: true
           commit-message: ${{ steps.bot.outputs.title }}
           title: ${{ steps.bot.outputs.title }}
@@ -137,6 +153,6 @@ jobs:
             echo "[Workflow run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
           } > "$RUNNER_TEMP/comment.md"
           gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
-          if [ "$GITHUB_EVENT_NAME" = issues ] && [ "${{ job.status }}" = success ]; then
+          if [ "$GITHUB_EVENT_NAME" = issues ] && [ "${{ job.status }}" = success ] && [ "${{ matrix.command }}" != add-package ]; then
             gh issue close "$NUMBER" --repo "$GITHUB_REPOSITORY"
           fi

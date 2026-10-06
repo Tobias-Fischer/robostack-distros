@@ -5,6 +5,7 @@
     pixi run rs <distro> find-stale                   # published packages built against outdated pins
     pixi run rs update-pinning                        # move shared/pinning/conda_forge.yaml forward
     pixi run rs new-distro NAME --from DISTRO         # add distros/NAME, seeded from DISTRO
+    pixi run rs add-package PKG... [DISTRO...] [--preview]   # select packages for building
     pixi run rs parse-command --body TEXT --association ROLE   # for @robostack-bot comments
 
 Each command prints a markdown summary; `--summary FILE` also writes it to FILE and,
@@ -29,6 +30,7 @@ import yaml
 import robostack as rs
 
 BOT_COMMANDS = {
+    "add-package": "add ROS packages to the package selection (opens a PR; a preview for non-maintainers)",
     "update-rosdistro-snapshot": "refresh the distribution's rosdistro_snapshot.yaml (opens a PR)",
     "find-stale-packages": "list its published packages built against outdated pins",
     "update-conda-forge-pinning": "move the shared conda-forge pinning to the latest version (opens a PR)",
@@ -182,6 +184,126 @@ def new_distro(name: str, source: str) -> Result:
     return Result(f"New distribution {name}", "\n".join(lines), changed=True, ok=not any(steps))
 
 
+def _package_name(name: str) -> str:
+    """ROS package name from a request: `ros-humble-foo-bar`, `ros2-foo-bar`, `foo-bar` -> foo_bar."""
+    name = name.strip().strip("`'\",.").lower()
+    name = re.sub(r"^(ros2-|ros-[a-z]+-)", "", name)
+    return name.replace("-", "_")
+
+
+def _selected(distro: str) -> set[str]:
+    """Packages the distribution selects (unconditionally or on some platforms)."""
+    vinca = yaml.safe_load((rs.prepare(distro) / "vinca.yaml").read_text())
+    names: set[str] = set()
+
+    def walk(items):
+        for item in items or []:
+            if isinstance(item, str):
+                names.add(item.replace("-", "_"))
+            elif isinstance(item, dict):
+                walk(item.get("then"))
+                walk(item.get("else"))
+
+    walk(vinca.get("packages_select_by_deps"))
+    return names
+
+
+def _available(distro: str) -> set[str]:
+    d = rs.DISTROS / distro
+    names = set(yaml.safe_load((d / "rosdistro_snapshot.yaml").read_text()) or {})
+    extra = d / "rosdistro_additional_recipes.yaml"
+    if extra.is_file():
+        names |= set(yaml.safe_load(extra.read_text()) or {})
+    return names
+
+
+def _append_selection(path: Path, packages: list[str]) -> None:
+    """Append to packages_select_by_deps keeping the file's comments (round trip)."""
+    from ruamel.yaml import YAML
+
+    ry = YAML()
+    ry.preserve_quotes = True
+    ry.width = 4096
+    ry.indent(mapping=2, sequence=4, offset=2)
+    data = ry.load(path.read_text()) if path.is_file() else {}
+    data.setdefault("packages_select_by_deps", [])
+    items = data["packages_select_by_deps"]
+    for pkg in packages:
+        # into the run of plain (unconditional) names, in sorted position
+        index = 0
+        while (index < len(items) and isinstance(items[index], str)
+               and items[index].replace("-", "_").lower() < pkg.lower()):
+            index += 1
+        items.insert(index, pkg)
+    with path.open("w") as fh:
+        ry.dump(data, fh)
+
+
+def add_package(packages: list[str], distros: list[str], preview: bool = False) -> Result:
+    """Select ROS packages for building, in the given (default: all) distributions
+    that have them, and list the recipes this adds on linux-64."""
+    wanted = list(dict.fromkeys(_package_name(p) for p in packages if p.strip()))
+    if not wanted:
+        return Result("add-package: no package given", "Name at least one ROS package.", ok=False)
+    targets = distros or rs.distros()
+    plan: dict[str, list[str]] = {}
+    lines: list[str] = []
+    for distro in targets:
+        available, selected = _available(distro), _selected(distro)
+        add = []
+        for pkg in wanted:
+            if pkg not in available:
+                lines.append(f"- **{distro}**: `{pkg}` is not in its rosdistro")
+            elif pkg in selected:
+                lines.append(f"- **{distro}**: `{pkg}` is already selected")
+            else:
+                add.append(pkg)
+        if add:
+            plan[distro] = add
+    if not plan:
+        return Result(f"add-package {' '.join(wanted)}: nothing to add", "\n".join(lines))
+
+    # every distribution gets the same packages -> shared/vinca.yaml, else per distribution
+    everywhere = set(plan) == set(rs.distros()) and len({tuple(v) for v in plan.values()}) == 1
+    backup = {p: p.read_bytes() for p in [rs.SHARED / "vinca.yaml"] + [rs.DISTROS / d / "vinca.yaml" for d in plan]}
+    if everywhere:
+        _append_selection(rs.SHARED / "vinca.yaml", next(iter(plan.values())))
+        subprocess.run(["vinca-sort-vinca-lists", "shared/vinca.yaml"], cwd=rs.ROOT, check=True)
+        where = "`shared/vinca.yaml`"
+    else:
+        for distro, add in plan.items():
+            _append_selection(rs.DISTROS / distro / "vinca.yaml", add)
+            rs.task(distro, "sort", [])
+        where = ", ".join(f"`distros/{d}/vinca.yaml`" for d in plan)
+
+    # what would be built (linux-64; packages already on the channel are skipped)
+    if lines:
+        lines.append("")
+    builds_ok = True
+    for distro, add in plan.items():
+        rc = rs.task(distro, "generate-recipes", ["--platform", "linux-64"])
+        recipes = sorted(p.name for p in (rs.work_dir(distro) / "recipes").iterdir()) if not rc else []
+        new = [r for r in recipes if r.startswith("ros2-") or not r.startswith("ros-")]
+        if rc:
+            builds_ok = False
+            lines.append(f"- **{distro}**: adding {', '.join(f'`{p}`' for p in add)} — recipe generation **failed**, see the log")
+        else:
+            shown = ", ".join(f"`{r}`" for r in new[:25]) + (f" and {len(new) - 25} more" if len(new) > 25 else "")
+            published = [p for p in add if f"ros2-{p.replace('_', '-')}" not in new]
+            lines.append(f"- **{distro}**: adding {', '.join(f'`{p}`' for p in add)} → {len(new)} packages to build on linux-64"
+                         + (f": {shown}" if new else ""))
+            if published:
+                lines.append(f"  - already published (built as a dependency): {', '.join(f'`{p}`' for p in published)}")
+    if preview:
+        for path, content in backup.items():
+            path.write_bytes(content)
+        request = " ".join(wanted + (distros if distros else []))
+        lines += ["", f"_Preview only: a maintainer can open the PR with `@robostack-bot add-package {request}`._"]
+        return Result(f"add-package {' '.join(wanted)} (preview)", "\n".join(lines), ok=builds_ok)
+    lines += ["", f"Added to {where}. CI builds the new packages on all platforms."]
+    return Result(f"Add {', '.join(wanted)}", "\n".join(lines), changed=True, ok=builds_ok)
+
+
 def _default_ci_yaml() -> str:
     return (
         "# Temporary controls for the pull-request build (.github/workflows/testpr.yml).\n"
@@ -190,21 +312,44 @@ def _default_ci_yaml() -> str:
     )
 
 
-def parse_command(body: str, association: str) -> tuple[str, str] | None:
-    """`@robostack-bot <command> [<distro>]` by a maintainer, or the command issue form."""
-    if association.upper() not in ALLOWED_ASSOCIATIONS:
-        return None
-    m = re.search(r"^\s*@robostack-bot,?\s+(?:please\s+)?([a-z-]+)(?:\s+([a-z]+))?", body or "", re.I | re.M)
-    if not m:
-        m = re.search(r"###\s*Command\s*\n+\s*([a-z-]+)(?:[\s\S]*?###\s*Distribution\s*\n+\s*([a-z]+))?", body or "", re.I)
-    if not m:
-        return None
-    command, distro = m.group(1).lower(), (m.group(2) or "").lower()
+def parse_command(body: str, association: str) -> dict | None:
+    """What a comment or issue asks for:
+
+    - `@robostack-bot <command> [<distro>]` / `@robostack-bot add-package <pkg>... [<distro>...]`
+    - the "robostack-bot command" and "Package request" issue forms
+
+    Returns {"command", "distro", "args", "preview"}; non-maintainers only get an
+    add-package preview (no PR), everything else is ignored for them.
+    """
+    body = body or ""
+    maintainer = association.upper() in ALLOWED_ASSOCIATIONS
+    command, rest = "", ""
+    if m := re.search(r"^\s*@robostack-bot,?\s+(?:please\s+)?([a-z-]+)([^\n]*)", body, re.I | re.M):
+        command, rest = m.group(1).lower(), m.group(2)
+    elif m := re.search(r"###\s*Package names?\s*\n+([^\n#]+)", body, re.I):
+        command, rest = "add-package", m.group(1)
+        if dm := re.search(r"###\s*Distributions?\s*\n+((?:\s*- \[[ xX]\].*\n?)+)", body):
+            rest += " " + " ".join(re.findall(r"- \[[xX]\]\s*([a-z]+)", dm.group(1)))
+    elif m := re.search(r"###\s*Command\s*\n+\s*([a-z-]+)(?:[\s\S]*?###\s*Distribution\s*\n+\s*([a-z]+))?", body, re.I):
+        command, rest = m.group(1).lower(), m.group(2) or ""
     if command not in BOT_COMMANDS:
         return None
-    if command in PER_DISTRO_COMMANDS and distro not in rs.distros():
+    words = [w for w in re.split(r"[\s,]+", rest.strip()) if w and w != "_No"]
+    known = set(rs.distros())
+    if command == "add-package":
+        distros = [w for w in words if w in known]
+        packages = [w for w in words if w not in known and w.lower() not in ("response_", "response")]
+        if not packages:
+            return None
+        return {"command": command, "distro": "", "args": " ".join(packages + distros), "preview": not maintainer}
+    if not maintainer:
         return None
-    return command, distro if command in PER_DISTRO_COMMANDS else ""
+    distro = words[0].lower() if words else ""
+    if command in PER_DISTRO_COMMANDS:
+        if distro not in known:
+            return None
+        return {"command": command, "distro": distro, "args": "", "preview": False}
+    return {"command": command, "distro": "", "args": "", "preview": False}
 
 
 def check() -> Result:
@@ -269,15 +414,19 @@ def main(command: str, argv: list[str], distro: str | None = None) -> int:
     if command == "parse-command":
         parser.add_argument("--body", required=True)
         parser.add_argument("--association", required=True)
+    if command == "add-package":
+        parser.add_argument("names", nargs="+", help="ROS packages, optionally followed by distributions")
+        parser.add_argument("--preview", action="store_true", help="don't change files, only report")
     args = parser.parse_args(argv)
     if command == "parse-command":
         parsed = parse_command(args.body, args.association)
-        command_, distro_ = parsed or ("", "")
-        print(json.dumps({"command": command_, "distro": distro_}))
-        if out := os.environ.get("GITHUB_OUTPUT"):
-            with open(out, "a") as fh:
-                fh.write(f"command={command_}\ndistro={distro_}\n")
+        print(json.dumps(parsed or {}))
         return 0
+    if command == "add-package":
+        known = set(rs.distros())
+        distros = [n for n in args.names if n in known]
+        packages = [n for n in args.names if n not in known]
+        return report(add_package(packages, distros, preview=args.preview), args.summary)
     if command == "check":
         return report(check(), args.summary)
     if command == "update-pinning":
