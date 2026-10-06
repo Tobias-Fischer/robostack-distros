@@ -105,6 +105,7 @@ packages_select_by_deps:
   - irobot_create_msgs
   - joy_linux
   - joy_teleop
+  - joy_tester
   - key_teleop
   - kinematics_interface
   - kinematics_interface_kdl
@@ -218,6 +219,7 @@ packages_select_by_deps:
   - rplidar_ros
   - rqt
   - rqt_controller_manager
+  - rqt_gauges
   - rqt_gui
   - rqt_moveit
   - rqt_robot_dashboard
