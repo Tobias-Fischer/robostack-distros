@@ -1,6 +1,5 @@
 name: Package request
 description: Request a ROS package to be built by RoboStack
-title: "Package request: PACKAGE_NAME"
 labels: ["package-request"]
 body:
   - type: markdown
@@ -14,20 +13,19 @@ body:
     attributes:
       label: Package names
       description: ROS package names (as in rosdistro), comma separated, e.g. `foxglove_bridge, rqt_gauges`
-      placeholder: PACKAGE_NAME
+      placeholder: foxglove_bridge, rqt_gauges
     validations:
       required: true
-  - type: checkboxes
+  - type: dropdown
     id: distributions
     attributes:
       label: Distributions
-      description: Leave empty for every distribution that has the package
-      options:
-        - label: rolling
-        - label: lyrical
-        - label: kilted
-        - label: jazzy
-        - label: humble
+      description: "`all`: every distribution (that has the package). Select one or more."
+      multiple: true
+      options: [all, rolling, lyrical, kilted, jazzy, humble]
+      default: 0
+    validations:
+      required: true
   - type: checkboxes
     id: operating_systems
     attributes:

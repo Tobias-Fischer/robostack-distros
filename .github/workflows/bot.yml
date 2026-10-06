@@ -5,7 +5,7 @@
 # - on demand (owners, members and collaborators):
 #     Actions > robostack-bot > Run workflow, an issue from the "robostack-bot command"
 #     template, or a comment: @robostack-bot <command> [<distro>]
-#   commands: update-rosdistro-snapshot <distro> | find-stale-packages <distro> |
+#   commands: update-rosdistro-snapshot [<distro>...|all] | find-stale-packages [<distro>...|all] |
 #             update-conda-forge-pinning | add-package <pkg>... [<distro>...]
 # - package requests (the "Package request" issue form or `@robostack-bot add-package`,
 #   from anyone): the bot opens a PR that adds the packages; maintainers review it.
@@ -24,7 +24,7 @@ on:
         type: choice
         options: [add-package, update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning]
       distro:
-        description: Distribution (for update-rosdistro-snapshot / find-stale-packages)
+        description: Distribution (for update-rosdistro-snapshot / find-stale-packages; empty = all)
         required: false
       packages:
         description: For add-package, ROS packages and optionally distributions, e.g. "foxglove_bridge humble jazzy"
@@ -68,11 +68,10 @@ jobs:
             schedule)
               jobs=$(pixi run -q python tools/robostack.py changed-distros --base HEAD --all \
                 | python3 -c 'import json,sys; print(json.dumps([{"command":"update-rosdistro-snapshot","distro":d,"args":"","preview":False} for d in json.load(sys.stdin)] + [{"command":"update-conda-forge-pinning","distro":"","args":"","preview":False}]))') ;;
-            workflow_dispatch)
-              jobs=$(python3 -c 'import json,os; print(json.dumps([{"command":os.environ["COMMAND"],"distro":os.environ["DISTRO"],"args":os.environ["PACKAGES"],"preview":False}]))') ;;
+            workflow_dispatch)  # only people with write access can dispatch
+              jobs=$(pixi run -q rs parse-command --body "@robostack-bot $COMMAND $PACKAGES $DISTRO" --association OWNER) ;;
             *)
-              parsed=$(pixi run -q rs parse-command --body "$BODY" --association "$ASSOCIATION")
-              jobs=$(echo "$parsed" | python3 -c 'import json,sys; c=json.load(sys.stdin); print(json.dumps([c] if c.get("command") else []))') ;;
+              jobs=$(pixi run -q rs parse-command --body "$BODY" --association "$ASSOCIATION") ;;
           esac
           echo "jobs=$jobs" | tee -a "$GITHUB_OUTPUT"
 
@@ -127,7 +126,10 @@ jobs:
           exit $status
       - name: Link the request
         if: steps.bot.outputs.changed == 'true' && github.event.issue.number
-        run: echo -e "\nCloses #${{ github.event.issue.number }}" >> "$RUNNER_TEMP/summary.md"
+        env:
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          printf '\nCloses #%s\n' "$NUMBER" >> "$RUNNER_TEMP/summary.md"
       - name: Open or update the pull request
         if: steps.bot.outputs.changed == 'true' && !matrix.preview
         uses: peter-evans/create-pull-request@v7

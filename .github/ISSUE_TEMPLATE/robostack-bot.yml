@@ -1,32 +1,40 @@
 name: robostack-bot command
-description: Ask robostack-bot to run a maintenance task (maintainers only)
-title: "robostack-bot: "
+description: Ask robostack-bot to add packages or run a maintenance task
 labels: ["robostack-bot"]
 body:
   - type: markdown
     attributes:
       value: |
-        robostack-bot runs the command, replies here and closes the issue. Commands that
-        change files open (or update) a pull request. You can also comment
-        `@robostack-bot <command> [<distro>]` on any issue or pull request.
+        robostack-bot runs the command and replies here. Commands that change files open
+        (or update) a pull request. You can also comment
+        `@robostack-bot <command> [<distro>... | all]` on any issue or pull request.
 
-        | command | what it does |
-        |---|---|
-        | `add-package` | Add ROS packages to the package selection of the given (default: every) distribution that has them; the PR lists what will be built. E.g. `@robostack-bot add-package foxglove_bridge humble jazzy`. |
-        | `update-rosdistro-snapshot` | Refresh the distribution's `rosdistro_snapshot.yaml` to the latest rosdistro release; the PR lists the version bumps. Runs weekly for every distribution. |
-        | `find-stale-packages` | List the distribution's published packages that were built against pins that no longer match, with the build-number snippet to rebuild them. Replies only. |
-        | `update-conda-forge-pinning` | Move the shared conda-forge pinning (`shared/pinning/conda_forge.yaml`) to the latest version, with migrations selected for all distributions; re-renders `conda_build_config.yaml` of those that follow it. Runs weekly. |
+        | command | who | what it does |
+        |---|---|---|
+        | `add-package` | anyone | Add ROS packages to the package selection of the chosen distributions that have them; the PR lists what will be built. A maintainer reviews and merges it. |
+        | `update-rosdistro-snapshot` | maintainers | Refresh `rosdistro_snapshot.yaml` to the latest rosdistro release and bump the build number and mutex (full rebuild); the PR lists the version bumps. Runs weekly for every distribution. |
+        | `find-stale-packages` | maintainers | List published packages built against pins that no longer match, with the build-number snippet to rebuild them. Replies only. |
+        | `update-conda-forge-pinning` | maintainers | Move the shared conda-forge pinning to the latest version; re-renders `conda_build_config.yaml` and bumps the build number and mutex of the distributions whose pins changed. Runs weekly. |
   - type: dropdown
     id: command
     attributes:
       label: Command
-      options: [update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning]
-      description: For add-package use the "Package request" form or a comment
+      options: [add-package, update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning]
     validations:
       required: true
-  - type: dropdown
-    id: distro
+  - type: input
+    id: packages
     attributes:
-      label: Distribution
-      description: For update-rosdistro-snapshot and find-stale-packages
-      options: [rolling, lyrical, kilted, jazzy, humble]
+      label: Packages
+      description: For add-package, ROS package names (as in rosdistro), comma separated
+      placeholder: foxglove_bridge, rqt_gauges
+  - type: dropdown
+    id: distributions
+    attributes:
+      label: Distributions
+      description: "`all`: every distribution (for add-package: every one that has the package). Ignored by update-conda-forge-pinning."
+      multiple: true
+      options: [all, rolling, lyrical, kilted, jazzy, humble]
+      default: 0
+    validations:
+      required: true

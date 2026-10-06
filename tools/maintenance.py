@@ -72,6 +72,79 @@ def snapshot_changes(old: dict[str, str], new: dict[str, str]) -> str:
     return "\n".join(lines)
 
 
+def _ruamel():
+    from ruamel.yaml import YAML
+
+    ry = YAML()
+    ry.preserve_quotes = True
+    ry.width = 4096
+    ry.indent(mapping=2, sequence=4, offset=2)
+    return ry
+
+
+def sync_mutex_constraints(distro: str) -> list[str]:
+    """Move `<pkg> <version>.*` run_constraints of the mutex to the rendered pin of
+    the same package in conda_build_config.yaml. Other constraints stay as they are."""
+    path = rs.DISTROS / distro / "vinca.yaml"
+    pins = yaml.safe_load((rs.DISTROS / distro / "conda_build_config.yaml").read_text()) or {}
+    changes: list[str] = []
+
+    def repl(m: re.Match) -> str:
+        name, old = m.group(2), m.group(3)
+        pin = pins.get(name.replace("-", "_"))
+        if not (isinstance(pin, list) and pin):
+            return m.group(0)
+        # same precision as before (`libprotobuf 7.35.*` stays at major.minor)
+        new = ".".join(str(pin[0]).split(".")[: len(old.split("."))])
+        if new == old:
+            return m.group(0)
+        changes.append(f"`{name}` {old}.* → {new}.*")
+        return f"{m.group(1)}{name} {new}.*"
+
+    text = path.read_text()
+    head, sep, rest = text.partition("run_constraints:")
+    if sep:
+        block = re.match(r"(?:[ \t]*(?:-.*|#.*)?\n)*", rest).group(0)
+        block_new = re.sub(r"(?m)^([ \t]*-[ \t]+)([A-Za-z0-9_.-]+) ([0-9][0-9.]*)\.\*[ \t]*$", repl, block)
+        path.write_text(head + sep + block_new + rest[len(block):])
+    return changes
+
+
+def bump_rebuild(distro: str) -> list[str]:
+    """Rebuild everything: build_number + 1, mutex minor + 1, and drop per-package
+    build numbers that the new one catches up with (they would keep the old builds)."""
+    path = rs.DISTROS / distro / "vinca.yaml"
+    text = path.read_text()
+    number = int(re.search(r"(?m)^build_number:\s*(\d+)", text).group(1)) + 1
+    text = re.sub(r"(?m)^(build_number:\s*)\d+", rf"\g<1>{number}", text, count=1)
+    m = re.search(r"(?m)^mutex_package:\n(?:[ \t]+.*\n|\n)*?[ \t]+version:[ \t]*[\"']?(\d+)\.(\d+)\.(\d+)", text)
+    if not m:
+        raise SystemExit(f"{path}: no mutex_package version")
+    old_mutex = ".".join(m.group(1, 2, 3))
+    new_mutex = f"{m.group(1)}.{int(m.group(2)) + 1}.0"
+    text = text[:m.start(1)] + new_mutex + text[m.end(3):]
+    path.write_text(text)
+    lines = [f"`build_number` {number - 1} → {number}, mutex {old_mutex} → {new_mutex} (rebuilds every package)"]
+
+    info = rs.DISTROS / distro / "pkg_additional_info.yaml"
+    if info.is_file():
+        ry = _ruamel()
+        data = ry.load(info.read_text()) or {}
+        dropped = []
+        for pkg in list(data):
+            entry = data[pkg]
+            if isinstance(entry, dict) and isinstance(entry.get("build_number"), int) and entry["build_number"] <= number:
+                dropped.append(f"`{pkg}` ({entry['build_number']})")
+                del entry["build_number"]
+                if not entry:
+                    del data[pkg]
+        if dropped:
+            with info.open("w") as fh:
+                ry.dump(data, fh)
+            lines.append("dropped per-package build numbers now covered by the new one: " + ", ".join(dropped))
+    return lines
+
+
 def update_snapshot(distro: str) -> Result:
     snapshot = rs.DISTROS / distro / "rosdistro_snapshot.yaml"
     old = _versions(snapshot)
@@ -80,7 +153,9 @@ def update_snapshot(distro: str) -> Result:
     new = _versions(snapshot)
     if old == new:
         return Result(f"{distro}: snapshot is up to date", "No package versions changed.")
-    return Result(f"{distro}: update rosdistro snapshot", snapshot_changes(old, new), changed=True)
+    bump = bump_rebuild(distro)
+    return Result(f"{distro}: update rosdistro snapshot",
+                  snapshot_changes(old, new) + "\n\n" + "\n".join(f"- {l}" for l in bump), changed=True)
 
 
 def find_stale(distro: str) -> Result:
@@ -128,8 +203,18 @@ def update_pinning() -> Result:
     body = [f"conda_forge_pinning_version: {version}", "migrations:"] + [f"  - {m}" for m in migrations]
     shared.write_text("\n".join(header + body) + "\n")
     followers = [d for d in rs.distros() if not rs.settings(d).get("conda_forge_pinning_version")]
+    rebuilds: list[str] = []
     for distro in followers:
+        cbc = rs.DISTROS / distro / "conda_build_config.yaml"
+        before_cbc = cbc.read_text() if cbc.is_file() else ""
         rs.task(distro, "render-pinning", [])
+        if cbc.read_text() == before_cbc:
+            rebuilds.append(f"- **{distro}**: pins unchanged, no rebuild")
+            continue
+        constraints = sync_mutex_constraints(distro)
+        rebuilds.append(f"- **{distro}**: " + "; ".join(bump_rebuild(distro)))
+        if constraints:
+            rebuilds.append("  - mutex run_constraints: " + ", ".join(constraints))
     lines = [
         f"Moved `shared/pinning/conda_forge.yaml` to conda-forge-pinning `{version}`, with migrations "
         "selected for the dependencies of every distribution.",
@@ -140,6 +225,10 @@ def update_pinning() -> Result:
         "",
         "Re-rendered `conda_build_config.yaml` of: " + (", ".join(followers) or "none")
         + " (the others pin their own version in `distro.yaml`).",
+        "",
+        *rebuilds,
+        "",
+        "Check the mutex `run_constraints` that aren't plain pins with `pixi run rs <distro> check-deps`.",
     ]
     return Result("Update conda-forge pinning", "\n".join(lines), changed=True)
 
@@ -223,12 +312,7 @@ def _available(distro: str) -> set[str]:
 
 def _append_selection(path: Path, packages: list[str]) -> None:
     """Append to packages_select_by_deps keeping the file's comments (round trip)."""
-    from ruamel.yaml import YAML
-
-    ry = YAML()
-    ry.preserve_quotes = True
-    ry.width = 4096
-    ry.indent(mapping=2, sequence=4, offset=2)
+    ry = _ruamel()
     data = ry.load(path.read_text()) if path.is_file() else {}
     data.setdefault("packages_select_by_deps", [])
     items = data["packages_select_by_deps"]
@@ -313,13 +397,14 @@ def _default_ci_yaml() -> str:
     return (rs.TOOLS / "ci.default.yaml").read_text()
 
 
-def parse_command(body: str, association: str) -> dict | None:
+def parse_command(body: str, association: str) -> list[dict]:
     """What a comment or issue asks for:
 
-    - `@robostack-bot <command> [<distro>]` / `@robostack-bot add-package <pkg>... [<distro>...]`
+    - `@robostack-bot <command> [<distro>... | all]`, `@robostack-bot add-package <pkg>... [<distro>...]`
     - the "robostack-bot command" and "Package request" issue forms
 
-    Returns {"command", "distro", "args", "preview"}. Anyone can request packages
+    Returns the jobs to run, each {"command", "distro", "args", "preview"} (one per
+    distribution for the per-distribution commands). Anyone can request packages
     (add-package opens the PR for them too, maintainers review and merge it); the
     other commands are for owners, members and collaborators.
     """
@@ -328,33 +413,42 @@ def parse_command(body: str, association: str) -> dict | None:
     command, rest = "", ""
     if m := re.search(r"^\s*@robostack-bot,?\s+(?:please\s+)?([a-z-]+)([^\n]*)", body, re.I | re.M):
         command, rest = m.group(1).lower(), m.group(2)
-    elif m := re.search(r"###\s*Package names?\s*\n+([^\n#]+)", body, re.I):
-        command, rest = "add-package", m.group(1)
-        if dm := re.search(r"###\s*Distributions?\s*\n+((?:\s*- \[[ xX]\].*\n?)+)", body):
-            rest += " " + " ".join(re.findall(r"- \[[xX]\]\s*([a-z]+)", dm.group(1)))
-    elif m := re.search(r"###\s*Command\s*\n+\s*([a-z-]+)(?:[\s\S]*?###\s*Distribution\s*\n+\s*([a-z]+))?", body, re.I):
-        command, rest = m.group(1).lower(), m.group(2) or ""
+    else:
+        form = _form_fields(body)
+        if form.get("package names"):
+            command, rest = "add-package", form["package names"]
+        elif form.get("command"):
+            command, rest = form["command"].lower(), form.get("packages", "")
+        rest += " " + form.get("distributions", "")
     if command not in BOT_COMMANDS:
-        return None
-    words = [w for w in re.split(r"[\s,]+", rest.strip()) if w and w != "_No"]
-    known = set(rs.distros())
+        return []
+    known = rs.distros()
+    words = [w for w in re.split(r"[\s,]+", rest.strip()) if w and w.lower() not in ("_no", "response_", "none")]
+    distros = [w.lower() for w in words if w.lower() in known]
+    if any(w.lower() == "all" for w in words):
+        distros = []  # every distribution
     if command == "add-package":
-        distros = [w for w in words if w in known]
-        packages = [w for w in words if w not in known and w.lower() not in ("response_", "response")]
-        if not packages:
-            return None
+        packages = [w for w in words if w.lower() not in known and w.lower() != "all"]
         packages = [p for p in packages if PACKAGE_NAME.match(_package_name(p))][:MAX_PACKAGES]
         if not packages:
-            return None
-        return {"command": command, "distro": "", "args": " ".join(packages + distros), "preview": False}
+            return []
+        return [{"command": command, "distro": "", "args": " ".join(packages + distros), "preview": False}]
     if not maintainer:
-        return None
-    distro = words[0].lower() if words else ""
+        return []
     if command in PER_DISTRO_COMMANDS:
-        if distro not in known:
-            return None
-        return {"command": command, "distro": distro, "args": "", "preview": False}
-    return {"command": command, "distro": "", "args": "", "preview": False}
+        return [{"command": command, "distro": d, "args": "", "preview": False} for d in distros or known]
+    return [{"command": command, "distro": "", "args": "", "preview": False}]
+
+
+def _form_fields(body: str) -> dict[str, str]:
+    """Fields of an issue form: `### Label` headings, each followed by its value."""
+    fields: dict[str, str] = {}
+    for m in re.finditer(r"(?m)^###\s*(.+?)\s*\n([\s\S]*?)(?=^###|\Z)", body):
+        label, value = m.group(1).strip().lower(), m.group(2).strip()
+        label = {"package name": "package names", "distribution": "distributions"}.get(label, label)
+        checked = re.findall(r"- \[[xX]\]\s*(\S+)", value)
+        fields[label] = " ".join(checked) if re.search(r"- \[[ xX]\]", value) else value
+    return fields
 
 
 def check() -> Result:
@@ -424,8 +518,7 @@ def main(command: str, argv: list[str], distro: str | None = None) -> int:
         parser.add_argument("--preview", action="store_true", help="don't change files, only report")
     args = parser.parse_args(argv)
     if command == "parse-command":
-        parsed = parse_command(args.body, args.association)
-        print(json.dumps(parsed or {}))
+        print(json.dumps(parse_command(args.body, args.association)))
         return 0
     if command == "add-package":
         known = set(rs.distros())
