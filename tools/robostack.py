@@ -239,7 +239,8 @@ def upload(distro: str, files: list[str], cwd: Path) -> int:
 
     ROBOSTACK_UPLOAD_CHANNEL (set by the staged build workflows from the repository
     variable of the same name) redirects uploads to another prefix.dev channel, e.g.
-    a test channel; "none" skips uploading.
+    a test channel; "none" skips uploading. prefix.dev uploads use trusted publishing
+    (with an attestation), or the PREFIX_API_KEY secret if it is set.
     """
     override = os.environ.get("ROBOSTACK_UPLOAD_CHANNEL", "").strip()
     if override == "none":
@@ -248,7 +249,9 @@ def upload(distro: str, files: list[str], cwd: Path) -> int:
     s = settings(distro)
     if override or s.get("upload_target", "prefix") == "prefix":
         channel = override or s.get("channel_name", f"robostack-{distro}")
-        cmd = ["rattler-build", "upload", "prefix", "-c", channel, "--generate-attestation", "--skip-existing"]
+        cmd = ["rattler-build", "upload", "prefix", "-c", channel, "--skip-existing"]
+        if not os.environ.get("PREFIX_API_KEY"):
+            cmd.append("--generate-attestation")
     else:
         token = os.environ.get("ANACONDA_API_TOKEN", "")
         cmd = ["rattler-build", "upload", "anaconda", "-o", s.get("channel_name", f"robostack-{distro}"), "-a", token, "--force"]
@@ -339,6 +342,8 @@ def generate_gha(distro: str, args: list[str]) -> int:
             "  # optional repository variable: upload to this prefix.dev channel instead",
             "  # (e.g. a test channel), or 'none' to only build",
             "  ROBOSTACK_UPLOAD_CHANNEL: ${{ vars.ROBOSTACK_UPLOAD_CHANNEL }}",
+            "  # optional secret: prefix.dev API key, for channels without trusted publishing",
+            "  PREFIX_API_KEY: ${{ secrets.PREFIX_API_KEY }}",
         ]
         dest = ROOT / ".github" / "workflows" / f"build_{distro}_{wf.stem}.yml"
         dest.write_text("\n".join(lines) + "\n")

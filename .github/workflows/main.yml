@@ -88,11 +88,13 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           mkdir -p "$RUNNER_TEMP/workflows"
+          # vinca fetches package.xml files from GitHub; retry on network errors
+          retry() { for attempt in 1 2 3; do "$@" && return 0; echo "attempt ${attempt} failed: $*" >&2; sleep 15; done; return 1; }
           for platform in linux-64 osx-64 osx-arm64 win-64 linux-aarch64; do
             git reset --hard "$GITHUB_SHA" && git clean -fdx -e .pixi
             batch=10; [ "$platform" == "win-64" ] && batch=25  # https://github.com/RoboStack/robostack.github.io/issues/105
-            pixi run -v rs "$DISTRO" generate-recipes --platform "$platform"
-            pixi run -v rs "$DISTRO" gha --platform "$platform" --batch-size "$batch"
+            retry pixi run -v rs "$DISTRO" generate-recipes --platform "$platform"
+            retry pixi run -v rs "$DISTRO" gha --platform "$platform" --batch-size "$batch"
             if ! ls .github/workflows/build_"$DISTRO"_*.yml >/dev/null 2>&1; then
               echo "$DISTRO $platform: nothing to build"
               continue

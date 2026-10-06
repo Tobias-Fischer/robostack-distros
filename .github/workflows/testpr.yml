@@ -145,6 +145,10 @@ jobs:
         mkdir -p "$CACHE_DIR"
         pixi run rattler-index fs "$CACHE_DIR/.." --force
 
+    - name: See packages restored by cache
+      shell: bash -l {0}
+      run: ls -la "$CACHE_DIR" || true
+
     - name: Build recipes
       id: build-recipes
       shell: bash -l {0}
@@ -183,4 +187,10 @@ jobs:
 
     - name: Generate the staged build workflows (catches post-merge problems)
       shell: bash -l {0}
-      run: pixi run rs "$DISTRO" gha --platform "$PLATFORM" --batch-size 25
+      run: |
+        for attempt in 1 2 3; do
+          if pixi run rs "$DISTRO" gha --platform "$PLATFORM" --batch-size 25; then break; fi
+          if [[ "${attempt}" == "3" ]]; then echo "Workflow generation failed after 3 attempts" >&2; exit 1; fi
+          echo "Workflow generation attempt ${attempt} failed; retrying..." >&2
+          sleep 15
+        done
