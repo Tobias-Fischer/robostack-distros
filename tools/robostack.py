@@ -227,6 +227,7 @@ def generate_gha(distro: str, args: list[str]) -> int:
 def changed_distros(base: str) -> list[str]:
     out = subprocess.run(["git", "diff", "--name-only", f"{base}...HEAD"], cwd=ROOT,
                          capture_output=True, text=True, check=True).stdout.split()
+    out = [f for f in out if not f.endswith(".md") and f != "LICENSE"]  # docs don't need builds
     if any(not f.startswith(PER_DISTRO_PREFIX) for f in out):
         return distros()  # shared files changed: every distribution is affected
     return sorted({f.split("/")[1] for f in out if f.count("/") >= 2} & set(distros()))
