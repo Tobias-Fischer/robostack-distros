@@ -81,6 +81,7 @@ cuda_compiler:
 cuda_compiler_version:
   - None
   - 12.9                         # [((linux and (x86_64 or aarch64)) or win64) and os.environ.get("CF_CUDA_ENABLED", "False") == "True"]
+  # cartographer was built with lua 5.4.8, otherwise it pulls in 5.5 which leads to conflicts
 cuda_compiler_version_min:
   - None                       # [not ((linux and (x86_64 or aarch64)) or win64)]
   - 12.9                       # [((linux and (x86_64 or aarch64)) or win64)]
@@ -688,7 +689,7 @@ libopencolorio:
 libopenimageio:
   - '3.1'
 libopencv:
-  - 5.0.0
+  - 4.13.0
 libopentelemetry_cpp:
   - '1.27'
 libosqp:
@@ -708,7 +709,7 @@ libpnetcdf:
 libpng:
   - 1.6
 libprotobuf:
-  - 7.35.1
+  - 6.33.5
 libpq:
   - '18'
 libpsl:
@@ -802,9 +803,9 @@ libx86emu:
 libxcb:
   - '1'
 libxml2:
-  - '2.15'
+  - 2.14
 libxml2_devel:
-  - '2.15'
+  - 2.14
 libxrootd_devel:
   - '6'
 libxsmm:
@@ -982,10 +983,11 @@ pythia8:
 python:
   # conda-forge supports only 3.14+ for win-arm64 and linux-riscv64
   # part of a zip_keys: python, is_python_min
-  - 3.14.* *_cp314
+  - 3.12.* *_cpython
 python_impl:
   - cpython
 
+  # ros-kilted specific (distros/kilted/distro.yaml)
 python_min:
   # minimum supported python version per CFEP-25
   # bump to next minor version when we drop python versions
@@ -1113,9 +1115,9 @@ superlu_dist:
 swig_abi:
   - '5'
 tbb:
-  - '2023'
+  - 2022
 tbb_devel:
-  - '2023'
+  - 2022
 tensorflow:
   - '2.16'
 thrift_cpp:
@@ -1149,9 +1151,9 @@ vmc:
 volk:
   - '3.3'
 vtk:
-  - 9.7.0
+  - 9.6.2
 vtk_base:
-  - 9.7.0
+  - 9.6.2
 wcslib:
   - '8'
 wxwidgets:
@@ -1180,11 +1182,6 @@ zlib_ng:
   - '2.3'
 zstd:
   - '1.5'
-libzenohc:
-  - 1.10.1
-libzenohcxx:
-  - 1.10.1
-  # cartographer was built with lua 5.4.8, otherwise it pulls in 5.5 which leads to conflicts
 lua:
   - 5.4
   # conda-forge's newest pyqt6 (6.11.0) still requires qt6-main <6.12, so
@@ -1195,3 +1192,9 @@ pyqt6:
   - 6.11
 sip:
   - 6.15
+protobuf:
+  - 6.33.5
+libzenohc:
+  - 1.7.2
+libzenohcxx:
+  - 1.7.2

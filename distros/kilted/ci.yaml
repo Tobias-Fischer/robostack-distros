@@ -2,9 +2,8 @@
 #
 # testpr.yml caches the packages it builds per pull request, and rattler-build
 # skips everything that is already in that cache. This file tells it what to
-# throw away before building. It is owned by this distribution (the template
-# never overwrites it); set it in your PR, and reset it to the defaults below
-# before or right after merging.
+# throw away before building. Set it in your PR, and reset it to the defaults
+# below before or right after merging.
 
 # Ignore the PR build cache and rebuild everything, e.g. for a full rebuild PR
 # that bumps the build number of all packages.

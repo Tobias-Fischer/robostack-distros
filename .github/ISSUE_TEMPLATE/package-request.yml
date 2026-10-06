@@ -6,9 +6,9 @@ body:
   - type: markdown
     attributes:
       value: |
-        robostack-bot replies with what building the package would involve (which
-        distributions have it, how many packages would be built). A maintainer can then
-        open the pull request with one comment (`@robostack-bot add-package ...`).
+        robostack-bot opens a pull request that adds the package to the build, and
+        replies here with what will be built (per distribution, including new
+        dependencies). A maintainer reviews and merges it; the issue closes with it.
   - type: input
     id: package_name
     attributes:

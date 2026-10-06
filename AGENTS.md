@@ -18,3 +18,6 @@ Working notes for coding agents in the RoboStack all-distributions repository.
 - Never edit `conda_build_config.yaml` by hand: change `shared/pinning/` or the
   distribution's `distro.yaml`, then `pixi run rs <distro> render-pinning` (CI checks it).
 - A change outside `distros/` rebuilds every distribution in CI; keep such PRs focused.
+- `pixi run rs check` must pass (CI runs it): every distribution assembles, generated
+  files are up to date, YAML is sorted.
+- Moving a distribution from its old repository: `tools/import_distro.py` (see README).

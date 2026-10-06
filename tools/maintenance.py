@@ -30,7 +30,7 @@ import yaml
 import robostack as rs
 
 BOT_COMMANDS = {
-    "add-package": "add ROS packages to the package selection (opens a PR; a preview for non-maintainers)",
+    "add-package": "add ROS packages to the package selection (opens a PR; anyone can ask)",
     "update-rosdistro-snapshot": "refresh the distribution's rosdistro_snapshot.yaml (opens a PR)",
     "find-stale-packages": "list its published packages built against outdated pins",
     "update-conda-forge-pinning": "move the shared conda-forge pinning to the latest version (opens a PR)",
@@ -184,6 +184,10 @@ def new_distro(name: str, source: str) -> Result:
     return Result(f"New distribution {name}", "\n".join(lines), changed=True, ok=not any(steps))
 
 
+PACKAGE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")  # valid ROS package names only
+MAX_PACKAGES = 10  # per request
+
+
 def _package_name(name: str) -> str:
     """ROS package name from a request: `ros-humble-foo-bar`, `ros2-foo-bar`, `foo-bar` -> foo_bar."""
     name = name.strip().strip("`'\",.").lower()
@@ -242,7 +246,8 @@ def _append_selection(path: Path, packages: list[str]) -> None:
 def add_package(packages: list[str], distros: list[str], preview: bool = False) -> Result:
     """Select ROS packages for building, in the given (default: all) distributions
     that have them, and list the recipes this adds on linux-64."""
-    wanted = list(dict.fromkeys(_package_name(p) for p in packages if p.strip()))
+    wanted = list(dict.fromkeys(n for n in (_package_name(p) for p in packages if p.strip()) if PACKAGE_NAME.match(n)))
+    wanted = wanted[:MAX_PACKAGES]
     if not wanted:
         return Result("add-package: no package given", "Name at least one ROS package.", ok=False)
     targets = distros or rs.distros()
@@ -305,11 +310,7 @@ def add_package(packages: list[str], distros: list[str], preview: bool = False) 
 
 
 def _default_ci_yaml() -> str:
-    return (
-        "# Temporary controls for the pull-request build (.github/workflows/testpr.yml).\n"
-        "full_rebuild: false\n"
-        "evict_cache: []\n"
-    )
+    return (rs.TOOLS / "ci.default.yaml").read_text()
 
 
 def parse_command(body: str, association: str) -> dict | None:
@@ -318,8 +319,9 @@ def parse_command(body: str, association: str) -> dict | None:
     - `@robostack-bot <command> [<distro>]` / `@robostack-bot add-package <pkg>... [<distro>...]`
     - the "robostack-bot command" and "Package request" issue forms
 
-    Returns {"command", "distro", "args", "preview"}; non-maintainers only get an
-    add-package preview (no PR), everything else is ignored for them.
+    Returns {"command", "distro", "args", "preview"}. Anyone can request packages
+    (add-package opens the PR for them too, maintainers review and merge it); the
+    other commands are for owners, members and collaborators.
     """
     body = body or ""
     maintainer = association.upper() in ALLOWED_ASSOCIATIONS
@@ -341,7 +343,10 @@ def parse_command(body: str, association: str) -> dict | None:
         packages = [w for w in words if w not in known and w.lower() not in ("response_", "response")]
         if not packages:
             return None
-        return {"command": command, "distro": "", "args": " ".join(packages + distros), "preview": not maintainer}
+        packages = [p for p in packages if PACKAGE_NAME.match(_package_name(p))][:MAX_PACKAGES]
+        if not packages:
+            return None
+        return {"command": command, "distro": "", "args": " ".join(packages + distros), "preview": False}
     if not maintainer:
         return None
     distro = words[0].lower() if words else ""

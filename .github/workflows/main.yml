@@ -1,12 +1,10 @@
 # After a merge: regenerate the staged build workflows of every distribution the
 # merge touched, one build branch per distribution and platform
 # (buildbranch_<distro>_<platform>, workflows .github/workflows/build_<distro>_*.yml).
+# Pushing them starts the builds, which upload to each distribution's channel.
 #
-# Pushing build branches starts the real builds, so this only pushes in the RoboStack
-# organisation or where the repository variable PUSH_BUILD_BRANCHES is 'true'; otherwise
-# (or with dry_run) the generated workflows are uploaded as an artifact. Outside the
-# RoboStack org the builds don't upload unless ROBOSTACK_UPLOAD_CHANNEL names a (test)
-# prefix.dev channel.
+# Pushing workflow files needs the robostack-bot app (or secrets.GHA_PAT); without a
+# token, or with dry_run, the generated workflows are only uploaded as an artifact.
 name: Generate build branches
 
 on:
@@ -20,7 +18,7 @@ on:
       dry_run:
         description: Only upload the generated workflows as an artifact
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: write
@@ -58,8 +56,7 @@ jobs:
         distro: ${{ fromJSON(needs.plan.outputs.distros) }}
     env:
       DISTRO: ${{ matrix.distro }}
-      # Push in the RoboStack org, or where the repository variable PUSH_BUILD_BRANCHES is 'true'.
-      PUSH: ${{ (github.repository_owner == 'RoboStack' || vars.PUSH_BUILD_BRANCHES == 'true') && !inputs.dry_run }}
+      DRY_RUN: ${{ inputs.dry_run || 'false' }}
     steps:
       - name: Bot token (pushing workflow files needs more than GITHUB_TOKEN)
         id: app
@@ -82,6 +79,12 @@ jobs:
           PUSH_TOKEN: ${{ steps.app.outputs.token || secrets.GHA_PAT }}
         run: |
           set -e
+          PUSH=true
+          if [ "$DRY_RUN" == "true" ]; then PUSH=false; fi
+          if [ -z "$PUSH_TOKEN" ]; then
+            echo "::warning::No robostack-bot app or GHA_PAT: build branches are not pushed, see the artifact."
+            PUSH=false
+          fi
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           mkdir -p "$RUNNER_TEMP/workflows"

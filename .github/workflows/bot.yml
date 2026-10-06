@@ -7,8 +7,9 @@
 #     template, or a comment: @robostack-bot <command> [<distro>]
 #   commands: update-rosdistro-snapshot <distro> | find-stale-packages <distro> |
 #             update-conda-forge-pinning | add-package <pkg>... [<distro>...]
-# - package requests (the "Package request" issue form, anyone): a preview of what
-#   would be built; a maintainer's `@robostack-bot add-package ...` opens the PR
+# - package requests (the "Package request" issue form or `@robostack-bot add-package`,
+#   from anyone): the bot opens a PR that adds the packages; maintainers review it.
+#   Every other command is for owners, members and collaborators.
 #
 # PRs are opened with the robostack-bot GitHub App (vars.ROBOSTACK_BOT_APP_ID +
 # secrets.ROBOSTACK_BOT_PRIVATE_KEY, falling back to secrets.GHA_PAT) so CI runs on them.
