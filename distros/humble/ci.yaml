@@ -23,4 +23,8 @@ full_rebuild: false
 #
 # Remember that dependents are not rebuilt automatically: evict them as well if
 # they must pick up the change.
-evict_cache: []
+evict_cache:
+  # built from ROS sources under the conda-forge names before shared/vinca.yaml
+  # skipped them; the conda-forge packages must be used instead
+  - cpp-expected
+  - sophus
