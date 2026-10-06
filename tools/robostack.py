@@ -4,6 +4,7 @@
     pixi run rs jazzy generate-recipes
     pixi run rs jazzy build-one ros2-ros-workspace
     pixi run rs changed-distros --base origin/main      # for CI
+    pixi run rs check | update-pinning | new-distro NAME --from DISTRO   (whole repository)
 
 Every distribution lives in distros/<distro>/ and only holds what is specific to
 it; everything else is in shared/. Tasks run in distros/<distro>/work/ (generated,
@@ -229,6 +230,27 @@ def rattler_build(distro: str, args: list[str], skip_existing: bool = True) -> l
     return cmd + (["--skip-existing"] if skip_existing else []) + args
 
 
+def upload(distro: str, files: list[str], cwd: Path) -> int:
+    """Upload to the distribution's channel.
+
+    ROBOSTACK_UPLOAD_CHANNEL (set by the staged build workflows from the repository
+    variable of the same name) redirects uploads to another prefix.dev channel, e.g.
+    a test channel; "none" skips uploading (the default outside the RoboStack org).
+    """
+    override = os.environ.get("ROBOSTACK_UPLOAD_CHANNEL", "").strip()
+    if override == "none":
+        print(f"ROBOSTACK_UPLOAD_CHANNEL=none: not uploading {' '.join(files)}")
+        return 0
+    s = settings(distro)
+    if override or s.get("upload_target", "prefix") == "prefix":
+        channel = override or s.get("channel_name", f"robostack-{distro}")
+        cmd = ["rattler-build", "upload", "prefix", "-c", channel, "--generate-attestation", "--skip-existing"]
+    else:
+        token = os.environ.get("ANACONDA_API_TOKEN", "")
+        cmd = ["rattler-build", "upload", "anaconda", "-o", s.get("channel_name", f"robostack-{distro}"), "-a", token, "--force"]
+    return run(cmd + files, cwd)
+
+
 def task(distro: str, name: str, args: list[str]) -> int:
     d, w = DISTROS / distro, work_dir(distro)
     py = [sys.executable]
@@ -248,13 +270,11 @@ def task(distro: str, name: str, args: list[str]) -> int:
         rc = run(["vinca-sort-vinca-lists", *args, "vinca.yaml"], d)
         return rc or run(["vinca-sort-yaml-keys", *args, *files], d)
     if name == "upload":
-        s = settings(distro)
-        name_ = s.get("channel_name", f"robostack-{distro}")
-        if s.get("upload_target", "prefix") == "prefix":
-            cmd = ["rattler-build", "upload", "prefix", "-c", name_, "--generate-attestation", "--skip-existing"]
-        else:
-            cmd = ["rattler-build", "upload", "anaconda", "-o", name_, "-a", os.environ.get("ANACONDA_API_TOKEN", ""), "--force"]
-        return run(cmd + args, w if w.is_dir() else d)
+        return upload(distro, args, w if w.is_dir() else d)
+    if name in ("update-snapshot", "find-stale"):
+        import maintenance
+
+        return maintenance.main(name, args, distro)
 
     # everything else runs in the assembled work directory
     if name == "generate-recipes":
@@ -306,7 +326,13 @@ def generate_gha(distro: str, args: list[str]) -> int:
     for wf in sorted(set(d.glob("*.yml")) - before):
         data = yaml.safe_load(wf.read_text())
         data["name"] = f"{distro} {data.get('name', wf.stem)}"
-        data["env"] = {**(data.get("env") or {}), "ROBOSTACK_DISTRO": distro}
+        data["env"] = {
+            **(data.get("env") or {}),
+            "ROBOSTACK_DISTRO": distro,
+            # uploads go elsewhere (a test channel) or nowhere outside the RoboStack org
+            "ROBOSTACK_UPLOAD_CHANNEL": "${{ vars.ROBOSTACK_UPLOAD_CHANNEL || "
+            "(github.repository_owner != 'RoboStack' && 'none' || '') }}",
+        }
         dest = ROOT / ".github" / "workflows" / f"build_{distro}_{wf.stem}.yml"
         dest.write_text(yaml.safe_dump(data, sort_keys=False, width=1000))
         wf.unlink()
@@ -323,7 +349,14 @@ def changed_distros(base: str) -> list[str]:
     return sorted({f.split("/")[1] for f in out if f.count("/") >= 2} & set(distros()))
 
 
+REPO_COMMANDS = ("check", "update-pinning", "new-distro", "parse-command")
+
+
 def main() -> int:
+    if len(sys.argv) >= 2 and sys.argv[1] in REPO_COMMANDS:
+        import maintenance
+
+        return maintenance.main(sys.argv[1], sys.argv[2:])
     if len(sys.argv) >= 2 and sys.argv[1] == "changed-distros":
         parser = argparse.ArgumentParser(prog="rs changed-distros")
         parser.add_argument("--base", required=True)

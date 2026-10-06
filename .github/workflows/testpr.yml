@@ -46,7 +46,7 @@ jobs:
           fi
           echo "distros=$distros" | tee -a "$GITHUB_OUTPUT"
 
-  sort-check:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -56,12 +56,8 @@ jobs:
         with:
           frozen: true
           pixi-version: v0.75.0
-      - name: Check sorting
-        run: pixi run sort --check
-      - name: Check conda_build_config.yaml is up to date
-        run: |
-          pixi run render-pinning
-          git diff --exit-code -- 'distros/*/conda_build_config.yaml'
+      - name: Sanity checks (every distribution assembles, generated files up to date, sorted)
+        run: pixi run rs check
 
   build:
     needs: plan
