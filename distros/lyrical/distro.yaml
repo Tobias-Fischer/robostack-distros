@@ -1,5 +1,6 @@
 # Settings of ros-lyrical that differ from the other distributions
 # (everything else is shared, see the README).
+# Lyrical Luth, released May 2026.
 channel_name: robostack-lyrical
 upload_target: prefix
 conda_forge_pinning_version: 2026.09.25.23.22.04
