@@ -99,17 +99,52 @@ pixi run sort                                 # all YAML files of all distributi
 - **History.** Importing the five histories (`git subtree`/`filter-repo` into `distros/<d>/`) is possible but noisy; starting fresh and archiving the old repositories is simpler.
 - **Permissions.** Today maintainers can be scoped per repository. In one repository that needs CODEOWNERS per `distros/<d>/`.
 
+## robostack-bot
+
+`.github/workflows/bot.yml` (+ the *robostack-bot command* issue template) runs
+`tools/maintenance.py`:
+
+| command | what it does |
+|---|---|
+| `update-rosdistro-snapshot <distro>` | `create-snapshot` for one distribution; the PR lists the version bumps. Weekly for every distribution. |
+| `find-stale-packages <distro>` | Published packages built against pins that no longer match, with the build-number snippet. Replies only. |
+| `update-conda-forge-pinning` | Moves `shared/pinning/conda_forge.yaml` forward (migrations selected for all distributions), re-renders the `conda_build_config.yaml` of the distributions that follow it. Weekly. |
+
+Trigger them from *Actions › robostack-bot › Run workflow*, a command issue, or a comment
+`@robostack-bot <command> [<distro>]` (owners, members, collaborators). `pixi run rs
+new-distro NAME --from DISTRO` adds a distribution.
+
+## Checks
+
+`pixi run rs check` (CI job `check`):
+- every distribution assembles;
+- `distro.yaml` keys are valid;
+- patch names belong to the distribution;
+- every `conda_build_config.yaml` is up to date;
+- all workflows keep their `on:` trigger;
+- the YAML files are sorted.
+
+## Trying the staged builds outside RoboStack
+
+**Default behaviour.** `main.yml` pushes build branches only in the RoboStack
+organisation. The generated build workflows don't upload outside it.
+
+**To try it in a fork:**
+1. Install the bot app, set `ROBOSTACK_BOT_APP_ID` and `ROBOSTACK_BOT_PRIVATE_KEY`, and set the repository variable `PUSH_BUILD_BRANCHES=true`.
+2. Optionally, to upload: create a test prefix.dev channel with a trusted publisher for this repository, and set the variable `ROBOSTACK_UPLOAD_CHANNEL` to its name. All distributions then upload there.
+
 ## Status
 
-**Works:**
-- `rs` tasks.
-- Shared conda index and tests (vinca reads `../../shared/*.yaml`; the tests are copied next to `vinca.yaml`).
-- Rendered pinning.
-- PR builds selecting the changed distributions.
+**Tested:**
+- **Recipes:** the full linux-64 recipe sets of rolling, humble and lyrical are identical to the per-repository setup.
+- **PR builds:** they select the changed distributions:
+  - a change in only `distros/lyrical/` gives 5 jobs;
+  - a shared change gives all 25.
+- **Staged builds:** humble's `build_humble_linux.yml` built its 5 missing packages in `distros/humble/work`, with the upload skipped. `build_humble_win.yml` built through the inlined `build_win.bat`. Its one failure is the known Windows build error of `diagnostic_remote_logging`, which humble has today too.
+- **Bot:** `find-stale-packages` and `update-rosdistro-snapshot` work. Opening the PR needs the bot app.
 
-lyrical's full linux-64 recipe set is identical to the template-based ros-lyrical.
+**Known failures:**
+- kilted needs its own pins in `distro.yaml`: it now gets the shared pinning, which conflicts with its published packages.
+- jazzy's `codex/cross-distro-sync` branch has a broken Windows plotjuggler patch.
 
-**Not done:**
-- importing history;
-- the bot (most commands are simpler here: no template sync; `update-rosdistro-snapshot` and `find-stale-packages` would take a distribution argument);
-- uploading from build branches.
+**Not done:** importing history.
