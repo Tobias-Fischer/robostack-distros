@@ -1,0 +1,30 @@
+name: robostack-bot command
+description: Ask robostack-bot to run a maintenance task (maintainers only)
+title: "robostack-bot: "
+labels: ["robostack-bot"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        robostack-bot runs the command, replies here and closes the issue. Commands that
+        change files open (or update) a pull request. You can also comment
+        `@robostack-bot <command> [<distro>]` on any issue or pull request.
+
+        | command | what it does |
+        |---|---|
+        | `update-rosdistro-snapshot` | Refresh the distribution's `rosdistro_snapshot.yaml` to the latest rosdistro release; the PR lists the version bumps. Runs weekly for every distribution. |
+        | `find-stale-packages` | List the distribution's published packages that were built against pins that no longer match, with the build-number snippet to rebuild them. Replies only. |
+        | `update-conda-forge-pinning` | Move the shared conda-forge pinning (`shared/pinning/conda_forge.yaml`) to the latest version, with migrations selected for all distributions; re-renders `conda_build_config.yaml` of those that follow it. Runs weekly. |
+  - type: dropdown
+    id: command
+    attributes:
+      label: Command
+      options: [update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning]
+    validations:
+      required: true
+  - type: dropdown
+    id: distro
+    attributes:
+      label: Distribution
+      description: For update-rosdistro-snapshot and find-stale-packages
+      options: [rolling, lyrical, kilted, jazzy, humble]

@@ -2,9 +2,11 @@
 # merge touched, one build branch per distribution and platform
 # (buildbranch_<distro>_<platform>, workflows .github/workflows/build_<distro>_*.yml).
 #
-# Pushing build branches starts the real builds and uploads, so in this prototype
-# it only does that in the RoboStack organisation; elsewhere (or with dry_run) the
-# generated workflows are uploaded as an artifact instead.
+# Pushing build branches starts the real builds, so this only pushes in the RoboStack
+# organisation or where the repository variable PUSH_BUILD_BRANCHES is 'true'; otherwise
+# (or with dry_run) the generated workflows are uploaded as an artifact. Outside the
+# RoboStack org the builds don't upload unless ROBOSTACK_UPLOAD_CHANNEL names a (test)
+# prefix.dev channel.
 name: Generate build branches
 
 on:
@@ -56,8 +58,16 @@ jobs:
         distro: ${{ fromJSON(needs.plan.outputs.distros) }}
     env:
       DISTRO: ${{ matrix.distro }}
-      PUSH: ${{ github.repository_owner == 'RoboStack' && !inputs.dry_run }}
+      # Push in the RoboStack org, or where the repository variable PUSH_BUILD_BRANCHES is 'true'.
+      PUSH: ${{ (github.repository_owner == 'RoboStack' || vars.PUSH_BUILD_BRANCHES == 'true') && !inputs.dry_run }}
     steps:
+      - name: Bot token (pushing workflow files needs more than GITHUB_TOKEN)
+        id: app
+        if: vars.ROBOSTACK_BOT_APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.ROBOSTACK_BOT_APP_ID }}
+          private-key: ${{ secrets.ROBOSTACK_BOT_PRIVATE_KEY }}
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
@@ -69,7 +79,7 @@ jobs:
       - name: Generate and push the build branches
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PUSH_TOKEN: ${{ secrets.GHA_PAT }}
+          PUSH_TOKEN: ${{ steps.app.outputs.token || secrets.GHA_PAT }}
         run: |
           set -e
           git config --local user.email "action@github.com"
@@ -89,7 +99,7 @@ jobs:
               branch="buildbranch_${DISTRO}_${platform//-/_}"
               git add -f . ':!.pixi'
               git commit -qm "Build files for $DISTRO $platform $(date '+%Y-%m-%d-%H%M')"
-              git push "https://${GITHUB_ACTOR}:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:$branch" --force
+              git push "https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:$branch" --force
             fi
           done
       - uses: actions/upload-artifact@v6

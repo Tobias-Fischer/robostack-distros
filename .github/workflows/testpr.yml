@@ -46,7 +46,7 @@ jobs:
           fi
           echo "distros=$distros" | tee -a "$GITHUB_OUTPUT"
 
-  sort-check:
+  check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -56,12 +56,8 @@ jobs:
         with:
           frozen: true
           pixi-version: v0.75.0
-      - name: Check sorting
-        run: pixi run sort --check
-      - name: Check conda_build_config.yaml is up to date
-        run: |
-          pixi run render-pinning
-          git diff --exit-code -- 'distros/*/conda_build_config.yaml'
+      - name: Sanity checks (every distribution assembles, generated files up to date, sorted)
+        run: pixi run rs check
 
   build:
     needs: plan
@@ -81,8 +77,8 @@ jobs:
     env:
       DISTRO: ${{ matrix.distro }}
       PLATFORM: ${{ matrix.target.platform }}
-      # rattler-build writes to ./output of the distribution, or to CONDA_BLD_PATH (win-64)
-      CACHE_DIR: ${{ matrix.target.platform == 'win-64' && 'C:/bld/win-64' || format('distros/{0}/output/{1}', matrix.distro, matrix.target.platform) }}
+      # rattler-build writes to distros/<d>/work/output, or to CONDA_BLD_PATH (win-64)
+      CACHE_DIR: ${{ matrix.target.platform == 'win-64' && 'C:/bld/win-64' || format('distros/{0}/work/output/{1}', matrix.distro, matrix.target.platform) }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -145,7 +141,7 @@ jobs:
     - name: Apply ci.yaml cache controls
       shell: bash -l {0}
       run: |
-        pixi run python tools/ci_config.py --cache-dir "$CACHE_DIR" --config "distros/$DISTRO/ci.yaml" --vinca "distros/$DISTRO/vinca.yaml"
+        pixi run python tools/ci_config.py --cache-dir "$CACHE_DIR" --config "distros/$DISTRO/ci.yaml" --vinca "distros/$DISTRO/work/vinca.yaml"
         mkdir -p "$CACHE_DIR"
         pixi run rattler-index fs "$CACHE_DIR/.." --force
 

@@ -3,7 +3,11 @@
 Working notes for coding agents in the RoboStack all-distributions repository.
 
 - Every distribution lives in `distros/<distro>/` (only distro-specific data); shared
-  data is in `shared/`, tools in `tools/`. See README.md for the layout.
+  data is in `shared/` (vinca.yaml, pkg_additional_info.yaml, dependencies.yaml,
+  robostack.yaml, pinning, tests), tools in `tools/`. See README.md for the layout and
+  how they combine. Never edit `distros/<d>/work/` (generated).
+- A fix that applies to every distribution goes into `shared/`; a version-specific one
+  into `distros/<d>/`.
 - Run everything per distribution with `pixi run rs <distro> <task>`
   (`generate-recipes`, `build`, `build-one <pkg>`, `check-patches`, `check-deps`,
   `create-snapshot`, `render-pinning`, `sort`).
