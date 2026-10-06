@@ -60,15 +60,21 @@ def _versions(path: Path) -> dict[str, str]:
 
 
 def snapshot_changes(old: dict[str, str], new: dict[str, str]) -> str:
+    """Counts up front, the lists folded away (they run to hundreds of lines)."""
     added, removed = sorted(set(new) - set(old)), sorted(set(old) - set(new))
     bumped = sorted(k for k in set(old) & set(new) if old[k] != new[k])
     lines = [f"{len(bumped)} updated, {len(added)} added, {len(removed)} removed packages."]
+
+    def fold(title: str, body: list[str]) -> None:
+        lines.extend(["", f"<details><summary>{title}</summary>", "", *body, "", "</details>"])
+
     if bumped:
-        lines += ["", "| package | old | new |", "|---|---|---|"] + [f"| {k} | {old[k]} | {new[k]} |" for k in bumped]
+        fold(f"Updated ({len(bumped)})", ["| package | old | new |", "|---|---|---|"]
+             + [f"| {k} | {old[k]} | {new[k]} |" for k in bumped])
     if added:
-        lines += ["", "Added: " + ", ".join(f"`{k}`" for k in added)]
+        fold(f"Added ({len(added)})", [", ".join(f"`{k}`" for k in added)])
     if removed:
-        lines += ["", "Removed: " + ", ".join(f"`{k}`" for k in removed)]
+        fold(f"Removed ({len(removed)})", [", ".join(f"`{k}`" for k in removed)])
     return "\n".join(lines)
 
 
@@ -174,7 +180,8 @@ def find_stale(distro: str) -> Result:
     stale = proc.returncode != 0
     return Result(
         f"{distro}: {'stale packages' if stale else 'no stale packages'}",
-        f"`check_dependency_compat.py --stale --repodata {url}`\n\n```\n{output}\n```",
+        f"`check_dependency_compat.py --stale --repodata {url}`\n\n"
+        f"<details><summary>Report</summary>\n\n```\n{output}\n```\n\n</details>",
         ok=not stale,
     )
 
