@@ -215,6 +215,10 @@ def prepare(distro: str) -> Path:
     render_tests(distro, w / "tests")
     for name in ("robostack.yaml", "packages-ignore.yaml"):
         shutil.copy2(SHARED / name, w / name)
+    # vinca-gha inlines ./.scripts/build_win.bat into the Windows workflow (and falls
+    # back to an outdated built-in script without it)
+    shutil.rmtree(w / ".scripts", ignore_errors=True)
+    shutil.copytree(ROOT / ".scripts", w / ".scripts")
     (w / "vinca_pinning.yaml").write_text(vinca_pinning(distro))
     if (d / "conda_build_config.yaml").is_file():
         shutil.copy2(d / "conda_build_config.yaml", w / "conda_build_config.yaml")
@@ -325,6 +329,8 @@ def generate_gha(distro: str, args: list[str]) -> int:
     for wf in sorted(set(d.glob("*.yml")) - before):
         lines = wf.read_text().splitlines()
         lines = [f"name: {distro} {l[6:]}" if l.startswith("name: ") else l for l in lines]
+        if ns.platform == "win-64" and not any("build-ci" in l for l in lines):
+            raise SystemExit(f"{wf}: the Windows workflow doesn't use .scripts/build_win.bat")
         if any(l.startswith("env:") for l in lines):
             raise SystemExit(f"{wf}: unexpected top-level env in the vinca-gha output")
         lines += [
