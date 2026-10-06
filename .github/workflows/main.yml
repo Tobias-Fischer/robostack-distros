@@ -80,6 +80,10 @@ jobs:
             batch=10; [ "$platform" == "win-64" ] && batch=25  # https://github.com/RoboStack/robostack.github.io/issues/105
             pixi run -v rs "$DISTRO" generate-recipes --platform "$platform"
             pixi run -v rs "$DISTRO" gha --platform "$platform" --batch-size "$batch"
+            if ! ls .github/workflows/build_"$DISTRO"_*.yml >/dev/null 2>&1; then
+              echo "$DISTRO $platform: nothing to build"
+              continue
+            fi
             cp .github/workflows/build_"$DISTRO"_*.yml "$RUNNER_TEMP/workflows/"
             if [ "$PUSH" == "true" ]; then
               branch="buildbranch_${DISTRO}_${platform//-/_}"
@@ -92,3 +96,4 @@ jobs:
         with:
           name: build-workflows-${{ matrix.distro }}
           path: ${{ runner.temp }}/workflows
+          if-no-files-found: ignore
