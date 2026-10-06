@@ -1,10 +1,10 @@
 ros_distro: humble
 
-build_number: 20
+build_number: 21
 
 mutex_package:
   name: "ros2-distro-mutex"
-  version: "0.10.0"
+  version: "0.11.0"
   upper_bound: "x.x"
   run_constraints:
     - libboost 1.90.*
