@@ -1,3 +1,4 @@
+# rosdep key -> conda package mapping shared by all distributions.
 # TODO
 # python3-babeltrace:
 #   robostack: [babeltrace]
