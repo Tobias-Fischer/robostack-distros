@@ -106,6 +106,7 @@ jobs:
         with:
           frozen: true
           pixi-version: v0.75.0
+          cache-write: false  # the plan job saves the pixi environment cache
       - name: robostack-bot ${{ matrix.command }} ${{ matrix.distro }}
         id: bot
         env:

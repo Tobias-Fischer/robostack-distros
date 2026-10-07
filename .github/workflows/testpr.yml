@@ -56,6 +56,7 @@ jobs:
         with:
           frozen: true
           pixi-version: v0.75.0
+          cache-write: false  # the build jobs save the pixi environment cache
       - name: Sanity checks (every distribution assembles, generated files up to date, sorted)
         run: pixi run rs check
 
@@ -89,6 +90,9 @@ jobs:
       with:
         frozen: true
         pixi-version: v0.75.0
+        # every distribution's job on a platform has the same cache key; let one
+        # of them save it instead of all racing ("Unable to reserve cache")
+        cache-write: ${{ matrix.distro == fromJSON(needs.plan.outputs.distros)[0] }}
 
     - name: Windows workarounds (short build path, long paths, PATH and SDK clean-up)
       if: runner.os == 'Windows'

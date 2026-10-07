@@ -73,6 +73,8 @@ jobs:
         with:
           frozen: true
           pixi-version: v0.75.0
+          # one job saves the shared pixi environment cache (same key for all)
+          cache-write: ${{ matrix.distro == fromJSON(needs.plan.outputs.distros)[0] }}
       - name: Generate and push the build branches
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
