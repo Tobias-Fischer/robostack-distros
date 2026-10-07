@@ -2,7 +2,7 @@ Use the system tl-expected (conda-forge cpp-expected) when roboplan_core has no
 roboplan::tl_expected target: open-planning/roboplan-ros#85 (and open-planning/roboplan#372).
 
 diff --git a/bindings/CMakeLists.txt b/bindings/CMakeLists.txt
-index 3ee1b20..4c594eb 100644
+index 474abf3..c4d7c09 100644
 --- a/bindings/CMakeLists.txt
 +++ b/bindings/CMakeLists.txt
 @@ -8,10 +8,16 @@ find_package(ament_cmake_python REQUIRED)
