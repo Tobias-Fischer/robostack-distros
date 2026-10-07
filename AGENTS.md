@@ -69,7 +69,7 @@ should edit a shared file at a time.
   build number (e.g. a patch fix) must be evicted: add it to `evict_cache` in
   `distros/<d>/ci.yaml` (`full_rebuild: true` for everything), and reset the file
   after merging.
-- After a merge, `main.yml` regenerates the staged build branches
+- After a merge, `main.yaml` regenerates the staged build branches
   `buildbranch_<distro>_<platform>`; uploads go to the channel in `distro.yaml`, or to
   the repository variable `ROBOSTACK_UPLOAD_CHANNEL`.
 - When cancelling and restarting a run, wait for the cancelled run's cache save to

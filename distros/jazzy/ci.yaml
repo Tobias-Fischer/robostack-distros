@@ -1,6 +1,6 @@
-# Temporary controls for the pull-request build (.github/workflows/testpr.yml).
+# Temporary controls for the pull-request build (.github/workflows/testpr.yaml).
 #
-# testpr.yml caches the packages it builds per pull request, and rattler-build
+# testpr.yaml caches the packages it builds per pull request, and rattler-build
 # skips everything that is already in that cache. This file tells it what to
 # throw away before building. Set it in your PR, and reset it to the defaults
 # below before or right after merging.

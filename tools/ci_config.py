@@ -1,6 +1,6 @@
 """Apply the PR-build cache controls from the distribution-owned ci.yaml.
 
-testpr.yml restores the build cache of the pull request and then runs this
+testpr.yaml restores the build cache of the pull request and then runs this
 script, so temporary rebuild controls live in ci.yaml instead of in the
 (template-owned) workflow file:
 

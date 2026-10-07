@@ -65,5 +65,5 @@ Regenerate recipes after editing `vinca.yaml` before expecting the report to cha
 ## rosdep mappings
 
 `shared/robostack.yaml` maps rosdep keys to conda packages (per platform);
-`shared/packages-ignore.yaml` lists keys to drop. Changes there affect every
+`shared/packages_ignore.yaml` lists keys to drop. Changes there affect every
 distribution: check them with `generate-recipes` for at least two distributions.

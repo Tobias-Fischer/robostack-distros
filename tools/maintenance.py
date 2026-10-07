@@ -1,4 +1,4 @@
-"""Maintenance commands (used by robostack-bot, .github/workflows/bot.yml).
+"""Maintenance commands (used by robostack-bot, .github/workflows/bot.yaml).
 
     pixi run rs check                                 # sanity checks of the whole repository
     pixi run rs <distro> update-snapshot              # snapshot the latest rosdistro sync, summarise bumps
@@ -558,7 +558,7 @@ def add_package(packages: list[str], distros: list[str], preview: bool = False) 
 
 
 def _default_ci_yaml() -> str:
-    return (rs.TOOLS / "ci.default.yaml").read_text()
+    return (rs.TOOLS / "ci_default.yaml").read_text()
 
 
 def parse_command(body: str, association: str) -> list[dict]:
@@ -647,7 +647,10 @@ def check() -> Result:
         if rs.task(distro, "render-pinning", []) or rendered.read_text() != before:
             problems.append(f"{distro}: conda_build_config.yaml is out of date (pixi run rs {distro} render-pinning)")
             rendered.write_text(before)
-    for wf in sorted((rs.ROOT / ".github" / "workflows").glob("*.yml")):
+    # file names: .yaml everywhere (GitHub requires FUNDING.yml by that name)
+    for yml in sorted(p for p in (rs.ROOT / ".github").rglob("*.yml") if p.name != "FUNDING.yml"):
+        problems.append(f"{yml.relative_to(rs.ROOT)}: use the .yaml extension")
+    for wf in sorted((rs.ROOT / ".github" / "workflows").glob("*.yaml")):
         text = wf.read_text()
         if "\non:" not in "\n" + text or "\ntrue:" in "\n" + text:
             problems.append(f"{wf.name}: no top-level `on:` trigger")

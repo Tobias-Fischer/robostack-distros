@@ -168,7 +168,7 @@ def import_distro(src: Source, distro: str | None) -> str:
         "# (everything else is shared, see the README).\n"
         + yaml.safe_dump(settings, sort_keys=False, default_flow_style=None, width=100)
     )
-    (dest / "ci.yaml").write_text((rs.ROOT / "tools" / "ci.default.yaml").read_text())
+    (dest / "ci.yaml").write_text((rs.ROOT / "tools" / "ci_default.yaml").read_text())
     return distro
 
 

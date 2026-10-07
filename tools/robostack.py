@@ -17,7 +17,7 @@ git-ignored), which `prepare` assembles from both:
 - patch/                   distros/<d>/patch/, with patch/dependencies.yaml merged
                            from shared/dependencies.yaml like pkg_additional_info
 - tests/                   shared/tests (*.jinja rendered for the distribution)
-- robostack.yaml, packages-ignore.yaml, vinca_pinning.yaml, conda_build_config.yaml
+- robostack.yaml, packages_ignore.yaml, vinca_pinning.yaml, conda_build_config.yaml
 
 rosdistro_snapshot.yaml and rosdistro_additional_recipes.yaml are read from
 distros/<d>/ directly; conda_build_config.yaml is rendered back into distros/<d>/
@@ -211,7 +211,7 @@ def prepare(distro: str) -> Path:
 
     vinca = merge_vinca(load_yaml(SHARED / "vinca.yaml"), load_yaml(d / "vinca.yaml"))
     vinca.update(
-        conda_index=["robostack.yaml", "packages-ignore.yaml"],
+        conda_index=["robostack.yaml", "packages_ignore.yaml"],
         patch_dir="patch",
         rosdistro_snapshot="../rosdistro_snapshot.yaml",
         rosdistro_additional_recipes="../rosdistro_additional_recipes.yaml",
@@ -230,7 +230,7 @@ def prepare(distro: str) -> Path:
         f"shared/dependencies.yaml and distros/{distro}/patch/dependencies.yaml",
     )
     render_tests(distro, w / "tests")
-    for name in ("robostack.yaml", "packages-ignore.yaml"):
+    for name in ("robostack.yaml", "packages_ignore.yaml"):
         shutil.copy2(SHARED / name, w / name)
     # vinca-gha inlines ./.scripts/build_win.bat into the Windows workflow (and falls
     # back to an outdated built-in script without it)
@@ -326,7 +326,7 @@ def task(distro: str, name: str, args: list[str]) -> int:
         for patch in (w / "patch").glob(f"{pkg}.*patch"):
             shutil.copy(patch, w / "recipes" / pkg / "patch" / patch.name)
         return run(rattler_build(distro, ["--recipe", f"./recipes/{pkg}/recipe.yaml", *args[1:]], False), w)
-    if name == "gha":  # staged build workflows for one platform, see .github/workflows/main.yml
+    if name == "gha":  # staged build workflows for one platform, see .github/workflows/main.yaml
         return generate_gha(distro, args)
     raise SystemExit(f"unknown task {name!r}")
 
@@ -362,7 +362,7 @@ def generate_gha(distro: str, args: list[str]) -> int:
             "  # optional secret: prefix.dev API key, for channels without trusted publishing",
             "  PREFIX_API_KEY: ${{ secrets.PREFIX_API_KEY }}",
         ]
-        dest = ROOT / ".github" / "workflows" / f"build_{distro}_{wf.stem}.yml"
+        dest = ROOT / ".github" / "workflows" / f"build_{distro}_{wf.stem}.yaml"
         dest.write_text("\n".join(lines) + "\n")
         wf.unlink()
         print(f"wrote {dest.relative_to(ROOT)} (trigger branch {branch})")

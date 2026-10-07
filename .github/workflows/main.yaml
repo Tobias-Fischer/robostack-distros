@@ -1,6 +1,6 @@
 # After a merge: regenerate the staged build workflows of every distribution the
 # merge touched, one build branch per distribution and platform
-# (buildbranch_<distro>_<platform>, workflows .github/workflows/build_<distro>_*.yml).
+# (buildbranch_<distro>_<platform>, workflows .github/workflows/build_<distro>_*.yaml).
 # Pushing them starts the builds, which upload to each distribution's channel.
 #
 # Pushing workflow files needs the robostack-bot app (or secrets.GHA_PAT); without a
@@ -97,11 +97,11 @@ jobs:
             batch=10; [ "$platform" == "win-64" ] && batch=25  # https://github.com/RoboStack/robostack.github.io/issues/105
             retry pixi run -v rs "$DISTRO" generate-recipes --platform "$platform"
             retry pixi run -v rs "$DISTRO" gha --platform "$platform" --batch-size "$batch"
-            if ! ls .github/workflows/build_"$DISTRO"_*.yml >/dev/null 2>&1; then
+            if ! ls .github/workflows/build_"$DISTRO"_*.yaml >/dev/null 2>&1; then
               echo "$DISTRO $platform: nothing to build"
               continue
             fi
-            cp .github/workflows/build_"$DISTRO"_*.yml "$RUNNER_TEMP/workflows/"
+            cp .github/workflows/build_"$DISTRO"_*.yaml "$RUNNER_TEMP/workflows/"
             if [ "$PUSH" == "true" ]; then
               branch="buildbranch_${DISTRO}_${platform//-/_}"
               git add -f . ':!.pixi'

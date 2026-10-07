@@ -50,7 +50,7 @@ shared/                    the same for every distribution
   vinca.yaml               settings and packages selected in every distribution
   pkg_additional_info.yaml per-package settings that are the same everywhere
   dependencies.yaml        dependency fixes that are the same everywhere
-  robostack.yaml, packages-ignore.yaml   rosdep key -> conda package mapping
+  robostack.yaml, packages_ignore.yaml   rosdep key -> conda package mapping
   pinning/                 conda-forge pinning version, migrations and overrides
   tests/                   package tests (ros2-<pkg>.yaml; *.jinja for distro-specific bits)
 tools/robostack.py         `pixi run rs ...`: every task, for one distribution or the repository
@@ -58,7 +58,7 @@ tools/maintenance.py       checks and robostack-bot commands
 tools/import_distro.py     (re)import a distribution from its own repository
 tools/*.py                 check_patches_clean_apply, check_dependency_compat, build_gap_report, ...
 .scripts/                  staged build scripts (build_unix.sh, build_win.bat)
-.github/workflows/         testpr.yml, main.yml (staged build branches), bot.yml
+.github/workflows/         testpr.yaml, main.yaml (staged build branches), bot.yaml
 .claude/skills/             procedures for agents (debug a build, patches, versions/rebuilds, package selection)
 pixi.toml                  one environment for all distributions (one vinca, one rattler-build)
 ```
@@ -103,10 +103,10 @@ of a distribution uses `full_rebuild: true` there. A new build number goes into 
 
 ### CI
 
-- **Pull requests** (`testpr.yml`):
+- **Pull requests** (`testpr.yaml`):
   - A PR that only touches `distros/<distro>/` builds that distribution. Changes anywhere else (except documentation) build every distribution.
   - Each selected distribution is built on all five platforms, with its own build cache. The `check` job runs `pixi run rs check`.
-- **After a merge** (`main.yml`): for every changed distribution and platform, the job regenerates the recipes and the staged build workflow, and pushes them to `buildbranch_<distro>_<platform>`.
+- **After a merge** (`main.yaml`): for every changed distribution and platform, the job regenerates the recipes and the staged build workflow, and pushes them to `buildbranch_<distro>_<platform>`.
   - The workflow is named `build_<distro>_<platform>.yml` and runs `.scripts/build_*.sh` in `distros/<distro>/work`.
   - Those workflows build the packages and upload them to the distribution's channel.
 - **Repository variables:**
@@ -118,7 +118,7 @@ of a distribution uses `full_rebuild: true` there. A new build number goes into 
 
 ### robostack-bot
 
-`.github/workflows/bot.yml` runs `tools/maintenance.py`:
+`.github/workflows/bot.yaml` runs `tools/maintenance.py`:
 
 | command | who | what it does |
 |---|---|---|
