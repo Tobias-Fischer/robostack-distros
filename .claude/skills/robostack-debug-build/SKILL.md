@@ -75,9 +75,10 @@ bash -x conda_build.sh 2>&1 | less
   ```
 - **A conda-forge package is shadowed**: when a rosdep key that is also a ROS package
   maps to a conda-forge package (e.g. `tl_expected` -> `cpp-expected`), vinca may build
-  the ROS package under the conda-forge name. Add it to `packages_skip_by_deps`
-  (`shared/vinca.yaml`), and evict the stale build from the PR cache
-  (`evict_cache` in `distros/<d>/ci.yaml`, plain names work).
+  the ROS package under the conda-forge name. `prepare` skips ROS packages mapped in
+  `shared/robostack.yaml` automatically; if it still happens, check the mapping, and
+  evict a stale build from the PR cache (`evict_cache` in `distros/<d>/ci.yaml`, plain
+  names work).
 - **CMake args for one package**: `additional_cmake_args` in `pkg_additional_info.yaml`.
 
 ## 5. Make it stick

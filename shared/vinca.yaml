@@ -22,10 +22,6 @@ pixi_version: "0.81.0"
 # sophus -> sophus). Where they are also ROS packages (humble, jazzy), vinca
 # would otherwise build the ROS package under the conda-forge name, which shadows the
 # conda-forge package (e.g. no tl-expected CMake config for rsl).
-packages_skip_by_deps:
-  - sophus
-  - tl_expected
-
 packages_select_by_deps:
   - ackermann_msgs
   - ament_cmake
@@ -589,3 +585,10 @@ packages_select_by_deps:
       - yasmin_viewer
       - zed_msgs
 
+packages_exclude:
+  - if: not linux
+    then:
+      - pendulum_control
+      - rttest
+      - tlsf
+      - tlsf_cpp

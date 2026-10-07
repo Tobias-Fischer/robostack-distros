@@ -7,8 +7,7 @@ mutex_package:
   run_constraints:
     - krb5 1.22.*
 
-packages_skip_by_deps:
-
+packages_exclude:
   - if: not linux
     then:
       - ament_cmake_xmllint
@@ -18,49 +17,9 @@ packages_skip_by_deps:
       - mujoco_ros2_control_demos
       - mujoco_vendor
       - osrf_testing_tools_cpp
-      - pendulum_control
       - performance_test_fixture
       - rclc_examples
       - rmw_connextdds
-      - tlsf
-      - tlsf_cpp
-
-  # Gazebo Classic packages unavailable on Windows (libprotobuf pin conflict); robot_localization pulled in transitively via clearpath_control.
-  - if: win
-    then:
-      - gz_ros2_control
-      - gz_ros2_control_demos
-      - robot_localization
-      - ros_gz_sim
-      - ros_gz_sim_demos
-      - ros_ign_gazebo  # legacy-name counterpart of ros_gz_sim, not merely a dependent of it
-      - ros_ign_gazebo_demos
-      - ros_ign_image  # Modern gz-sim integration is unsupported on Humble Windows; see issue #68.
-      - rttest
-      - test_ros_gz_bridge
-      - velodyne_gazebo_plugins  # links Gazebo Classic's Ogre libs; win-64 is missing OgreBites.lib
-
-  - as2_behaviors_trajectory_generation  # nested FetchContent'd NLopt violates CMake 4's minimum version floor; too fragile to patch, skip for now
-
-packages_remove_from_deps:
-
-  - if: not linux
-    then:
-      - ament_cmake_xmllint
-      - ament_xmllint
-      - mimick_vendor
-      - mujoco_ros2_control
-      - mujoco_ros2_control_demos
-      - mujoco_vendor
-      - osrf_testing_tools_cpp
-      - pendulum_control
-      - performance_test_fixture
-      - rclc_examples
-      - rmw_connextdds
-      - tlsf
-      - tlsf_cpp
-
-  # Strip these from any other recipe's deps too, matching the packages_skip_by_deps exclusion above (avoids dangling refs from direct dependents).
   - if: win
     then:
       - gz_ros2_control
@@ -71,7 +30,6 @@ packages_remove_from_deps:
       - ros_ign_gazebo
       - ros_ign_gazebo_demos
       - ros_ign_image
-      - rttest
       - test_ros_gz_bridge
       - velodyne_gazebo_plugins
 
@@ -81,16 +39,80 @@ packages_remove_from_deps:
 # Shared selections that humble doesn't build on some platforms (see also
 # packages_skip_by_deps / packages_remove_from_deps).
 
-packages_deselect:
+packages_skip:
+  - as2_behaviors_trajectory_generation  # nested FetchContent'd NLopt violates CMake 4's minimum version floor; too fragile to patch, skip for now
+
+  - if: not (linux and x86_64)
+    then:
+      - ublox_ubx_interfaces
   - if: not linux
     then:
-      - mujoco_ros2_control
-      - mujoco_ros2_control_demos
-      - mujoco_vendor
-      - osrf_testing_tools_cpp
-      - rclc_examples
+      - event_camera_codecs
+      - event_camera_renderer
+      - foxglove_bridge
+      - joy_linux
+      - moveit_ros_perception
+      - moveit_runtime
+      - orbbec_camera_msgs
+      - orbbec_description
+      - plotjuggler
+      - plotjuggler_ros
+      - point_cloud_transport_plugins
+      - random_numbers
+      - realsense2_camera
+      - realsense2_description
+      - rmw_stats_shim
+      - robotiq_controllers
+      - robotiq_description
+      - ros_gz
+      - rosgraph_monitor
+      - rosgraph_monitor_msgs
+      - rqt_mocap4r2_control
+      - rqt_tf_tree
+      - rviz_2d_overlay_plugins
+      - rviz_satellite
+      - sick_safetyscanners_base
+      - turtlebot4_description
+      - turtlebot4_desktop
+      - turtlebot4_msgs
+      - turtlebot4_navigation
+      - turtlebot4_node
+      - turtlebot4_simulator
+      - turtlebot4_viz
+      - twist_stamper
+      - ublox
+      - ublox_dgnss
+      - ublox_dgnss_node
+      - ur_simulation_gz
+      - velodyne_simulator
   - if: win
     then:
-      - gz_ros2_control
-      - gz_ros2_control_demos
-      - robot_localization
+      - diagnostic_remote_logging
+      - dynmsg
+      - kinematics_interface
+      - kinematics_interface_kdl
+      - laser_segmentation
+      - libg2o
+      - mavlink
+      - mavros
+      - mavros_extras
+      - microstrain_inertial_description
+      - microstrain_inertial_driver
+      - microstrain_inertial_examples
+      - microstrain_inertial_msgs
+      - microstrain_inertial_rqt
+      - mocap4r2_control
+      - mocap4r2_control_msgs
+      - mocap4r2_dummy_driver
+      - mocap4r2_marker_publisher
+      - mocap4r2_marker_viz
+      - mocap4r2_marker_viz_srvs
+      - mocap4r2_robot_gt
+      - mocap4r2_robot_gt_msgs
+      - motion_capture_tracking
+      - moveit_hybrid_planning
+      - moveit_py
+      - moveit_task_constructor_demo
+      - odom_to_tf_ros2
+      - ouster_ros
+      - pinocchio

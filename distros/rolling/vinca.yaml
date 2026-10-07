@@ -27,38 +27,14 @@ mutex_package:
     # picks an ffmpeg 9.x build compatible with it.
     - libopenvino-tensorflow-lite-frontend >=2026.3.0,<2026.3.1.0a0
 
-packages_skip_by_deps:
+packages_skip:
   - rplidar_ros
   - rviz_visual_tools
 
   # not yet released for rolling; rtabmap builds fine without it (disables the optional dependent feature)
   - libpointmatcher
 
-  - if: not linux
-    then:
-      - pendulum_control
-      - rttest
-      - tlsf
-      - tlsf_cpp
-
-  # mujoco_ros2_control_plugins needs EGL, which doesn't exist on Windows or macOS -- a genuine platform gap (unrelated to MuJoCo itself).
   - if: osx or win
     then:
       - mujoco_ros2_control_plugins
 
-packages_remove_from_deps:
-
-  - if: not linux
-    then:
-      - pendulum_control
-      - rttest
-      - tlsf
-      - tlsf_cpp
-
-
-# Shared selections that rolling doesn't build (see also packages_skip_by_deps).
-
-packages_deselect:
-  - libpointmatcher
-  - rplidar_ros
-  - rviz_visual_tools

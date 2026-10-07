@@ -30,21 +30,3 @@ mutex_package:
     # picks an ffmpeg 9.x build compatible with it.
     - libopenvino-tensorflow-lite-frontend >=2026.3.0,<2026.3.1.0a0
 
-packages_skip_by_deps:
-
-  - if: not linux
-    then:
-      - pendulum_control
-      - rttest
-      - tlsf
-      - tlsf_cpp
-
-packages_remove_from_deps:
-
-  - if: not linux
-    then:
-      - pendulum_control
-      - rttest
-      - tlsf
-      - tlsf_cpp
-

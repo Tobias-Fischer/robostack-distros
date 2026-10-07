@@ -492,8 +492,8 @@ def _append_selection(path: Path, packages: list[str]) -> None:
 
 
 def add_package(packages: list[str], distros: list[str], preview: bool = False) -> Result:
-    """Select ROS packages for building, in the given (default: all) distributions
-    that have them, and list the recipes this adds on linux-64."""
+    """Select ROS packages for building in shared/vinca.yaml, and list for the given
+    (default: all) distributions the recipes this adds on linux-64."""
     wanted = list(dict.fromkeys(n for n in (_package_name(p) for p in packages if p.strip()) if PACKAGE_NAME.match(n)))
     wanted = wanted[:MAX_PACKAGES]
     if not wanted:
@@ -516,37 +516,37 @@ def add_package(packages: list[str], distros: list[str], preview: bool = False) 
     if not plan:
         return Result(f"add-package {' '.join(wanted)}: nothing to add", "\n".join(lines))
 
-    # every distribution gets the same packages -> shared/vinca.yaml, else per distribution
-    everywhere = set(plan) == set(rs.distros()) and len({tuple(v) for v in plan.values()}) == 1
-    backup = {p: p.read_bytes() for p in [rs.SHARED / "vinca.yaml"] + [rs.DISTROS / d / "vinca.yaml" for d in plan]}
-    if everywhere:
-        _append_selection(rs.SHARED / "vinca.yaml", next(iter(plan.values())))
-        subprocess.run(["vinca-sort-vinca-lists", "shared/vinca.yaml"], cwd=rs.ROOT, check=True)
-        where = "`shared/vinca.yaml`"
-    else:
-        for distro, add in plan.items():
-            _append_selection(rs.DISTROS / distro / "vinca.yaml", add)
-            rs.task(distro, "sort", [])
-        where = ", ".join(f"`distros/{d}/vinca.yaml`" for d in plan)
+    def recipes(distro: str) -> set[str] | None:
+        """Recipes to build on linux-64 (packages already on the channel are skipped)."""
+        if rs.task(distro, "generate-recipes", ["--platform", "linux-64"]):
+            return None
+        return {p.name for p in (rs.work_dir(distro) / "recipes").iterdir()}
 
-    # what would be built (linux-64; packages already on the channel are skipped)
+    before = {distro: recipes(distro) for distro in plan}
+
+    # the whole selection is shared; vinca skips packages a distribution doesn't have
+    backup = {p: p.read_bytes() for p in [rs.SHARED / "vinca.yaml"]}
+    _append_selection(rs.SHARED / "vinca.yaml", sorted({pkg for add in plan.values() for pkg in add}))
+    subprocess.run(["vinca-sort-vinca-lists", "shared/vinca.yaml"], cwd=rs.ROOT, check=True)
+    where = "`shared/vinca.yaml` (every distribution that has them builds them)"
+
+    # what the request adds to the build (linux-64)
     if lines:
         lines.append("")
     builds_ok = True
     for distro, add in plan.items():
-        rc = rs.task(distro, "generate-recipes", ["--platform", "linux-64"])
-        recipes = sorted(p.name for p in (rs.work_dir(distro) / "recipes").iterdir()) if not rc else []
-        new = [r for r in recipes if r.startswith("ros2-") or not r.startswith("ros-")]
-        if rc:
+        after = recipes(distro)
+        if after is None or before[distro] is None:
             builds_ok = False
             lines.append(f"- **{distro}**: adding {', '.join(f'`{p}`' for p in add)} — recipe generation **failed**, see the log")
-        else:
-            shown = ", ".join(f"`{r}`" for r in new[:25]) + (f" and {len(new) - 25} more" if len(new) > 25 else "")
-            published = [p for p in add if f"ros2-{p.replace('_', '-')}" not in new]
-            lines.append(f"- **{distro}**: adding {', '.join(f'`{p}`' for p in add)} → {len(new)} packages to build on linux-64"
-                         + (f": {shown}" if new else ""))
-            if published:
-                lines.append(f"  - already published (built as a dependency): {', '.join(f'`{p}`' for p in published)}")
+            continue
+        new = sorted(after - before[distro])
+        shown = ", ".join(f"`{r}`" for r in new[:25]) + (f" and {len(new) - 25} more" if len(new) > 25 else "")
+        published = [p for p in add if f"ros2-{p.replace('_', '-')}" not in after]
+        lines.append(f"- **{distro}**: adding {', '.join(f'`{p}`' for p in add)} → {len(new)} new package{'s' if len(new) != 1 else ''} to build on linux-64"
+                     + (f": {shown}" if new else ""))
+        if published:
+            lines.append(f"  - already published (built as a dependency): {', '.join(f'`{p}`' for p in published)}")
     if preview:
         for path, content in backup.items():
             path.write_bytes(content)
@@ -620,6 +620,10 @@ def check() -> Result:
     problems: list[str] = []
     known = {"channel_name", "upload_target", "conda_forge_pinning_version", "conda_forge_migrations", "pinning_overrides",
              "rosdistro_sync"}
+    for path in [rs.SHARED / "vinca.yaml"] + [rs.DISTROS / d / "vinca.yaml" for d in rs.distros()]:
+        legacy = {"packages_skip_by_deps", "packages_remove_from_deps", "packages_deselect"} & set(rs.load_yaml(path))
+        if legacy:
+            problems.append(f"{path.relative_to(rs.ROOT)}: use packages_exclude / packages_skip instead of {sorted(legacy)}")
     for distro in rs.distros():
         d = rs.DISTROS / distro
         settings = rs.settings(distro)

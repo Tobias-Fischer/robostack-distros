@@ -68,8 +68,8 @@ pixi.toml                  one environment for all distributions (one vinca, one
 `pixi run rs <distro> <task>` first assembles `distros/<distro>/work/`:
 
 - **`vinca.yaml`:**
-  - The package selection lives in `shared/` for every distribution; vinca skips packages a distribution's rosdistro doesn't have. A distribution only lists its exceptions: `packages_deselect` drops shared selections (a name everywhere, or under `- if: <condition>` on those platforms).
-  - The other package lists (`packages_skip_by_deps`, `packages_remove_from_deps`) are `shared/` plus the distribution's.
+  - The package selection (`packages_select_by_deps`) lives in `shared/` for every distribution; vinca skips packages a distribution's rosdistro doesn't have.
+  - Exceptions, in `shared/` or a distribution: `packages_exclude` (not built, dropped from other packages' dependencies) and `packages_skip` (not built, dependents keep the dependency), each as plain names or under `- if: <condition>`. ROS packages mapped to conda-forge in `robostack.yaml` are skipped automatically.
   - `mutex_package`: name, `upper_bound` and the common `run_constraints` are shared. Each distribution sets its own `version`, and its `run_constraints` replace the shared constraint on the same package (e.g. jazzy's `libprotobuf 7.35.*`) or add new ones.
   - Other keys come from the distribution if it sets them, else from `shared/`. A distribution that differs from a shared setting just sets it.
   - `skip_existing`, `conda_index`, `patch_dir` and the snapshot paths are filled in automatically.
@@ -123,7 +123,7 @@ of a distribution uses `full_rebuild: true` there. A new build number goes into 
 
 | command | who | what it does |
 |---|---|---|
-| `add-package <pkg>... [<distro>...]` | anyone | Adds ROS packages to the selection of the given (default: every) distribution that has them, in sorted position, in `shared/vinca.yaml` if that's all of them. Opens a PR listing what will be built on linux-64 (and what is already published as a dependency). Valid ROS package names only, at most 10 per request. |
+| `add-package <pkg>... [<distro>...]` | anyone | Adds ROS packages to the shared selection in `shared/vinca.yaml`, in sorted position; every distribution that has them builds them. Opens a PR listing, for the given (default: every) distribution, what will be built on linux-64 (and what is already published as a dependency). Valid ROS package names only, at most 10 per request. |
 | `update-rosdistro-snapshot [<distro>... \| all]` | maintainers | Snapshots the distribution's latest rosdistro sync (the release team's tag, e.g. `jazzy/2026-10-05`, recorded as `rosdistro_sync` in `distro.yaml`; rosdistro master for `rosdistro_sync: manual`, like rolling), then sets `build_number` to the highest build of the distribution's released packages + 1, bumps the mutex minor version and removes all per-package build numbers: a full rebuild. The PR links the sync's announcement and lists the version bumps. Runs daily for distributions with a new sync. |
 | `find-stale-packages [<distro>... \| all]` | maintainers | Published packages built against pins that no longer match, with the build-number snippet to rebuild them. Replies only. |
 | `update-conda-forge-pinning` | maintainers | Moves `shared/pinning/conda_forge.yaml` to the latest conda-forge pinning (migrations selected for the dependencies of all distributions) and re-renders the distributions that follow it. Those whose pins changed get the same build number and mutex bump, and their mutex `run_constraints` of the form `<pkg> <version>.*` follow the new pins. Runs weekly. |

@@ -5,25 +5,16 @@ body:
   - type: markdown
     attributes:
       value: |
-        robostack-bot opens a pull request that adds the package to the build, and
-        replies here with what will be built (per distribution, including new
-        dependencies). A maintainer reviews and merges it; the issue closes with it.
+        robostack-bot opens a pull request that adds the package to the build of every
+        distribution that has it, and replies here with what will be built (per
+        distribution, including new dependencies). A maintainer reviews and merges it;
+        the issue closes with it.
   - type: input
     id: package_name
     attributes:
       label: Package names
       description: ROS package names (as in rosdistro), comma separated, e.g. `foxglove_bridge, rqt_gauges`
       placeholder: foxglove_bridge, rqt_gauges
-    validations:
-      required: true
-  - type: dropdown
-    id: distributions
-    attributes:
-      label: Distributions
-      description: "`all`: every distribution (that has the package). Select one or more."
-      multiple: true
-      options: [all, rolling, lyrical, jazzy, humble]
-      default: 0
     validations:
       required: true
   - type: checkboxes

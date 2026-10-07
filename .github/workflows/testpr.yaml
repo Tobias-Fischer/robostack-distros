@@ -157,6 +157,10 @@ jobs:
         echo "${#packages[@]} packages restored from the cache"
         for package in "${packages[@]}"; do basename "$package"; done
 
+    - name: Estimate the build
+      shell: bash -l {0}
+      run: pixi run python tools/ci_estimate.py --recipes "distros/$DISTRO/work/recipes" --cache-dir "$CACHE_DIR" --platform "$PLATFORM"
+
     - name: Build recipes
       id: build-recipes
       shell: bash -l {0}
