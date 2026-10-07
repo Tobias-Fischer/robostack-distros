@@ -16,8 +16,8 @@ mutex_package:
     - vtk 9.7.0.*
 
 # pixi used by the generated build workflows; keep in sync with .github/workflows.
-setup_pixi_version: "0.10.2"
-pixi_version: "0.75.0"
+setup_pixi_version: "0.11.0"
+pixi_version: "0.81.0"
 # Mapped to conda-forge in shared/robostack.yaml (tl_expected -> cpp-expected,
 # sophus -> sophus). Where they are also ROS packages (humble, jazzy), vinca
 # would otherwise build the ROS package under the conda-forge name, which shadows the

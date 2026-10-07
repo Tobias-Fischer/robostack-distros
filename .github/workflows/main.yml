@@ -69,10 +69,10 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - uses: prefix-dev/setup-pixi@v0.10.2
+      - uses: prefix-dev/setup-pixi@v0.11.0
         with:
           frozen: true
-          pixi-version: v0.75.0
+          pixi-version: v0.81.0
           # one job saves the shared pixi environment cache (same key for all)
           cache-write: ${{ matrix.distro == fromJSON(needs.plan.outputs.distros)[0] }}
       - name: Generate and push the build branches

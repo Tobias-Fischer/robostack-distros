@@ -17,8 +17,7 @@ PYTHONIOENCODING = "utf-8"
 
 [dependencies]
 python = ">=3.14.0,<3.15"
-# rattler-build regression, pinning to 0.57
-rattler-build = ">=0.57.0,<0.58"
+rattler-build = ">=0.76.1,<0.77"
 cmake = "<4.0"
 setuptools = "<82.0"
 rattler-index = ">=0.27.16"

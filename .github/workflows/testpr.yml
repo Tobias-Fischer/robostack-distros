@@ -52,10 +52,10 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - uses: prefix-dev/setup-pixi@v0.10.2
+      - uses: prefix-dev/setup-pixi@v0.11.0
         with:
           frozen: true
-          pixi-version: v0.75.0
+          pixi-version: v0.81.0
           cache-write: false  # the build jobs save the pixi environment cache
       - name: Sanity checks (every distribution assembles, generated files up to date, sorted)
         run: pixi run rs check
@@ -86,10 +86,10 @@ jobs:
         persist-credentials: false
         fetch-depth: 0
 
-    - uses: prefix-dev/setup-pixi@v0.10.2
+    - uses: prefix-dev/setup-pixi@v0.11.0
       with:
         frozen: true
-        pixi-version: v0.75.0
+        pixi-version: v0.81.0
         # every distribution's job on a platform has the same cache key; let one
         # of them save it instead of all racing ("Unable to reserve cache")
         cache-write: ${{ matrix.distro == fromJSON(needs.plan.outputs.distros)[0] }}
