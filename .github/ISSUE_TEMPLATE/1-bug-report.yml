@@ -34,9 +34,9 @@ body:
     attributes:
       label: Installed packages
       description: |
-        Please share your installed packages by running `mamba list` and entering the output below:
+        Please share your installed packages by running `pixi list` in your project directory and entering the output below:
         _Note:_ This will be automatically formatted as code.
-      placeholder: "mamba list"
+      placeholder: "pixi list"
       render: shell
     validations:
       required: true
@@ -46,9 +46,9 @@ body:
     attributes:
       label: Environment info
       description: |
-        Please share your environment by running `mamba info` and entering the output below:
+        Please share your environment by running `pixi info` in your project directory and entering the output below:
         _Note:_ This will be automatically formatted as code.
-      placeholder: "mamba info"
+      placeholder: "pixi info"
       render: shell
     validations:
       required: true
