@@ -16,7 +16,7 @@ body:
     id: distribution
     attributes:
       label: ROS distribution
-      options: [rolling, lyrical, kilted, jazzy, humble]
+      options: [rolling, lyrical, jazzy, humble]
     validations:
       required: true
 

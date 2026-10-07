@@ -3,16 +3,8 @@ ros_distro: humble
 build_number: 20
 
 mutex_package:
-  name: "ros2-distro-mutex"
   version: "0.10.0"
-  upper_bound: "x.x"
   run_constraints:
-    - libboost 1.90.*
-    - libboost-devel 1.90.*
-    - pcl 1.15.1.*
-    - gazebo 11.*
-    - libprotobuf 7.35.1.*
-    - vtk 9.7.0.*
     - krb5 1.22.*
 
 packages_skip_by_deps:
@@ -102,17 +94,11 @@ packages_select_by_deps:
   - apriltag_draw
   - apriltag_tools
   - automatika_ros_sugar
-  - autoware_adapi_v1_msgs
-  - autoware_adapi_version_msgs
-  - autoware_auto_msgs
   - autoware_internal_debug_msgs
   - autoware_internal_metric_msgs
   - autoware_internal_perception_msgs
   - autoware_internal_planning_msgs
-  - autoware_lanelet2_extension
-  - autoware_lanelet2_extension_python
   - autoware_lint_common
-  - autoware_msgs
   - autoware_utils_debug
   - autoware_utils_diagnostics
   - autoware_utils_geometry
@@ -128,7 +114,6 @@ packages_select_by_deps:
   - aws_robomaker_small_warehouse_world # AWS Robotics
   - behaviortree_cpp_v3
   - bno055              # flynneva
-  - bond_core
   - bondcpp
   - builtin_interfaces
   - cartographer_ros
@@ -160,18 +145,11 @@ packages_select_by_deps:
   - irobot_create_common_bringup
   - irobot_create_control
   - irobot_create_description
-  - irobot_create_msgs
   - irobot_create_nodes
   - irobot_create_toolbox
   - joint-state-publisher # probably this should not be here as there is some strange porting to ros2
   - joy
-  - joy_teleop
-  - key_teleop
-  - librealsense2
-  - marker-msgs         # TUW Robotics
-  - mavros_msgs
   - mocap4r2_msgs
-  - mouse_teleop
   - moveit2_tutorials
   - moveit_resources
   - moveit_ros_occupancy_map_monitor
@@ -179,29 +157,16 @@ packages_select_by_deps:
   - mujoco_vendor
   - nav2_bringup
   - nmea_msgs
-  - nmea_navsat_driver
   - open3d_conversions
   - osrf_testing_tools_cpp
   - pal_statistics
-  - persist_parameter_server
-  - pick_ik
-  - picknik_ament_copyright
   - pilz-industrial-motion-planner
   - plotjuggler_msgs
-  - point_cloud_transport_py
   - pointcloud_to_laserscan  # requested in https://github.com/RoboStack/ros-humble/issues/249
-  - polygon_utils  # requested in https://github.com/RoboStack/ros-humble/issues/256
   - ptz_action_server_msgs
   - py-binding-tools
-  - py_trees_js
-  - py_trees_ros_tutorials
-  - radar_msgs
-  - rclc
   - rclc_examples
-  - rclc_lifecycle
-  - rclc_parameter
   - rclcpp
-  - rclcpp-cascade-lifecycle
   - rclpy
   - rcpputils
   - rcutils
@@ -215,7 +180,6 @@ packages_select_by_deps:
   - ros_ign_interfaces
   - rosbag2-performance-benchmarking
   - rosbag2_storage_mcap
-  - rosidl-generator-dds-idl
   - rosidl_runtime_c
   - rosidl_runtime_cpp
   - rosidl_typesupport_introspection_c
@@ -223,17 +187,9 @@ packages_select_by_deps:
   - rplidar_ros
   - rqt
   - rqt-gui
-  - rqt-moveit
-  - rqt-robot-dashboard
-  - rqt-robot-monitor
-  - rqt-robot-steering
-  - rqt_controller_manager
   - rqt_joint_trajectory_controller
-  - rqt_runtime_monitor
-  - rtabmap
   - rtcm_msgs
   - rviz2
-  - rviz_2d_overlay_msgs
   - sdl2_vendor
   - serial_driver  # requested in https://github.com/RoboStack/ros-humble/issues/302
   - sick_scan_xd
@@ -241,7 +197,6 @@ packages_select_by_deps:
   - smacc2_msgs
   - stubborn_buddies    # Open RMF; Requested in https://github.com/RoboStack/ros-humble/issues/325
   - system_modes        # Micro-ROS
-  - teleop_tools
   - tf-transformations
   - tf_transformations  # DLu
   - topic_based_ros2_control
@@ -259,7 +214,6 @@ packages_select_by_deps:
   - ur_client_library
   - ur_robot_driver     # Universal Robots
   - urdf_launch
-  - urdf_tutorial
   - urg-node
   - vector_pursuit_controller
   - vision-msgs
@@ -272,25 +226,12 @@ packages_select_by_deps:
     then:
       - as2_cli
       - as2_msgs
-      - automatika_embodied_agents  # rosidl_typesupport_fastrtps_c symbols fail to link on win-64 (LNK unresolved __imp_get_serialized_size_*); root cause unclear, skip rather than guess blind
-      - autoware_core  # error C1189: WinSock.h has already been included
-      - autoware_core_control  # depends on autoware_motion_utils
-      - autoware_core_localization  # depends on autoware_ekf_localizer
-      - autoware_ekf_localizer  # Windows error C2338: 'First argument to logging macros must be an rclcpp::Logger'
       - autoware_internal_localization_msgs
       - autoware_lanelet2_utils  # Windows errors: C3546 (no parameter packs to expand), C2678 (no operator '|' for transform_view)
-      - autoware_motion_utils  # Windows error C2765: explicit specialization of a function template cannot have default arguments
-      - autoware_osqp_interface
-      - autoware_pose_initializer  # depends on autoware_motion_utils
-      - autoware_qp_interface  # a few compilation errors, solvable; upstream has CI on Windows, see RoboStack/ros-humble#205
-      - autoware_trajectory  # depends on autoware_motion_utils
       - cloudini_lib
       - cloudini_ros
       - diagnostic_remote_logging
-      - dual_laser_merger  # Windows error C3861: '__builtin_unreachable' identifier not found
       - dynmsg  # uses dlopen()/dlfcn.h (POSIX-only) and fails to find yaml-cpp/yaml.h on win-64
-      - ffmpeg_image_transport  # TODO on windows: fix iconv link issue
-      - foxglove_compressed_video_transport
       - grid_map
       - gz_ros2_control
       - ign_ros2_control
@@ -344,20 +285,13 @@ packages_select_by_deps:
       - plansys2_bt_actions
       - robot_localization  # win-64 LNK2019/LNK2001 unresolved symbols in rosidl fastrtps typesupport libs; root cause unclear, skip rather than guess blind
       - smacc2  # needs cxxabi.h (Itanium ABI demangling) and poll.h, both POSIX-only; jazzy excludes it from win-64 the same way
-      - spacenav  # needs libspnav, which has no win-64 conda-forge build; jazzy excludes it from win-64 the same way
       - swri_console  # MSVC compile error (numeric_limits<T>::max()/min() macro collision); jazzy excludes it from win-64 pending rosdistro sync, see ros/rosdistro#49750
       - swri_serial_util  # needs sys/ioctl.h/termios.h (POSIX serial APIs); win-only here (macOS patch already covers it), unlike jazzy's broader linux-only exclusion
-      - velodyne  # needs netinet/in.h (POSIX/BSD sockets); win-only here (builds fine on macOS/Linux), unlike jazzy's broader linux-only exclusion
-      - vision-msgs-rviz-plugins  # fails to link on MSVC (LNK2001 unresolved rviz_default_plugins::displays::MarkerNamespace::staticMetaObject), a Qt/MOC export gap; jazzy excludes it from win-64 the same way
-      - web_video_server
-      - zed-msgs  # doesn't work on Windows
 
-  # These packages are only built on Linux as they depend on Linux-specific API.
   - if: linux
     then:
       - aerostack2
       - apex_containers
-      - apriltag_ros        # Christian Rauch
       - avt_vimba_camera  # ships some Linux .so in the repo, so it only supports linux
       - camera_ros  # Depends on libcamera, only available on linux
       - event_camera_codecs  # uses endian.h, Linux-only; issue #228
@@ -365,7 +299,6 @@ packages_select_by_deps:
       - foxglove_bridge  # win: backport jazzy's win.patch; osx: unsupported arm64-Darwin platform
       - joy_linux  # Requires Linux-specific joystick interfaces
       - libcamera
-      - livox_ros_driver2  # Linking problems on macOS, probably a missing link to draco library or similar
       - moveit_ros_perception  # removed in jazzy, never supported windows or macos, no packages depend on it
       - moveit_runtime  # CMake errors related to OpenCV on macos, probably fixable
       - odom-to-tf-ros2
@@ -409,7 +342,6 @@ packages_select_by_deps:
       - ros2_medkit_param_beacon
       - ros2_medkit_serialization
       - ros2_medkit_topic_beacon
-      - ros2_socketcan  # Depends on socketcan
       - ros_gz
       - rosgraph_monitor
       - rosgraph_monitor_msgs
@@ -419,7 +351,6 @@ packages_select_by_deps:
       - rqt_tf_tree
       - rviz_2d_overlay_plugins
       - rviz_satellite
-      - septentrio_gnss_driver
       - sick_safetyscanners2
       - sick_safetyscanners2_interfaces
       - sick_safetyscanners_base
@@ -449,8 +380,6 @@ packages_select_by_deps:
       - ublox_dgnss         # Aussie Robots
       - ublox_dgnss_node
       - ur_simulation_gz
-      - usb_cam  # Depends on v4l
-      - v4l2_camera  # Depends on v4l, only available on linux
       - velodyne_simulator  # Dataspeed Inc.
 
   # linux-x86_64 only (excludes aarch64, unlike "if: linux" above). Keep this comment here -- vinca-sort-vinca-lists merges adjacent if/then blocks not separated by a top-level comment.

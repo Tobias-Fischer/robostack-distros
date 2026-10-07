@@ -3,16 +3,8 @@ ros_distro: rolling
 build_number: 29
 
 mutex_package:
-  name: "ros2-distro-mutex"
   version: "0.22.0"
-  upper_bound: "x.x"
   run_constraints:
-    - libboost 1.90.*
-    - libboost-devel 1.90.*
-    - pcl 1.15.1.*
-    - gazebo 11.*
-    - libprotobuf 7.35.1.*
-    - vtk 9.7.0.*
     # ffmpeg (pulled in transitively by libopencv, needed by the whole image/gz
     # stack) only supports libprotobuf 7.35 via libopenvino-tensorflow-frontend
     # >=2026.3.0; older libopenvino/libopencv/ffmpeg builds still coexist in the
@@ -70,17 +62,11 @@ packages_select_by_deps:
   - ament_lint_common
   - ament_pep257
   - ament_pycodestyle
-  - autoware_adapi_v1_msgs
-  - autoware_adapi_version_msgs
-  - autoware_auto_msgs
   - autoware_internal_debug_msgs
   - autoware_internal_metric_msgs
   - autoware_internal_perception_msgs
   - autoware_internal_planning_msgs
-  - autoware_lanelet2_extension
-  - autoware_lanelet2_extension_python
   - autoware_lint_common
-  - autoware_msgs
   - autoware_utils_debug
   - autoware_utils_diagnostics
   - autoware_utils_geometry
@@ -94,7 +80,6 @@ packages_select_by_deps:
   - autoware_utils_visualization
   - battery_state_broadcaster
   - better_launch
-  - bond_core
   - bondcpp
   - builtin_interfaces
   - dev_tools
@@ -102,19 +87,13 @@ packages_select_by_deps:
   - foxglove_bridge
   - gtsam
   - gz_ros2_control
-  - irobot_create_msgs
   - joy_linux
-  - joy_teleop
-  - key_teleop
   - kinematics_interface
   - kinematics_interface_kdl
   - laser-segmentation
   - libg2o
-  - librealsense2
-  - marker_msgs
   - mavlink
   - mavros_extras
-  - mavros_msgs
   - microstrain_inertial_description
   - microstrain_inertial_driver
   - microstrain_inertial_examples
@@ -129,7 +108,6 @@ packages_select_by_deps:
   - mocap4r2_robot_gt
   - mocap4r2_robot_gt_msgs
   - motion_capture_tracking
-  - mouse_teleop
   - moveit-hybrid-planning  # Windows error: error C3861: '__builtin_unreachable': identifier not found
   - moveit-py
   - moveit-ros-occupancy-map-monitor
@@ -143,33 +121,20 @@ packages_select_by_deps:
   - mujoco_vendor
   - nav2_minimal_tb3_sim
   - nav2_minimal_tb4_sim
-  - nmea-navsat-driver
   - nmea_msgs
   - ntrip_client
   - odom_to_tf_ros2
   - osrf_testing_tools_cpp
   - pal_statistics
-  - persist-parameter-server
-  - pick_ik
-  - picknik_ament_copyright
   - pilz_industrial_motion_planner
   - pinocchio
   - plotjuggler
   - plotjuggler-ros
   - plotjuggler_msgs
   - point_cloud_transport_plugins
-  - point_cloud_transport_py
   - pointcloud-to-laserscan
-  - polygon_utils
-  - py_trees_js
-  - py_trees_ros_tutorials
-  - radar_msgs
   - random_numbers
-  - rclc
-  - rclc_lifecycle
-  - rclc_parameter
   - rclcpp
-  - rclcpp_cascade_lifecycle
   - rclpy
   - rclpy_cascade_lifecycle
   - rcpputils
@@ -210,27 +175,17 @@ packages_select_by_deps:
   - rosidl_buffer_backend
   - rosidl_buffer_backend_registry
   - rosidl_buffer_py
-  - rosidl_generator_dds_idl
   - rosidl_runtime_c
   - rosidl_runtime_cpp
   - rosidl_typesupport_introspection_c
   - rosidl_typesupport_introspection_cpp
   - rplidar_ros
   - rqt
-  - rqt_controller_manager
   - rqt_gui
-  - rqt_moveit
-  - rqt_robot_dashboard
-  - rqt_robot_monitor
-  - rqt_robot_steering
-  - rqt_runtime_monitor
-  - rtabmap
   - rtcm_msgs
   - rtest
   - rviz2
-  - rviz_2d_overlay_msgs
   - teleop
-  - teleop_tools
   - toppra
   - tracetools
   - tracetools_launch
@@ -241,26 +196,21 @@ packages_select_by_deps:
   - ur_client_library
   - ur_simulation_gz
   - urdf_launch
-  - urdf_tutorial
   - yaml_cpp_vendor
 
   # Packages only built on Linux: hardware-specific deps (libcamera/v4l/socketcan), or previously failed on macOS/Windows.
   - if: linux
     then:
-      - apriltag_ros  # Depends on camera_ros
       - avt_vimba_camera
       - camera_ros  # Depends on libcamera that is only available on linux
       - libcamera
-      - livox_ros_driver2
       - mavros  # libmavconn currently fails to build on macOS and windows
       - mujoco_ros2_control
       - mujoco_ros2_control_demos
       - nobleo_socketcan_bridge  # Depends on socketcan
       - py_binding_tools
-      - ros2_socketcan  # Depends on socketcan
       - rviz_satellite
       - sdl2_vendor
-      - septentrio_gnss_driver
       - serial_driver
       - sick_safetyscanners2
       - sick_safetyscanners2_interfaces
@@ -268,10 +218,7 @@ packages_select_by_deps:
       - slider_publisher
       - swri_console  # Until sync of: https://github.com/ros/rosdistro/pull/49750
       - swri_serial_util  # Serial communication only implemented for linux
-      - usb_cam  # Depends on v4l
-      - v4l2_camera  # Depends on v4l that is only available on linux
 
-  # These packages are currently not built on Windows, but they may be with some work. Keep this comment here -- vinca-sort-vinca-lists pools then-items across adjacent if-blocks not separated by a comment.
   - if: not win
     then:
       - ament_cmake
@@ -282,19 +229,9 @@ packages_select_by_deps:
       - apriltag_detector_umich
       - apriltag_draw
       - apriltag_tools
-      - automatika_embodied_agents
       - automatika_ros_sugar
-      - autoware_core
-      - autoware_core_control  # depends on autoware_motion_utils
-      - autoware_core_localization  # depends on autoware_ekf_localizer
-      - autoware_ekf_localizer  # Windows error: error C2338: static_assert failed: 'First argument to logging macros must be an rclcpp::Logger'
       - autoware_internal_localization_msgs
       - autoware_lanlet2_utils  # Windows errors: C3546 (no parameter packs to expand), C2678 (no operator '|' for transform_view)
-      - autoware_motion_utils  # Windows error: error C2765: 'function': an explicit specialization of a function template cannot have any default arguments
-      - autoware_osqp_interface
-      - autoware_pose_initializer  # depends on autoware_motion_utils
-      - autoware_qp_interface
-      - autoware_trajectory  # depends on autoware_motion_utils
       - bno055
       - cartographer_ros
       - cascade_lifecycle_msgs
@@ -304,11 +241,8 @@ packages_select_by_deps:
       - demo_nodes_cpp
       - demo_nodes_py
       - diff_drive_controller
-      - dual-laser-merger
       - event_camera_codecs
       - event_camera_renderer
-      - ffmpeg_image_transport  # TODO on windows: fix iconv link issue
-      - foxglove_compressed_video_transport
       - geodesy
       - geographic_info
       - geometry_tutorials
@@ -333,7 +267,6 @@ packages_select_by_deps:
       - rslidar_sdk  # rs_driver's Windows socket code has multiple pre-existing min/max-macro and getsockopt/setsockopt type bugs; not pursuing further
       - rviz_2d_overlay_plugins
       - sick_safetyscanners_base
-      - spacenav
       - system_modes
       - system_modes_msgs
       - tf_transformations
@@ -349,11 +282,8 @@ packages_select_by_deps:
       - ur_calibration
       - ur_robot_driver
       - urg_node
-      - velodyne
       - vision_msgs
-      - vision_msgs_rviz_plugins
       - visp
-      - web_video_server
       - yasmin
       - yasmin_cli
       - yasmin_demos
@@ -363,9 +293,7 @@ packages_select_by_deps:
       - yasmin_pcl
       - yasmin_plugins_manager
       - yasmin_ros
-      - zed_msgs  # jazzy builds this on osx; was needlessly linux-only here
 
-  # webots_ros2 is linux-only (excluding aarch64). Keep this comment here -- vinca-sort-vinca-lists pools then-items across adjacent if-blocks not separated by a comment.
   - if: linux and not aarch64
     then:
       - webots_ros2

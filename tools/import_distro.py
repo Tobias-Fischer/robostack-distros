@@ -10,8 +10,10 @@ distros/<distro>/ and leaves out what shared/ already provides:
                            keys this repository derives (conda_index, patch_dir,
                            snapshot paths, skip_existing); comments are kept
 - pkg_additional_info.yaml, patch/dependencies.yaml
-                           without entries identical to shared/ (build numbers stay)
-- patch/, rosdistro_snapshot.yaml, rosdistro_additional_recipes.yaml   as they are
+                           without entries identical to shared/ (build numbers stay);
+                           ros-<distro>-<pkg> dependency names become ros2-<pkg>
+- patch/                   patches renamed to ros2-<pkg>[.<platform>].patch
+- rosdistro_snapshot.yaml, rosdistro_additional_recipes.yaml   as they are
 - distro.yaml              channel and upload target (from its pixi.toml), its
                            conda-forge pinning version, migrations and the pins that
                            differ from shared/pinning/overrides.yaml (vinca_pinning.yaml)
@@ -113,6 +115,8 @@ def import_distro(src: Source, distro: str | None) -> str:
     # as they are (patch/dependencies.yaml is filtered below)
     shutil.rmtree(dest / "patch", ignore_errors=True)
     src.copy_dir("patch", dest)
+    for patch in (dest / "patch").glob(f"ros-{distro}-*.patch"):
+        patch.rename(patch.with_name("ros2-" + patch.name.removeprefix(f"ros-{distro}-")))
     for name in ("rosdistro_snapshot.yaml", "rosdistro_additional_recipes.yaml"):
         if (text := src.text(name)) is not None:
             (dest / name).write_text(text)
@@ -125,6 +129,7 @@ def import_distro(src: Source, distro: str | None) -> str:
         text = src.text(name)
         if text is None:
             continue
+        text = re.sub(rf"\bros-{distro}-(?=[a-z0-9])", "ros2-", text)
         data = ry.load(text) or {}
         common = yaml.safe_load((rs.SHARED / shared_file).read_text()) or {}
         for key in list(data):

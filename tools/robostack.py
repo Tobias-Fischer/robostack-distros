@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -154,6 +155,20 @@ def dump_yaml(data: dict, path: Path, source: str) -> None:
     path.write_text(header + yaml.safe_dump(data, sort_keys=False, width=1000))
 
 
+def _constraint_name(spec: str) -> str:
+    return re.split(r"[\s=<>!~]", str(spec).strip(), maxsplit=1)[0]
+
+
+def merge_mutex(shared: dict, own: dict) -> dict:
+    """mutex_package: the distribution's keys win; its run_constraints replace the
+    shared constraint on the same package and add the others."""
+    merged = {**shared, **own}
+    mine = list(own.get("run_constraints") or [])
+    names = {_constraint_name(c) for c in mine}
+    merged["run_constraints"] = [c for c in shared.get("run_constraints") or [] if _constraint_name(c) not in names] + mine
+    return merged
+
+
 def merge_vinca(shared: dict, own: dict) -> dict:
     merged = dict(shared)
     for key, value in own.items():
@@ -165,6 +180,8 @@ def merge_vinca(shared: dict, own: dict) -> dict:
                     seen.add(marker)
                     items.append(item)
             merged[key] = items
+        elif key == "mutex_package" and isinstance(shared.get(key), dict):
+            merged[key] = merge_mutex(shared[key], value or {})
         else:
             merged[key] = value
     return merged

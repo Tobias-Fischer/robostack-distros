@@ -10,8 +10,8 @@ script, so temporary rebuild controls live in ci.yaml instead of in the
       - roboplan*               # or a glob
 
 Each evict_cache entry matches both package name prefixes (``ros2-`` and
-``ros-<distro>-``), so the same entry works with ``package_name_mode: both``, and
-the plain name (packages that vinca built under a conda-forge name).
+``ros-<distro>-``, for builds made before ``package_name_mode: new``) and the plain
+name (packages that vinca built under a conda-forge name).
 """
 
 import argparse

@@ -33,17 +33,11 @@ packages_remove_from_deps:
 
 packages_select_by_deps:
   - ament_cmake_clang_tidy
-  - autoware_adapi_v1_msgs
-  - autoware_adapi_version_msgs
-  - autoware_auto_msgs
   - autoware_internal_debug_msgs
   - autoware_internal_metric_msgs
   - autoware_internal_perception_msgs
   - autoware_internal_planning_msgs
-  - autoware_lanelet2_extension
-  - autoware_lanelet2_extension_python
   - autoware_lint_common
-  - autoware_msgs
   - autoware_utils_debug
   - autoware_utils_diagnostics
   - autoware_utils_geometry
@@ -57,7 +51,6 @@ packages_select_by_deps:
   - autoware_utils_visualization
   - battery_state_broadcaster
   - better_launch
-  - bond_core
   - bondcpp
   - cm_executors
   - dev_tools
@@ -72,25 +65,40 @@ packages_select_by_deps:
   - gz_ros2_control
   - imu_complementary_filter
   - imu_tools
-  - joy_teleop
-  - key_teleop
-  - librealsense2
-  - mouse_teleop
+  - joy_linux
+  - kinematics_interface
+  - kinematics_interface_kdl
+  - libg2o
+  - mavlink
+  - mavros
+  - mavros_extras
+  - microstrain_inertial_description
+  - microstrain_inertial_driver
+  - microstrain_inertial_examples
+  - microstrain_inertial_msgs
+  - microstrain_inertial_rqt
+  - motion_capture_tracking
   - moveit-ros-trajectory-cache
   - moveit-task-constructor-demo
+  - moveit_resources
   - nav2_bringup
   - nav2_loopback_sim
   - nav2_minimal_tb3_sim
   - nav2_minimal_tb4_sim
-  - nmea-navsat-driver
+  - nmea_msgs
   - nonpersistent_voxel_layer
-  - persist-parameter-server
-  - pick_ik
-  - point_cloud_transport_py
-  - py_trees_ros_tutorials
+  - ntrip_client
+  - pal_statistics
+  - pilz_industrial_motion_planner
+  - plotjuggler
+  - plotjuggler_msgs
+  - random_numbers
   - rclcpp_async
+  - rclpy_cascade_lifecycle
   - rclpy_message_converter
   - rclpy_message_converter_msgs
+  - realtime_tools
+  - rmw_stats_shim
   - roboplan  # Requested in https://github.com/RoboStack/ros-jazzy/issues/250
   - roboplan_cartesian_planning
   - roboplan_common
@@ -108,29 +116,34 @@ packages_select_by_deps:
   - roboplan_toppra
   - robot
   - robot-localization
+  - robotiq_controllers
+  - robotiq_description
+  - ros2_control_cmake
+  - ros2_easy_test
   - ros_gz
+  - ros_gz_interfaces
+  - rosbag2_performance_benchmarking
+  - rosbag2_storage_mcap
+  - rosgraph_monitor_msgs
   - rosidl_buffer
   - rosidl_buffer_backend
   - rosidl_buffer_backend_registry
   - rosidl_buffer_py
-  - rosidl_generator_dds_idl
-  - rqt_robot_monitor
-  - rqt_runtime_monitor
-  - rtabmap
+  - rtcm_msgs
   - rtest
   - teleop
-  - teleop-tools
   - toppra
+  - turtlebot3_gazebo
   - turtlebot3_simulations
   - twist_stamper  # Requested in https://github.com/RoboStack/ros-rolling/issues/12
   - ublox
   - ur_client_library
   - ur_simulation_gz
-  - urdf_tutorial
+  - urdf_launch
 
-  # These packages are only built on Linux as they depend on Linux-specific API
   - if: linux
     then:
+      - can_dbc_parser
       - libcamera
       - mujoco_ros2_control  # Isaac ROS deploy / Unitree G1 simulation
       - nobleo_socketcan_bridge  # Depends on socketcan
@@ -140,27 +153,31 @@ packages_select_by_deps:
 
   # These packages are currently only build on Linux,
   # as trying to build them in the past on macos or Windows resulted in errors
-  - if: linux
-    then:
-      - apriltag_ros  # Depends on camera_ros
-      - camera_ros  # Depends on libcamera that is only available on linux
+      - apriltag_ros
+      - avt_vimba_camera
+      - camera_ros
       - livox_ros_driver2
-      - mavros
       - py_binding_tools
       - realsense2_camera
       - realsense2_description
       - rmf_demos
-      - rosidlcpp  # 'from_chars' is unavailable
-      - swri_serial_util  # Serial communication only implemented for linux
-      - v4l2_camera  # Depends on v4l that is only available on linux
-
-  # These packages are currently not build on Windows, but they be with some work
+      - rosidlcpp
+      - sdl2_vendor
+      - sick_safetyscanners2
+      - sick_safetyscanners2_interfaces
+      - simulation_interfaces
+      - slider_publisher
+      - swri_serial_util
+      - v4l2_camera
   - if: not win
     then:
+      - apex_test_tools
+      - apriltag
       - apriltag_detector_mit
       - apriltag_detector_umich
       - apriltag_draw
       - apriltag_tools
+      - automatika_ros_sugar
       - autoware_core
       - autoware_core_control  # depends on autoware_motion_utils
       - autoware_core_localization  # depends on autoware_ekf_localizer
@@ -172,12 +189,31 @@ packages_select_by_deps:
       - autoware_pose_initializer  # depends on autoware_motion_utils
       - autoware_qp_interface
       - autoware_trajectory  # depends on autoware_motion_utils
+      - bno055
+      - cartographer_ros
+      - cascade_lifecycle_msgs
       - cloudini_lib
       - cloudini_ros
+      - color_util
+      - control_msgs
+      - control_toolbox
+      - demo_nodes_cpp
+      - demo_nodes_py
+      - diff_drive_controller
       - dual-laser-merger
+      - event_camera_codecs
+      - event_camera_renderer
       - ffmpeg_image_transport  # TODO on windows: fix iconv link issue
       - foxglove_compressed_video_transport
+      - geodesy
+      - geographic_info
+      - geometry_tutorials
+      - graph_msgs
       - grid_map_rviz_plugin  # rviz linking problems on Windows, see https://github.com/RoboStack/ros-jazzy/pull/79#issuecomment-2993499990
+      - imu_transformer
+      - io_context
+      - joint_state_publisher
+      - joy
       - laser-segmentation
       - mobile_robot_simulator
       - mocap4r2_control
@@ -199,16 +235,40 @@ packages_select_by_deps:
       - plotjuggler-ros
       - point_cloud_transport_plugins  # Not yet supported on Windows
       - pointcloud-to-laserscan
+      - rclc_examples  # MSVC C2055 on rcl_timer_t in callback signatures; root cause unresolved, already excluded on humble too
       - rplidar_ros
+      - rqt_action
+      - rqt_bag
+      - rqt_image_view
+      - rqt_joint_trajectory_controller
       - rqt_mocap4r2_control
+      - rqt_publisher
+      - rqt_reconfigure
       - rqt_tf_tree
       - rslidar_sdk
+      - rviz_2d_overlay_plugins
       - rviz_satellite
       - serial_driver
+      - sick_safetyscanners_base
       - sick_scan_xd
       - swri_console  # Until sync of: https://github.com/ros/rosdistro/pull/49750
+      - system_modes
+      - system_modes_msgs
+      - tf_transformations
+      - topic_tools
       - trac_ik
+      - turtle_tf2_cpp
+      - turtle_tf2_py
+      - ublox_dgnss
+      - ublox_dgnss_node
+      - ublox_ubx_interfaces
+      - udp_driver
+      - ur_calibration
+      - ur_robot_driver
+      - urg_node
       - velodyne
+      - vision_msgs
+      - visp
       - yasmin
       - yasmin_cli
       - yasmin_demos
@@ -219,4 +279,8 @@ packages_select_by_deps:
       - yasmin_plugins_manager
       - yasmin_ros
       - yasmin_viewer
+
+  - if: linux and not aarch64
+    then:
+      - webots_ros2
 

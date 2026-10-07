@@ -34,7 +34,7 @@ body:
       label: Distributions
       description: "`all`: every distribution (for add-package: every one that has the package). Ignored by update-conda-forge-pinning."
       multiple: true
-      options: [all, rolling, lyrical, kilted, jazzy, humble]
+      options: [all, rolling, lyrical, jazzy, humble]
       default: 0
     validations:
       required: true

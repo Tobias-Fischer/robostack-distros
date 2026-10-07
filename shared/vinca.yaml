@@ -1,8 +1,25 @@
 # vinca settings shared by every distribution; distros/<d>/vinca.yaml adds its own
 # (lists are combined, other keys from the distribution win). See tools/robostack.py.
-package_name_mode: both
+package_name_mode: new
+
+# The distro mutex: every distribution sets its own version; its run_constraints
+# replace the shared constraint on the same package and add others.
+mutex_package:
+  name: "ros2-distro-mutex"
+  upper_bound: "x.x"
+  run_constraints:
+    - libboost 1.90.*
+    - libboost-devel 1.90.*
+    - pcl 1.15.1.*
+    - gazebo 11.*
+    - libprotobuf 7.35.1.*
+    - vtk 9.7.0.*
+
+# pixi used by the generated build workflows; keep in sync with .github/workflows.
+setup_pixi_version: "0.10.2"
+pixi_version: "0.75.0"
 # Mapped to conda-forge in shared/robostack.yaml (tl_expected -> cpp-expected,
-# sophus -> sophus). Where they are also ROS packages (humble, jazzy, kilted), vinca
+# sophus -> sophus). Where they are also ROS packages (humble, jazzy), vinca
 # would otherwise build the ROS package under the conda-forge name, which shadows the
 # conda-forge package (e.g. no tl-expected CMake config for rsl).
 packages_skip_by_deps:
@@ -17,6 +34,9 @@ packages_select_by_deps:
   - ament_cmake_mypy
   - apriltag_detector
   - asio_cmake_module
+  - autoware_adapi_v1_msgs
+  - autoware_adapi_version_msgs
+  - autoware_auto_msgs
   - autoware_cmake
   - autoware_common_msgs
   - autoware_component_interface_specs
@@ -26,8 +46,11 @@ packages_select_by_deps:
   - autoware_internal_msgs
   - autoware_interpolation
   - autoware_kalman_filter
+  - autoware_lanelet2_extension
+  - autoware_lanelet2_extension_python
   - autoware_localization_msgs
   - autoware_map_msgs
+  - autoware_msgs
   - autoware_node
   - autoware_object_recognition_utils
   - autoware_perception_msgs
@@ -41,6 +64,7 @@ packages_select_by_deps:
   - autoware_vehicle_info_utils
   - autoware_vehicle_msgs
   - behaviortree_cpp
+  - bond_core
   - can_msgs
   - data_tamer_cpp
   - desktop
@@ -50,8 +74,12 @@ packages_select_by_deps:
   - foxglove_msgs
   - gripper_controllers
   - gz_ros2_control_demos
+  - joy_teleop
+  - key_teleop
   - lanelet2
+  - librealsense2
   - magic_enum
+  - mouse_teleop
   - moveit
   - moveit_chomp_optimizer_adapter
   - moveit_planners_chomp
@@ -59,12 +87,17 @@ packages_select_by_deps:
   - moveit_servo
   - moveit_visual_tools
   - navigation2
+  - nmea_navsat_driver
   - perception
+  - persist_parameter_server
+  - pick_ik
+  - point_cloud_transport_py
   - polygon_msgs
   - proxsuite
   - py_trees
   - py_trees_ros
   - py_trees_ros_interfaces
+  - py_trees_ros_tutorials
   - py_trees_ros_viewer
   - rmw_zenoh_cpp
   - ros2_control
@@ -75,11 +108,63 @@ packages_select_by_deps:
   - ros_environment
   - ros_workspace
   - rosbridge_suite
+  - rosidl_generator_dds_idl
+  - rqt_robot_monitor
+  - rqt_runtime_monitor
+  - rtabmap
   - rviz_visual_tools
   - sbg_driver
   - simulation
   - slam_toolbox
+  - teleop_tools
   - turtlebot3
   - twist_mux
   - ur
+  - urdf_tutorial
+
+  - if: linux
+    then:
+      - apriltag_ros
+      - livox_ros_driver2
+      - ros2_socketcan
+      - septentrio_gnss_driver
+      - usb_cam
+      - v4l2_camera
+
+  - if: not win
+    then:
+      - automatika_embodied_agents
+      - autoware_core
+      - autoware_core_control
+      - autoware_core_localization
+      - autoware_ekf_localizer
+      - autoware_motion_utils
+      - autoware_osqp_interface
+      - autoware_pose_initializer
+      - autoware_qp_interface
+      - autoware_trajectory
+      - dual_laser_merger
+      - ffmpeg_image_transport
+      - foxglove_compressed_video_transport
+      - spacenav
+      - velodyne
+      - vision_msgs_rviz_plugins
+      - web_video_server
+      - zed_msgs
+  - irobot_create_msgs
+  - marker_msgs
+  - mavros_msgs
+  - picknik_ament_copyright
+  - polygon_utils
+  - py_trees_js
+  - radar_msgs
+  - rclc
+  - rclc_lifecycle
+  - rclc_parameter
+  - rclcpp_cascade_lifecycle
+  - rqt_controller_manager
+  - rqt_moveit
+  - rqt_robot_dashboard
+  - rqt_robot_steering
+  - rviz_2d_overlay_msgs
 

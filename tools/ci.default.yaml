@@ -14,7 +14,7 @@ full_rebuild: false
 # still holds the old build, so the fix would never be built in this PR.
 #
 # Entries are ROS package names (underscores or dashes) or globs; both package
-# name prefixes (ros2-<pkg> and ros-<distro>-<pkg>) are matched, e.g.
+# name prefixes (ros2-<pkg>, and ros-<distro>-<pkg> of older builds) are matched, e.g.
 #
 # evict_cache:
 #   - rosidl_generator_py     # one package: ros2-rosidl-generator-py-*.conda

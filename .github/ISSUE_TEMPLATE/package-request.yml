@@ -22,7 +22,7 @@ body:
       label: Distributions
       description: "`all`: every distribution (that has the package). Select one or more."
       multiple: true
-      options: [all, rolling, lyrical, kilted, jazzy, humble]
+      options: [all, rolling, lyrical, jazzy, humble]
       default: 0
     validations:
       required: true

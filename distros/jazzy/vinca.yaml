@@ -1,20 +1,12 @@
 ros_distro: jazzy
 
-pixi_version: 0.78.0
-setup_pixi_version: 0.10.2
 
 # mapping for package keys
 build_number: 25
 
 mutex_package:
-  name: "ros2-distro-mutex"
   version: "0.19.0"
-  upper_bound: "x.x"
   run_constraints:
-    - libboost 1.90.*
-    - libboost-devel 1.90.*
-    - pcl 1.15.1.*
-    - gazebo 11.*
     - libprotobuf 7.35.*
     # ffmpeg (pulled in transitively by libopencv, needed by the whole image/gz
     # stack) only supports libprotobuf 7.35 via libopenvino-tensorflow-frontend
@@ -26,7 +18,6 @@ mutex_package:
     - libopenvino-tensorflow-frontend >=2026.3.0
     - libopencv >=5.0.0
     - py-opencv >=5.0.0
-    - vtk 9.7.0.*
     # Belt-and-suspenders for the same conflict: ffmpeg 8.1.2 builds that pull
     # in the protobuf-6-only openvino also coexist in the channel. Pinning
     # ffmpeg directly to major version 9 removes the ambiguity outright.
@@ -65,17 +56,10 @@ packages_select_by_deps:
   - apriltag_draw
   - apriltag_tools
   - automatika_ros_sugar
-  - autoware_adapi_v1_msgs
-  - autoware_adapi_version_msgs
-  - autoware_auto_msgs
-  - autoware_lanelet2_extension
-  - autoware_lanelet2_extension_python
-  - autoware_msgs
   - aws_robomaker_small_warehouse_world
   - battery_state_broadcaster
   - behaviortree_cpp_v3
   - bno055
-  - bond_core
   - cascade-lifecycle-msgs
   - cl_ros2_timer
   - clearpath_common
@@ -97,43 +81,23 @@ packages_select_by_deps:
   - irobot_create_gz_plugins
   - irobot_create_gz_sim
   - irobot_create_gz_toolbox
-  - irobot_create_msgs
   - irobot_create_nodes
   - irobot_create_toolbox
-  - joy_teleop
-  - key_teleop
   - libnabo
   - libpointmatcher
-  - librealsense2
-  - marker_msgs
-  - mavros_msgs
   - mocap4r2_msgs
-  - mouse_teleop
   - moveit-ros-trajectory-cache
   - mujoco_ros2_control_msgs
   - mujoco_vendor
   - nav2_bringup
   - nav2_loopback_sim
   - negotiated  # Generic dependency used by Isaac ROS without Jazzy rosdistro releases.
-  - nmea-navsat-driver
   - ntrip_client
   - open3d_conversions
   - ouster_ros
-  - persist_parameter_server
-  - pick_ik
-  - picknik_ament_copyright
-  - point_cloud_transport_py
   - pointcloud_to_laserscan
-  - polygon_utils
   - ptz_action_server_msgs
   - py_binding_tools
-  - py_trees_js
-  - py_trees_ros_tutorials
-  - radar_msgs
-  - rclc
-  - rclc_lifecycle
-  - rclc_parameter
-  - rclcpp-cascade-lifecycle
   - rclpy-cascade-lifecycle
   - rclpy_message_converter
   - rclpy_message_converter_msgs
@@ -156,17 +120,8 @@ packages_select_by_deps:
   - robot_controllers
   - robotiq_controllers
   - ros_gz
-  - rosidl_generator_dds_idl
   - rqt
-  - rqt_controller_manager
-  - rqt_moveit
-  - rqt_robot_dashboard
-  - rqt_robot_monitor
-  - rqt_robot_steering
-  - rqt_runtime_monitor
-  - rtabmap
   - rtest
-  - rviz_2d_overlay_msgs
   - sick_safetyscanners_base
   - sick_scan_xd
   - simulation_interfaces
@@ -174,7 +129,6 @@ packages_select_by_deps:
   - stubborn_buddies
   - system_modes
   - teleop
-  - teleop_tools
   - topic_based_ros2_control  # Generic dependency used by Isaac ROS without Jazzy rosdistro releases.
   - toppra
   - tracetools
@@ -195,7 +149,6 @@ packages_select_by_deps:
   - turtlebot4_viz
   - ublox
   - ur_simulation_gz
-  - urdf_tutorial
   - urg_node
   - vector_pursuit_controller
   - velodyne_simulator
@@ -204,7 +157,6 @@ packages_select_by_deps:
   # Packages only built on Linux (hardware-specific deps or Linux-only APIs; a few were previously attempted on macOS/Windows and failed there).
   - if: linux
     then:
-      - apriltag_ros  # Depends (indirectly) on libcamera
       - easynav
       - easynav_bonxai_maps_manager
       - easynav_common
@@ -239,7 +191,6 @@ packages_select_by_deps:
       - easynav_tools
       - easynav_vff_controller
       - io_context
-      - livox_ros_driver2
       - mavros_extras      # on macos it fails with https://github.com/RoboStack/ros-jazzy/pull/135#issuecomment-3772187665
       - mujoco_ros2_control  # Use readlink and access at runtime linux-specific file
       - mujoco_ros2_control_demos  # Use readlink and access at runtime linux-specific file
@@ -284,8 +235,6 @@ packages_select_by_deps:
       - ros2_medkit_serialization
       - ros2_medkit_sovd_service_interface
       - ros2_medkit_topic_beacon
-      - ros2_socketcan  # Depends on socketcan
-      - septentrio_gnss_driver
       - serial_driver      # Serial communication only implemented for linux
       - smacc2
       - spatio_temporal_voxel_layer      # Uses linux-specific flags in  https://github.com/SteveMacenski/spatio_temporal_voxel_layer/blob/e23d730d35407bd8e2bf9c33d10388a6a07c735d/spatio_temporal_voxel_layer/CMakeLists.txt#L124,
@@ -297,33 +246,17 @@ packages_select_by_deps:
       - turtlebot4_setup
       - turtlebot4_tests
       - udp_driver      # Serial communication only implemented for linux
-      - usb_cam  # Depends on v4l
-      - v4l2_camera  # Depends on v4l that is only available on linux
 
-  # These packages are currently not build on Windows, but they be with some work
   - if: not win
     then:
       # Parity sweep with ros-humble (2026-09-04): "not wasm32 and not win" there collapses to "not win" (jazzy has no wasm32 platform).
       - as2_cli
       - as2_msgs
-      - automatika_embodied_agents  # generated rosidl_typesupport_fastrtps_c fails to link on win-64 (unresolved externals), same as humble
-      - autoware_core
-      - autoware_core_control
-      - autoware_core_localization
-      - autoware_ekf_localizer
       - autoware_lanelet2_utils
-      - autoware_motion_utils
-      - autoware_osqp_interface
-      - autoware_pose_initializer
-      - autoware_qp_interface
-      - autoware_trajectory
       - bonxai_ros
       - cloudini-lib
       - cloudini-ros
       - diagnostic-remote-logging
-      - dual-laser-merger
-      - ffmpeg_image_transport      # TODO on windows: fix iconv link issue
-      - foxglove_compressed_video_transport
       - grid_map      # see https://github.com/RoboStack/ros-jazzy/pull/79#issuecomment-2993499990
       - gtsam      # todo: switch to dummy vendored package that just depends on the conda-forge's gtsam, so it works also on Windows
       - iiwa14_moveit_config
@@ -382,12 +315,8 @@ packages_select_by_deps:
       - rqt_tf_tree
       - rviz_2d_overlay_plugins
       - rviz_satellite
-      - spacenav
       - swri_console  # Until sync of: https://github.com/ros/rosdistro/pull/49750
       - trac_ik
-      - velodyne
-      - vision_msgs_rviz_plugins
-      - web_video_server      # error C2338: static_assert failed: 'the Header struct is not properly packed' error on Windows
       - yasmin
       - yasmin_cli
       - yasmin_demos
@@ -398,5 +327,4 @@ packages_select_by_deps:
       - yasmin_plugins_manager
       - yasmin_ros
       - yasmin_viewer
-      - zed_msgs
 

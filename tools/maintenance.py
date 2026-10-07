@@ -91,7 +91,9 @@ def _ruamel():
 
 def sync_mutex_constraints(distro: str) -> list[str]:
     """Move `<pkg> <version>.*` run_constraints of the mutex to the rendered pin of
-    the same package in conda_build_config.yaml. Other constraints stay as they are."""
+    the same package in conda_build_config.yaml; a shared constraint that no longer
+    matches gets an override in the distribution's vinca.yaml. Other constraints stay
+    as they are."""
     path = rs.DISTROS / distro / "vinca.yaml"
     pins = yaml.safe_load((rs.DISTROS / distro / "conda_build_config.yaml").read_text()) or {}
     changes: list[str] = []
@@ -113,7 +115,28 @@ def sync_mutex_constraints(distro: str) -> list[str]:
     if sep:
         block = re.match(r"(?:[ \t]*(?:-.*|#.*)?\n)*", rest).group(0)
         block_new = re.sub(r"(?m)^([ \t]*-[ \t]+)([A-Za-z0-9_.-]+) ([0-9][0-9.]*)\.\*[ \t]*$", repl, block)
-        path.write_text(head + sep + block_new + rest[len(block):])
+        text = head + sep + block_new + rest[len(block):]
+
+    # constraints from shared/vinca.yaml that the distribution doesn't override:
+    # an outdated one gets an override in the distribution's file
+    own = (yaml.safe_load(text).get("mutex_package") or {}).get("run_constraints") or []
+    own_names = {rs._constraint_name(c) for c in own}
+    shared = (rs.load_yaml(rs.SHARED / "vinca.yaml").get("mutex_package") or {}).get("run_constraints") or []
+    overrides = []
+    for constraint in shared:
+        m = re.fullmatch(r"([A-Za-z0-9_.-]+) ([0-9][0-9.]*)\.\*", str(constraint).strip())
+        if not m or m.group(1) in own_names:
+            continue
+        line = repl(re.match(r"()(.*) (.*)", f"{m.group(1)} {m.group(2)}"))
+        if line != f"{m.group(1)} {m.group(2)}":
+            overrides.append(line)
+    if overrides:
+        lines = "".join(f"    - {o}\n" for o in overrides)
+        if sep:
+            text = re.sub(r"(?m)^(  run_constraints:\n)", lambda mm: mm.group(1) + lines, text, count=1)
+        else:
+            text = re.sub(r"(?m)^(mutex_package:\n(?:[ \t]+.*\n)*)", lambda mm: mm.group(1) + "  run_constraints:\n" + lines, text, count=1)
+    path.write_text(text)
     return changes
 
 
@@ -617,10 +640,8 @@ def check() -> Result:
             if not vinca.get(key):
                 problems.append(f"{distro}: vinca.yaml has no {key}")
         for patch in (d / "patch").glob("*.patch"):
-            if not re.match(rf"^(ros-{distro}-|ros2-)?[a-z0-9-]+(\.(osx|linux|win|unix|emscripten))?\.patch$", patch.name):
-                problems.append(f"{distro}: unexpected patch name {patch.name}")
-            elif patch.name.startswith("ros-") and not patch.name.startswith(f"ros-{distro}-"):
-                problems.append(f"{distro}: patch {patch.name} names another distribution")
+            if not re.match(r"^ros2-[a-z0-9-]+(\.(osx|linux|win|unix|emscripten))?\.patch$", patch.name):
+                problems.append(f"{distro}: patch {patch.name} should be named ros2-<package>[.<platform>].patch")
         rendered = d / "conda_build_config.yaml"
         before = rendered.read_text() if rendered.is_file() else ""
         if rs.task(distro, "render-pinning", []) or rendered.read_text() != before:

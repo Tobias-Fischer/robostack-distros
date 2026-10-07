@@ -38,7 +38,9 @@ to read without Claude):
 - A package that only works on some platforms goes behind a platform condition in
   `vinca.yaml` (see `robostack-package-selection`), not an ad-hoc comment.
 - One patch per package and platform:
-  `distros/<d>/patch/ros-<d>-<pkg>[.osx|.linux|.win|.unix].patch`.
+  `distros/<d>/patch/ros2-<pkg>[.osx|.linux|.win|.unix].patch`. Packages are only built
+  under the new `ros2-<pkg>` names (`package_name_mode: new`); write dependencies in
+  `dependencies.yaml` as `ros2-<pkg>` too.
 
 ## Everyday commands
 

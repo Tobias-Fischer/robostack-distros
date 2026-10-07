@@ -8,9 +8,12 @@ the [RoboStack documentation](https://robostack.github.io/GettingStarted.html).
 |---|---|
 | rolling | [robostack-rolling](https://prefix.dev/channels/robostack-rolling) |
 | lyrical | [robostack-lyrical](https://prefix.dev/channels/robostack-lyrical) |
-| kilted | [robostack-kilted](https://anaconda.org/robostack-kilted) |
 | jazzy | [robostack-jazzy](https://anaconda.org/robostack-jazzy) |
 | humble | [robostack-staging](https://anaconda.org/robostack-staging) |
+
+Packages are named `ros2-<package>`, e.g. `ros2-desktop` or `ros2-rclcpp`; the
+distribution comes from the channel. The older `ros-<distro>-<package>` names are no
+longer built.
 
 **A package is missing?** Open a *Package request* issue. robostack-bot opens a pull
 request that adds it to the build, and a maintainer reviews it.
@@ -66,7 +69,8 @@ pixi.toml                  one environment for all distributions (one vinca, one
 
 - **`vinca.yaml`:**
   - The package lists (`packages_select_by_deps`, `packages_skip_by_deps`, `packages_remove_from_deps`) are `shared/` plus the distribution's.
-  - Other keys come from the distribution if it sets them, else from `shared/`. A distribution that differs from a shared setting just sets it, like kilted's `package_name_mode: legacy`.
+  - `mutex_package`: name, `upper_bound` and the common `run_constraints` are shared. Each distribution sets its own `version`, and its `run_constraints` replace the shared constraint on the same package (e.g. jazzy's `libprotobuf 7.35.*`) or add new ones.
+  - Other keys come from the distribution if it sets them, else from `shared/`. A distribution that differs from a shared setting just sets it.
   - `skip_existing`, `conda_index`, `patch_dir` and the snapshot paths are filled in automatically.
 - **`pkg_additional_info.yaml` and `patch/dependencies.yaml`:** merged per package. The distribution's keys win, for example its own `build_number` on top of a shared `additional_cmake_args`.
 - **`tests/`:** the shared tests, with `*.jinja` files rendered for the distribution.
