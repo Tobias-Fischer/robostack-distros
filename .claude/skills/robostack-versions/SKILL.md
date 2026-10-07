@@ -5,7 +5,7 @@ description: Update ROS package versions (rosdistro snapshot) and conda-forge pi
 
 # Versions, pins and rebuilds
 
-robostack-bot does the routine part: `update-rosdistro-snapshot` and
+robostack-bot does the routine part: `update-rosdistro-snapshot` (on request) and
 `update-conda-forge-pinning` (weekly, or on request) open PRs that already contain the
 bumps below. Do it by hand when the bot fails or something extra is needed.
 
@@ -59,12 +59,11 @@ https://conda-forge.org/status/.
 
 When the snapshot or the pins change, everything is rebuilt:
 
-1. `build_number` + 1 in `distros/<d>/vinca.yaml`.
+1. `build_number` in `distros/<d>/vinca.yaml` = the highest build number of the
+   distribution's released packages + 1, so every package gets a new build.
 2. Mutex minor version + 1, e.g. `0.10.0` -> `0.11.0`. Nothing else hard-codes the
    mutex version.
-3. Remove per-package `build_number` entries in `distros/<d>/pkg_additional_info.yaml`
-   that are <= the new global number; they would pin the old builds. Keep higher ones
-   only if intentional.
+3. Remove all per-package `build_number` entries in `distros/<d>/pkg_additional_info.yaml`.
 4. Update mutex `run_constraints` to the new pins, then run `check-deps`.
 5. `pixi run rs check`.
 

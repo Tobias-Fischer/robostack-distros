@@ -81,7 +81,8 @@ cuda_compiler:
 cuda_compiler_version:
   - None
   - 12.9                         # [((linux and (x86_64 or aarch64)) or win64) and os.environ.get("CF_CUDA_ENABLED", "False") == "True"]
-  # cartographer was built with lua 5.4.8, otherwise it pulls in 5.5 which leads to conflicts
+  # pyqt-builder 1.20 defaults to sip ABI 12.20 / 13.13, which needs sip >=6.16
+  # (python_qt_binding / qt_gui_cpp keep sip <6.16); 1.18 targets 12.15 / 13.8.
 cuda_compiler_version_min:
   - None                       # [not ((linux and (x86_64 or aarch64)) or win64)]
   - 12.9                       # [((linux and (x86_64 or aarch64)) or win64)]
@@ -1182,6 +1183,9 @@ zlib_ng:
   - '2.3'
 zstd:
   - '1.5'
+pyqt_builder:
+  - 1.18
+  # cartographer was built with lua 5.4.8, otherwise it pulls in 5.5 which leads to conflicts
 lua:
   - 5.4
   # conda-forge's newest pyqt6 (6.11.0) still requires qt6-main <6.12, so

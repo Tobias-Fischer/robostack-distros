@@ -116,12 +116,46 @@ def sync_mutex_constraints(distro: str) -> list[str]:
     return changes
 
 
+REPODATA_SUBDIRS = ("noarch", "linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64")
+
+
+def released_build_number(distro: str) -> int | None:
+    """Highest build number of the distribution's packages on its channel (the mutex
+    aside), or None when the channel can't be read."""
+    import urllib.error
+    import urllib.request
+
+    s = rs.settings(distro)
+    name = s.get("channel_name", f"robostack-{distro}")
+    base = f"https://repo.prefix.dev/{name}" if s.get("upload_target", "prefix") == "prefix" else rs.channel_url(distro)
+    mutex = (yaml.safe_load((rs.DISTROS / distro / "vinca.yaml").read_text()).get("mutex_package") or {}).get("name")
+    prefixes = (f"ros-{distro}-", "ros2-")
+    highest, read = None, False
+    for subdir in REPODATA_SUBDIRS:
+        try:
+            request = urllib.request.Request(f"{base}/{subdir}/repodata.json", headers={"User-Agent": "robostack-bot"})
+            with urllib.request.urlopen(request, timeout=300) as response:
+                data = json.load(response)
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                continue
+            raise
+        read = True
+        for record in [*data.get("packages", {}).values(), *data.get("packages.conda", {}).values()]:
+            if record["name"].startswith(prefixes) and record["name"] != mutex:
+                highest = max(highest or 0, int(record.get("build_number", 0)))
+    return highest if read else None
+
+
 def bump_rebuild(distro: str) -> list[str]:
-    """Rebuild everything: build_number + 1, mutex minor + 1, and drop per-package
-    build numbers that the new one catches up with (they would keep the old builds)."""
+    """Rebuild everything: build_number = highest released build number + 1 (so every
+    package gets a new build, whatever the current value), mutex minor + 1, and no
+    per-package build numbers."""
     path = rs.DISTROS / distro / "vinca.yaml"
     text = path.read_text()
-    number = int(re.search(r"(?m)^build_number:\s*(\d+)", text).group(1)) + 1
+    current = int(re.search(r"(?m)^build_number:\s*(\d+)", text).group(1))
+    released = released_build_number(distro)
+    number = current + 1 if released is None else released + 1
     text = re.sub(r"(?m)^(build_number:\s*)\d+", rf"\g<1>{number}", text, count=1)
     m = re.search(r"(?m)^mutex_package:\n(?:[ \t]+.*\n|\n)*?[ \t]+version:[ \t]*[\"']?(\d+)\.(\d+)\.(\d+)", text)
     if not m:
@@ -130,7 +164,8 @@ def bump_rebuild(distro: str) -> list[str]:
     new_mutex = f"{m.group(1)}.{int(m.group(2)) + 1}.0"
     text = text[:m.start(1)] + new_mutex + text[m.end(3):]
     path.write_text(text)
-    lines = [f"`build_number` {number - 1} → {number}, mutex {old_mutex} → {new_mutex} (rebuilds every package)"]
+    source = "channel unreadable, current + 1" if released is None else f"highest released build {released} + 1"
+    lines = [f"`build_number` {current} → {number} ({source}), mutex {old_mutex} → {new_mutex} (rebuilds every package)"]
 
     info = rs.DISTROS / distro / "pkg_additional_info.yaml"
     if info.is_file():
@@ -139,7 +174,7 @@ def bump_rebuild(distro: str) -> list[str]:
         dropped = []
         for pkg in list(data):
             entry = data[pkg]
-            if isinstance(entry, dict) and isinstance(entry.get("build_number"), int) and entry["build_number"] <= number:
+            if isinstance(entry, dict) and "build_number" in entry:
                 dropped.append(f"`{pkg}` ({entry['build_number']})")
                 del entry["build_number"]
                 if not entry:
@@ -147,7 +182,7 @@ def bump_rebuild(distro: str) -> list[str]:
         if dropped:
             with info.open("w") as fh:
                 ry.dump(data, fh)
-            lines.append("dropped per-package build numbers now covered by the new one: " + ", ".join(dropped))
+            lines.append(f"removed {len(dropped)} per-package build numbers: " + ", ".join(dropped))
     return lines
 
 

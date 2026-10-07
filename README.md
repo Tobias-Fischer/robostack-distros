@@ -119,7 +119,7 @@ of a distribution uses `full_rebuild: true` there. A new build number goes into 
 | command | who | what it does |
 |---|---|---|
 | `add-package <pkg>... [<distro>...]` | anyone | Adds ROS packages to the selection of the given (default: every) distribution that has them, in sorted position, in `shared/vinca.yaml` if that's all of them. Opens a PR listing what will be built on linux-64 (and what is already published as a dependency). Valid ROS package names only, at most 10 per request. |
-| `update-rosdistro-snapshot [<distro>... \| all]` | maintainers | `create-snapshot`, then bumps `build_number` and the mutex minor version (full rebuild) and drops per-package build numbers the new one catches up with. The PR lists the version bumps. Runs weekly for every distribution. |
+| `update-rosdistro-snapshot [<distro>... \| all]` | maintainers | `create-snapshot`, then sets `build_number` to the highest build of the distribution's released packages + 1, bumps the mutex minor version and removes all per-package build numbers: a full rebuild. The PR lists the version bumps. On request only. |
 | `find-stale-packages [<distro>... \| all]` | maintainers | Published packages built against pins that no longer match, with the build-number snippet to rebuild them. Replies only. |
 | `update-conda-forge-pinning` | maintainers | Moves `shared/pinning/conda_forge.yaml` to the latest conda-forge pinning (migrations selected for the dependencies of all distributions) and re-renders the distributions that follow it. Those whose pins changed get the same build number and mutex bump, and their mutex `run_constraints` of the form `<pkg> <version>.*` follow the new pins. Runs weekly. |
 
