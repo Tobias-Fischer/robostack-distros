@@ -119,7 +119,6 @@ packages_select_by_deps:
   - diagnostic_remote_logging
   - diagnostics
   - diff_drive_controller
-  - dynmsg # uses dlopen()/dlfcn.h (POSIX-only) and fails to find yaml-cpp/yaml.h on win-64
   - flex_sync
   - foxglove_bridge # win: backport jazzy's win.patch; osx: unsupported arm64-Darwin platform
   - foxglove_msgs

@@ -88,7 +88,6 @@ packages_skip:
   - if: win
     then:
       - diagnostic_remote_logging
-      - dynmsg
       - kinematics_interface
       - kinematics_interface_kdl
       - laser_segmentation
