@@ -169,7 +169,44 @@ def merge_mutex(shared: dict, own: dict) -> dict:
     return merged
 
 
+def _deselect(items: list, deselect: list) -> list:
+    """Drop packages from a package list: a plain name everywhere, a name in an
+    `if: <condition>` block only where the condition holds."""
+    everywhere = {n.replace("-", "_") for n in deselect if isinstance(n, str)}
+    conditional: dict[str, list[str]] = {}
+    for block in deselect:
+        if isinstance(block, dict):
+            for name in block.get("then") or []:
+                conditional.setdefault(name.replace("-", "_"), []).append(str(block["if"]))
+    result = []
+
+    def keep(name: str, condition: str | None) -> None:
+        key = name.replace("-", "_")
+        if key in everywhere:
+            return
+        if key in conditional:
+            excluded = " or ".join(f"({c})" for c in conditional[key])
+            condition = f"({condition}) and not ({excluded})" if condition else f"not ({excluded})"
+        if condition:
+            result.append({"if": condition, "then": [name]})
+        else:
+            result.append(name)
+
+    for item in items:
+        if isinstance(item, str):
+            keep(item, None)
+        else:
+            for name in item.get("then") or []:
+                keep(name, str(item["if"]))
+            for name in item.get("else") or []:
+                keep(name, f"not ({item['if']})")
+    return result
+
+
 def merge_vinca(shared: dict, own: dict) -> dict:
+    """shared/vinca.yaml + distros/<d>/vinca.yaml: package lists are combined (a
+    distribution's `packages_deselect` drops shared selections), mutex_package is
+    merged by merge_mutex, other keys of the distribution win."""
     merged = dict(shared)
     for key, value in own.items():
         if key in LIST_KEYS:
@@ -182,8 +219,10 @@ def merge_vinca(shared: dict, own: dict) -> dict:
             merged[key] = items
         elif key == "mutex_package" and isinstance(shared.get(key), dict):
             merged[key] = merge_mutex(shared[key], value or {})
-        else:
+        elif key != "packages_deselect":
             merged[key] = value
+    if own.get("packages_deselect"):
+        merged["packages_select_by_deps"] = _deselect(merged.get("packages_select_by_deps") or [], own["packages_deselect"])
     return merged
 
 

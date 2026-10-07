@@ -68,7 +68,8 @@ pixi.toml                  one environment for all distributions (one vinca, one
 `pixi run rs <distro> <task>` first assembles `distros/<distro>/work/`:
 
 - **`vinca.yaml`:**
-  - The package lists (`packages_select_by_deps`, `packages_skip_by_deps`, `packages_remove_from_deps`) are `shared/` plus the distribution's.
+  - The package selection lives in `shared/` for every distribution; vinca skips packages a distribution's rosdistro doesn't have. A distribution only lists its exceptions: `packages_deselect` drops shared selections (a name everywhere, or under `- if: <condition>` on those platforms).
+  - The other package lists (`packages_skip_by_deps`, `packages_remove_from_deps`) are `shared/` plus the distribution's.
   - `mutex_package`: name, `upper_bound` and the common `run_constraints` are shared. Each distribution sets its own `version`, and its `run_constraints` replace the shared constraint on the same package (e.g. jazzy's `libprotobuf 7.35.*`) or add new ones.
   - Other keys come from the distribution if it sets them, else from `shared/`. A distribution that differs from a shared setting just sets it.
   - `skip_existing`, `conda_index`, `patch_dir` and the snapshot paths are filled in automatically.

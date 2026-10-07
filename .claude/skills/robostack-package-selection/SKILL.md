@@ -6,9 +6,19 @@ description: Add, exclude or restrict ROS packages in RoboStack vinca.yaml files
 # Package selection (vinca.yaml)
 
 `distros/<d>/work/vinca.yaml` is assembled from `shared/vinca.yaml` plus
-`distros/<d>/vinca.yaml`. The three package lists are concatenated; for other keys
-the distribution wins. A package selected for every distribution goes into
-`shared/vinca.yaml`.
+`distros/<d>/vinca.yaml`:
+
+- **All package selections are in `shared/vinca.yaml`** (`packages_select_by_deps`),
+  with the broadest platform condition that works. vinca skips a selected package that
+  a distribution's rosdistro doesn't have ("not in available packages anymore"), so
+  a package only some distributions have is still selected in `shared/`.
+- **A distribution lists only exceptions**, in `packages_deselect`: a plain name drops
+  the shared selection everywhere, a name under `- if: <condition>` / `then:` drops it
+  on those platforms only (e.g. a package that fails on Windows in humble only).
+  Deselecting doesn't stop the package from being pulled in as a dependency; add it to
+  `packages_skip_by_deps` too for that.
+- `packages_skip_by_deps` / `packages_remove_from_deps` are concatenated from both
+  files; for other keys the distribution wins.
 
 ## Add packages
 
