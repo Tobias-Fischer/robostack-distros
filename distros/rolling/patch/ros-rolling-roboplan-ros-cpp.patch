@@ -1,0 +1,20 @@
+diff --git a/bindings/CMakeLists.txt b/bindings/CMakeLists.txt
+index 3ee1b20..a73f4b9 100644
+--- a/bindings/CMakeLists.txt
++++ b/bindings/CMakeLists.txt
+@@ -11,7 +11,14 @@ find_package(rosidl_generator_cpp REQUIRED)
+ # Rely on tl_expected if found, else look at the roboplan alias.
+ find_package(tl_expected QUIET)
+ if (NOT tl_expected_FOUND)
+-  add_library(tl_expected::tl_expected ALIAS roboplan::tl_expected)
++  if(TARGET roboplan::tl_expected)
++    add_library(tl_expected::tl_expected ALIAS roboplan::tl_expected)
++  else()
++    # roboplan_core built against the system tl-expected (e.g. conda-forge's
++    # cpp-expected) has no roboplan::tl_expected target
++    find_package(tl-expected REQUIRED)
++    add_library(tl_expected::tl_expected ALIAS tl::expected)
++  endif()
+ endif()
+ 
+ # Detect the installed nanobind package and import it into CMake
