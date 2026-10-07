@@ -1,7 +1,8 @@
 """Maintenance commands (used by robostack-bot, .github/workflows/bot.yml).
 
     pixi run rs check                                 # sanity checks of the whole repository
-    pixi run rs <distro> update-snapshot              # refresh rosdistro_snapshot.yaml, summarise bumps
+    pixi run rs <distro> update-snapshot              # snapshot the latest rosdistro sync, summarise bumps
+    pixi run rs rosdistro-syncs                       # bot jobs for distributions with a new sync
     pixi run rs <distro> find-stale                   # published packages built against outdated pins
     pixi run rs update-pinning                        # move shared/pinning/conda_forge.yaml forward
     pixi run rs new-distro NAME --from DISTRO         # add distros/NAME, seeded from DISTRO
@@ -186,17 +187,115 @@ def bump_rebuild(distro: str) -> list[str]:
     return lines
 
 
+SYNC_TAG = re.compile(r"^(?P<distro>[a-z]+)/(?P<date>\d{4}-\d{2}-\d{2})$")
+ROSDISTRO = "https://github.com/ros/rosdistro"
+
+
+def latest_sync(distro: str) -> str | None:
+    """Newest sync tag of the distribution in ros/rosdistro, e.g. jazzy/2026-10-05.
+    The ROS release team tags every sync from ros-testing to the main repositories."""
+    import urllib.request
+
+    headers = {"User-Agent": "robostack-bot", "Accept": "application/vnd.github+json"}
+    if token := os.environ.get("GITHUB_TOKEN"):
+        headers["Authorization"] = f"Bearer {token}"
+    url = f"https://api.github.com/repos/ros/rosdistro/git/matching-refs/tags/{distro}/"
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=60) as response:
+        refs = json.load(response)
+    tags = [r["ref"].removeprefix("refs/tags/") for r in refs]
+    tags = [t for t in tags if (m := SYNC_TAG.match(t)) and m["distro"] == distro]
+    return max(tags, key=lambda t: t.split("/")[1], default=None)
+
+
+def _announcement(distro: str, date: str) -> str:
+    """Link to the Discourse announcement of a sync ("New Packages for Jazzy Jalisco
+    2026-10-05"), or to a search for it."""
+    import urllib.parse
+    import urllib.request
+
+    search = f"https://discourse.openrobotics.org/search?q={urllib.parse.quote(f'{distro} {date} in:title')}"
+    try:
+        request = urllib.request.Request(search.replace("/search?", "/search.json?"), headers={"User-Agent": "robostack-bot"})
+        with urllib.request.urlopen(request, timeout=30) as response:
+            topics = json.load(response).get("topics", [])
+    except Exception:
+        return search
+    for topic in topics:
+        if re.match(r"(?i)new packages", topic.get("title", "")) and date in topic["title"]:
+            return f"https://discourse.openrobotics.org/t/{topic['slug']}/{topic['id']}"
+    return search
+
+
+def _set_setting(distro: str, key: str, value: str) -> None:
+    """Set a top-level scalar in distros/<d>/distro.yaml, keeping the rest as is."""
+    path = rs.DISTROS / distro / "distro.yaml"
+    text = path.read_text()
+    line = f"{key}: {value}"
+    if re.search(rf"(?m)^{key}:.*$", text):
+        text = re.sub(rf"(?m)^{key}:.*$", line, text, count=1)
+    else:
+        text = text.rstrip("\n") + "\n" + line + "\n"
+    path.write_text(text)
+
+
+def _pending_sync(distro: str) -> str | None:
+    """The sync recorded on an open bot PR for the distribution, if any."""
+    branch = f"bot/update-rosdistro-snapshot-{distro}"
+    fetch = subprocess.run(["git", "fetch", "-q", "--depth=1", "origin", branch], cwd=rs.ROOT, capture_output=True)
+    if fetch.returncode:
+        return None
+    show = subprocess.run(["git", "show", f"FETCH_HEAD:distros/{distro}/distro.yaml"], cwd=rs.ROOT,
+                          capture_output=True, text=True)
+    return (yaml.safe_load(show.stdout) or {}).get("rosdistro_sync") if show.returncode == 0 else None
+
+
+def rosdistro_syncs() -> list[dict]:
+    """Bot jobs for the distributions with a rosdistro sync newer than the one they
+    (or their open snapshot PR) are on. Distributions with `rosdistro_sync: manual`
+    are left out."""
+    jobs = []
+    for distro in rs.distros():
+        recorded = rs.settings(distro).get("rosdistro_sync")
+        if recorded == "manual":
+            continue
+        latest = latest_sync(distro)
+        known = [t for t in (recorded, _pending_sync(distro)) if t]
+        if latest and all(latest.split("/")[1] > t.split("/")[1] for t in known):
+            print(f"{distro}: new rosdistro sync {latest} (on {recorded or 'none'})", file=sys.stderr)
+            jobs.append({"command": "update-rosdistro-snapshot", "distro": distro, "args": "", "preview": False})
+        else:
+            print(f"{distro}: on the latest sync {latest}", file=sys.stderr)
+    return jobs
+
+
 def update_snapshot(distro: str) -> Result:
+    """Snapshot the distribution's latest rosdistro sync (rosdistro master with
+    `rosdistro_sync: manual`), then bump for a full rebuild."""
     snapshot = rs.DISTROS / distro / "rosdistro_snapshot.yaml"
+    recorded = rs.settings(distro).get("rosdistro_sync")
+    ref = None if recorded == "manual" else latest_sync(distro)
     old = _versions(snapshot)
-    if rs.task(distro, "create-snapshot", []):
+    if rs.task(distro, "create-snapshot", ["--rosdistro-ref", ref] if ref else []):
         return Result(f"{distro}: snapshot update failed", "`vinca-snapshot` failed, see the log.", ok=False)
     new = _versions(snapshot)
+    if ref:
+        _set_setting(distro, "rosdistro_sync", ref)
+        date = ref.split("/")[1]
+        source = [
+            f"rosdistro sync [`{ref}`]({ROSDISTRO}/tree/{ref})"
+            + (f" ([changes since `{recorded}`]({ROSDISTRO}/compare/{recorded}...{ref}))" if recorded else "")
+            + f", [announcement]({_announcement(distro, date)}).",
+            "",
+        ]
+        title = f"{distro}: rosdistro sync {date}"
+    else:
+        source, title = ["rosdistro master (this distribution doesn't follow syncs).", ""], f"{distro}: update rosdistro snapshot"
     if old == new:
-        return Result(f"{distro}: snapshot is up to date", "No package versions changed.")
+        return Result(f"{distro}: snapshot is up to date", "\n".join(source) + "No package versions changed.",
+                      changed=bool(ref and ref != recorded))
     bump = bump_rebuild(distro)
-    return Result(f"{distro}: update rosdistro snapshot",
-                  snapshot_changes(old, new) + "\n\n" + "\n".join(f"- {l}" for l in bump), changed=True)
+    return Result(title, "\n".join(source) + snapshot_changes(old, new) + "\n\n" + "\n".join(f"- {l}" for l in bump),
+                  changed=True)
 
 
 def find_stale(distro: str) -> Result:
@@ -496,7 +595,8 @@ def _form_fields(body: str) -> dict[str, str]:
 def check() -> Result:
     """Sanity checks: every distribution assembles and its generated files are consistent."""
     problems: list[str] = []
-    known = {"channel_name", "upload_target", "conda_forge_pinning_version", "conda_forge_migrations", "pinning_overrides"}
+    known = {"channel_name", "upload_target", "conda_forge_pinning_version", "conda_forge_migrations", "pinning_overrides",
+             "rosdistro_sync"}
     for distro in rs.distros():
         d = rs.DISTROS / distro
         settings = rs.settings(distro)
@@ -504,6 +604,9 @@ def check() -> Result:
             problems.append(f"{distro}: unknown keys in distro.yaml: {sorted(unknown)}")
         if settings.get("upload_target", "prefix") not in ("prefix", "anaconda"):
             problems.append(f"{distro}: upload_target must be prefix or anaconda")
+        sync = settings.get("rosdistro_sync")
+        if sync is not None and sync != "manual" and not ((m := SYNC_TAG.match(str(sync))) and m["distro"] == distro):
+            problems.append(f"{distro}: rosdistro_sync must be 'manual' or a sync tag like {distro}/2026-10-05")
         if bool(settings.get("conda_forge_pinning_version")) != bool(settings.get("conda_forge_migrations")):
             problems.append(f"{distro}: set conda_forge_pinning_version and conda_forge_migrations together")
         w = rs.prepare(distro)
@@ -569,6 +672,9 @@ def main(command: str, argv: list[str], distro: str | None = None) -> int:
         return report(add_package(packages, distros, preview=args.preview), args.summary)
     if command == "check":
         return report(check(), args.summary)
+    if command == "rosdistro-syncs":
+        print(json.dumps(rosdistro_syncs()))
+        return 0
     if command == "update-pinning":
         return report(update_pinning(), args.summary)
     if command == "new-distro":

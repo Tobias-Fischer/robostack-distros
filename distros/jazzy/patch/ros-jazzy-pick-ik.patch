@@ -1,0 +1,57 @@
+Use conda-forge's tl-expected (cpp-expected): tl_expected is mapped to it.
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index e0c448b..e4dbba0 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -17,7 +17,7 @@ find_package(rclcpp REQUIRED)
+ find_package(rsl REQUIRED)
+ find_package(tf2_geometry_msgs REQUIRED)
+ find_package(tf2_kdl REQUIRED)
+-find_package(tl_expected REQUIRED)
++find_package(tl-expected REQUIRED)
+ 
+ generate_parameter_library(
+   pick_ik_parameters
+@@ -41,7 +41,7 @@ target_link_libraries(pick_ik_plugin
+     moveit_core::moveit_robot_model
+     tf2_geometry_msgs::tf2_geometry_msgs
+     tf2_kdl::tf2_kdl
+-    tl_expected::tl_expected
++    tl::expected
+     rsl::rsl
+   PRIVATE
+     fmt::fmt
+@@ -84,6 +84,6 @@ ament_export_dependencies(
+   rsl
+   tf2_geometry_msgs
+   tf2_kdl
+-  tl_expected
++  tl-expected
+ )
+ ament_package()
+diff --git a/include/pick_ik/robot.hpp b/include/pick_ik/robot.hpp
+index 5c92c5e..d34511c 100644
+--- a/include/pick_ik/robot.hpp
++++ b/include/pick_ik/robot.hpp
+@@ -1,6 +1,6 @@
+ #pragma once
+ 
+-#include <tl_expected/expected.hpp>
++#include <tl/expected.hpp>
+ 
+ #include <Eigen/Geometry>
+ #include <moveit/robot_model/joint_model.h>
+diff --git a/src/robot.cpp b/src/robot.cpp
+index 7581746..437921b 100644
+--- a/src/robot.cpp
++++ b/src/robot.cpp
+@@ -3,7 +3,7 @@
+ #include <rsl/random.hpp>
+ #include <tf2_eigen/tf2_eigen.hpp>
+ #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+-#include <tl_expected/expected.hpp>
++#include <tl/expected.hpp>
+ 
+ #include <Eigen/Geometry>
+ #include <cfloat>

@@ -5,7 +5,8 @@ description: Update ROS package versions (rosdistro snapshot) and conda-forge pi
 
 # Versions, pins and rebuilds
 
-robostack-bot does the routine part: `update-rosdistro-snapshot` (on request) and
+robostack-bot does the routine part: `update-rosdistro-snapshot` (daily, when a new
+rosdistro sync is tagged) and
 `update-conda-forge-pinning` (weekly, or on request) open PRs that already contain the
 bumps below. Do it by hand when the bot fails or something extra is needed.
 
@@ -30,12 +31,21 @@ bumps below. Do it by hand when the bot fails or something extra is needed.
 ## Update the snapshot
 
 ```bash
-pixi run rs <d> update-snapshot     # = bot command; summary of the version bumps
-# or only the file:
+pixi run rs rosdistro-syncs         # which distributions have a new sync (what the bot checks daily)
+pixi run rs <d> update-snapshot     # = bot command: latest sync, version bumps, rebuild bump
+# or only the file, for a given sync tag (any ros/rosdistro ref) or rosdistro master:
+pixi run rs <d> create-snapshot --rosdistro-ref <d>/2026-10-05
 pixi run rs <d> create-snapshot
 ```
 
-`update-snapshot` also performs the rebuild bump (next section).
+- The ROS release team tags every sync from ros-testing to the main repositories in
+  ros/rosdistro (`<distro>/<YYYY-MM-DD>`, announced on Discourse as "New Packages for
+  ..."). Snapshotting the tag ships what users get from the official repositories;
+  rosdistro master also contains releases that are still only in ros-testing.
+- `distros/<d>/distro.yaml` records the sync as `rosdistro_sync`. `rosdistro_sync:
+  manual` (rolling, which isn't tagged regularly) uses rosdistro master instead and
+  isn't checked daily.
+- `update-snapshot` also performs the rebuild bump (next section).
 
 ## Update the conda-forge pinning
 

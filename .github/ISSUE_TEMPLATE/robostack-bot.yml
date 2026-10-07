@@ -12,7 +12,7 @@ body:
         | command | who | what it does |
         |---|---|---|
         | `add-package` | anyone | Add ROS packages to the package selection of the chosen distributions that have them; the PR lists what will be built. A maintainer reviews and merges it. |
-        | `update-rosdistro-snapshot` | maintainers | Refresh `rosdistro_snapshot.yaml` to the latest rosdistro release and bump the build number (highest released + 1, per-package build numbers removed) and mutex: a full rebuild. The PR lists the version bumps. |
+        | `update-rosdistro-snapshot` | maintainers | Refresh `rosdistro_snapshot.yaml` to the latest rosdistro sync (master for rolling) and bump the build number (highest released + 1, per-package build numbers removed) and mutex: a full rebuild. The PR lists the version bumps. Runs daily when a new sync is tagged. |
         | `find-stale-packages` | maintainers | List published packages built against pins that no longer match, with the build-number snippet to rebuild them. Replies only. |
         | `update-conda-forge-pinning` | maintainers | Move the shared conda-forge pinning to the latest version; re-renders `conda_build_config.yaml` and bumps the build number and mutex of the distributions whose pins changed. Runs weekly. |
   - type: dropdown

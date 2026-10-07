@@ -1,7 +1,8 @@
 # robostack-bot: routine maintenance (see tools/maintenance.py).
 #
-# - weekly: the shared conda-forge pinning (one PR). Snapshot updates are on request
-#   only: each one rebuilds the whole distribution.
+# - daily: a snapshot PR for every distribution with a new rosdistro sync (the ROS
+#   release team tags each sync, e.g. jazzy/2026-10-05; `rosdistro_sync: manual` in
+#   distro.yaml opts out, like rolling); Mondays also the shared conda-forge pinning.
 # - on demand (owners, members and collaborators):
 #     Actions > robostack-bot > Run workflow, an issue from the "robostack-bot command"
 #     template, or a comment: @robostack-bot <command> [<distro>]
@@ -17,7 +18,7 @@ name: robostack-bot
 
 on:
   schedule:
-    - cron: "17 3 * * 1"
+    - cron: "17 3 * * *"
   workflow_dispatch:
     inputs:
       command:
@@ -57,6 +58,7 @@ jobs:
           pixi-version: v0.75.0
       - id: plan
         env:
+          GITHUB_TOKEN: ${{ github.token }}  # GitHub API: ros/rosdistro sync tags
           EVENT: ${{ github.event_name }}
           COMMAND: ${{ inputs.command }}
           DISTRO: ${{ inputs.distro }}
@@ -66,7 +68,10 @@ jobs:
         run: |
           case "$EVENT" in
             schedule)
-              jobs='[{"command":"update-conda-forge-pinning","distro":"","args":"","preview":false}]' ;;
+              jobs=$(pixi run -q rs rosdistro-syncs)
+              if [ "$(date -u +%u)" = 1 ]; then
+                jobs=$(echo "$jobs" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin) + [{"command":"update-conda-forge-pinning","distro":"","args":"","preview":False}]))')
+              fi ;;
             workflow_dispatch)  # only people with write access can dispatch
               jobs=$(pixi run -q rs parse-command --body "@robostack-bot $COMMAND $PACKAGES $DISTRO" --association OWNER) ;;
             *)
