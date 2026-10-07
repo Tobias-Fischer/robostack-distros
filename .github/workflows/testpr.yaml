@@ -151,7 +151,11 @@ jobs:
 
     - name: See packages restored by cache
       shell: bash -l {0}
-      run: ls -la "$CACHE_DIR" || true
+      run: |
+        shopt -s nullglob
+        packages=("$CACHE_DIR"/*.conda)
+        echo "${#packages[@]} packages restored from the cache"
+        for package in "${packages[@]}"; do basename "$package"; done
 
     - name: Build recipes
       id: build-recipes
