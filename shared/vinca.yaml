@@ -383,7 +383,6 @@ packages_select_by_deps:
   - vector_pursuit_controller
   - velodyne_simulator # Dataspeed Inc.
   - vision_msgs
-  - visp
   - yaml_cpp_vendor
   - zed_description # Requested in https://github.com/RoboStack/ros-humble/issues/421
 
@@ -571,6 +570,7 @@ packages_select_by_deps:
       - ublox_ubx_interfaces
       - velodyne
       - vision_msgs_rviz_plugins
+      - visp # zbar has no Windows build on conda-forge
       - web_video_server
       - yasmin
       - yasmin_cli
