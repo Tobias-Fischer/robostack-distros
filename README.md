@@ -50,7 +50,7 @@ shared/                    the same for every distribution
   vinca.yaml               settings and packages selected in every distribution
   pkg_additional_info.yaml per-package settings that are the same everywhere
   dependencies.yaml        dependency fixes that are the same everywhere
-  robostack.yaml, packages_ignore.yaml   rosdep key -> conda package mapping
+  robostack.yaml           rosdep key -> conda package mapping (`robostack: []` drops a key)
   pinning/                 conda-forge pinning version, migrations and overrides
   tests/                   package tests (ros2-<pkg>.yaml; *.jinja for distro-specific bits)
 tools/robostack.py         `pixi run rs ...`: every task, for one distribution or the repository
