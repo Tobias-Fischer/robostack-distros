@@ -1,4 +1,8 @@
+extends: ../../shared/vinca.yaml
 ros_distro: rolling
+patch_dir: patch
+rosdistro_snapshot: rosdistro_snapshot.yaml
+rosdistro_additional_recipes: rosdistro_additional_recipes.yaml
 
 build_number: 29
 

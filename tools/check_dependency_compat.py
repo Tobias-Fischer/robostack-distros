@@ -434,13 +434,21 @@ class Solver:
         return candidates
 
 
+def load_vinca(path: Path, platform: str | None = None) -> dict[str, Any]:
+    """vinca.yaml as vinca reads it (configurations it extends included)."""
+    from vinca.configuration import read_vinca_yaml
+    from vinca.platforms import get_conda_subdir
+
+    return read_vinca_yaml(path, platform or get_conda_subdir())
+
+
 def solve_mode(args: argparse.Namespace) -> int:
     recipes_dir = Path(args.recipes_dir)
     if not any(recipes_dir.glob("*/recipe.yaml")):
         raise SystemExit(
             f"No recipes found in {recipes_dir}; run `pixi run generate-recipes` first."
         )
-    vinca_conf = load_yaml(Path(args.vinca))
+    vinca_conf = load_vinca(Path(args.vinca), getattr(args, "platform", None))
     pins = mutex_constraints(vinca_conf) + list(args.pin)
     variant = variant_pins(Path(args.variant_config), args.platform)
     requirements = collect_requirements(recipes_dir)
@@ -864,7 +872,7 @@ def ros_name_map(vinca_conf: dict[str, Any]) -> dict[str, str]:
 
 
 def stale_mode(args: argparse.Namespace) -> int:
-    vinca_conf = load_yaml(Path(args.vinca))
+    vinca_conf = load_vinca(Path(args.vinca), getattr(args, "platform", None))
     distro = vinca_conf.get("ros_distro", "")
     prefix = f"ros-{distro}-"
     pins: dict[str, str] = {}

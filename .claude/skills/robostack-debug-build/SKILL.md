@@ -66,7 +66,7 @@ bash -x conda_build.sh 2>&1 | less
 - **gtest / test failures**: add the missing dependency in `dependencies.yaml`, or
   disable the tests when safe; no custom shims.
 - **Qt plugins (rviz, rtabmap)**: make sure CMake finds the intended Qt major version.
-- **Missing dependency**: `shared/dependencies.yaml` (all distributions) or
+- **Missing dependency**: `shared/patch/dependencies.yaml` (all distributions) or
   `distros/<d>/patch/dependencies.yaml` (one), keyed by ROS package name:
   ```yaml
   <ros_pkg>:

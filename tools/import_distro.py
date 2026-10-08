@@ -6,9 +6,9 @@ Used to move a distribution into this repository, and to pick up changes made in
 its old repository until it is archived. It copies the distribution's data into
 distros/<distro>/ and leaves out what shared/ already provides:
 
-- vinca.yaml               without the packages selected in shared/vinca.yaml and the
-                           keys this repository derives (conda_index, patch_dir,
-                           snapshot paths, skip_existing); comments are kept
+- vinca.yaml               extending shared/vinca.yaml, without its package selections,
+                           with this repository's paths (patch_dir, snapshot paths;
+                           skip_existing is derived); comments are kept
 - pkg_additional_info.yaml, patch/dependencies.yaml
                            without entries identical to shared/ (build numbers stay);
                            ros-<distro>-<pkg> dependency names become ros2-<pkg>
@@ -135,11 +135,21 @@ def import_distro(src: Source, distro: str | None) -> str:
     shared = yaml.safe_load((rs.SHARED / "vinca.yaml").read_text()) or {}
     for key in DERIVED_KEYS:
         vinca.pop(key, None)
+    # on top of shared/vinca.yaml, with its own patches and snapshot
+    for i, (key, value) in enumerate([
+        ("extends", "../../shared/vinca.yaml"),
+        ("ros_distro", vinca.get("ros_distro", distro)),
+        ("patch_dir", "patch"),
+        ("rosdistro_snapshot", "rosdistro_snapshot.yaml"),
+        ("rosdistro_additional_recipes", "rosdistro_additional_recipes.yaml"),
+    ]):
+        vinca.pop(key, None)
+        vinca.insert(i, key, value)
     mode = vinca.get("package_name_mode", "legacy")
     if mode == shared.get("package_name_mode"):
         vinca.pop("package_name_mode", None)
     elif "package_name_mode" not in vinca:
-        vinca.insert(1, "package_name_mode", mode)
+        vinca.insert(5, "package_name_mode", mode)
     _convert_exclusions(vinca)
     for key in rs.LIST_KEYS:
         common = {_key(i) for i in shared.get(key) or []}
@@ -164,7 +174,7 @@ def import_distro(src: Source, distro: str | None) -> str:
     # per-package files: drop entries identical to shared/ (keeping build numbers)
     for name, shared_file, target in (
         ("pkg_additional_info.yaml", "pkg_additional_info.yaml", dest / "pkg_additional_info.yaml"),
-        ("patch/dependencies.yaml", "dependencies.yaml", dest / "patch" / "dependencies.yaml"),
+        ("patch/dependencies.yaml", "patch/dependencies.yaml", dest / "patch" / "dependencies.yaml"),
     ):
         text = src.text(name)
         if text is None:

@@ -152,7 +152,7 @@ def released_build_number(distro: str) -> int | None:
     s = rs.settings(distro)
     name = s.get("channel_name", f"robostack-{distro}")
     base = f"https://repo.prefix.dev/{name}" if s.get("upload_target", "prefix") == "prefix" else rs.channel_url(distro)
-    mutex = (yaml.safe_load((rs.DISTROS / distro / "vinca.yaml").read_text()).get("mutex_package") or {}).get("name")
+    mutex = (rs.read_vinca(distro).get("mutex_package") or {}).get("name")
     prefixes = (f"ros-{distro}-", "ros2-")
     highest, read = None, False
     for subdir in REPODATA_SUBDIRS:
@@ -448,20 +448,14 @@ def _package_name(name: str) -> str:
     return name.replace("-", "_")
 
 
+PLATFORMS = ("linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64")
+
+
 def _selected(distro: str) -> set[str]:
-    """Packages the distribution selects (unconditionally or on some platforms)."""
-    vinca = yaml.safe_load((rs.prepare(distro) / "vinca.yaml").read_text())
+    """Packages the distribution selects (on at least one platform)."""
     names: set[str] = set()
-
-    def walk(items):
-        for item in items or []:
-            if isinstance(item, str):
-                names.add(item.replace("-", "_"))
-            elif isinstance(item, dict):
-                walk(item.get("then"))
-                walk(item.get("else"))
-
-    walk(vinca.get("packages_select_by_deps"))
+    for platform in PLATFORMS:
+        names |= {n.replace("-", "_") for n in rs.read_vinca(distro, platform)["packages_select_by_deps"]}
     return names
 
 
@@ -632,8 +626,11 @@ def check() -> Result:
             problems.append(f"{distro}: rosdistro_sync must be 'manual' or a sync tag like {distro}/2026-10-05")
         if bool(settings.get("conda_forge_pinning_version")) != bool(settings.get("conda_forge_migrations")):
             problems.append(f"{distro}: set conda_forge_pinning_version and conda_forge_migrations together")
-        w = rs.prepare(distro)
-        vinca = yaml.safe_load((w / "vinca.yaml").read_text())
+        try:
+            vinca = rs.read_vinca(distro, "linux-64")
+        except Exception as error:  # noqa: BLE001 - reported as a problem
+            problems.append(f"{distro}: vinca can't read its configuration: {error}")
+            continue
         if vinca.get("ros_distro") != distro:
             problems.append(f"{distro}: vinca.yaml has ros_distro {vinca.get('ros_distro')!r}")
         for key in ("build_number", "mutex_package", "packages_select_by_deps"):

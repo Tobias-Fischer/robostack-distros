@@ -39,20 +39,20 @@ If you use RoboStack in your academic work, please cite:
 ```
 distros/<distro>/          only what is specific to one distribution
   distro.yaml              channel, upload target, conda-forge pinning version/migrations, own pins, rosdistro sync
-  vinca.yaml               ros_distro, build number, mutex, its own package selection
+  vinca.yaml               extends shared/vinca.yaml: ros_distro, build number, mutex version, its exceptions
   pkg_additional_info.yaml its own per-package settings (build numbers, version-specific cmake args)
   patch/                   its patches; patch/dependencies.yaml its own dependency fixes
   rosdistro_snapshot.yaml, rosdistro_additional_recipes.yaml
   ci.yaml                  temporary PR-build controls (full rebuild, cache evictions)
   conda_build_config.yaml  generated: `pixi run rs <distro> render-pinning`
-  work/                    generated, git-ignored: what vinca and rattler-build run on
+  work/                    generated, git-ignored: where vinca and rattler-build run
 shared/                    the same for every distribution
-  vinca.yaml               settings and packages selected in every distribution
+  vinca.yaml               settings and the package selection of every distribution
   pkg_additional_info.yaml per-package settings that are the same everywhere
-  dependencies.yaml        dependency fixes that are the same everywhere
+  patch/dependencies.yaml  dependency fixes that are the same everywhere
   robostack.yaml           rosdep key -> conda package mapping (`robostack: []` drops a key)
   pinning/                 conda-forge pinning version, migrations and overrides
-  tests/                   package tests (ros2-<pkg>.yaml; *.jinja for distro-specific bits)
+  tests/                   package tests (ros2-<pkg>.yaml; `if: ros_distro ...` for distro-specific bits)
 tools/robostack.py         `pixi run rs ...`: every task, for one distribution or the repository
 tools/maintenance.py       checks and robostack-bot commands
 tools/import_distro.py     (re)import a distribution from its own repository
@@ -65,16 +65,17 @@ pixi.toml                  one environment for all distributions (one vinca, one
 
 ### How shared and distribution files combine
 
-`pixi run rs <distro> <task>` first assembles `distros/<distro>/work/`:
+`distros/<distro>/vinca.yaml` starts with `extends: ../../shared/vinca.yaml`; vinca
+combines the two, and the files next to each:
 
 - **`vinca.yaml`:**
   - The package selection (`packages_select_by_deps`) lives in `shared/` for every distribution; vinca skips packages a distribution's rosdistro doesn't have.
   - Exceptions, in `shared/` or a distribution: `packages_exclude` (not built, dropped from other packages' dependencies) and `packages_skip` (not built, dependents keep the dependency), each as plain names or under `- if: <condition>`. ROS packages mapped to conda-forge in `robostack.yaml` are skipped automatically.
   - `mutex_package`: name, `upper_bound` and the common `run_constraints` are shared. Each distribution sets its own `version`, and its `run_constraints` replace the shared constraint on the same package (e.g. jazzy's `libprotobuf 7.35.*`) or add new ones.
   - Other keys come from the distribution if it sets them, else from `shared/`. A distribution that differs from a shared setting just sets it.
-  - `skip_existing`, `conda_index`, `patch_dir` and the snapshot paths are filled in automatically.
+  - Paths are relative to the file that sets them. `distros/<distro>/work/vinca.yaml` (generated) extends the distribution's file and adds `skip_existing` (its channel).
 - **`pkg_additional_info.yaml` and `patch/dependencies.yaml`:** merged per package. The distribution's keys win, for example its own `build_number` on top of a shared `additional_cmake_args`.
-- **`tests/`:** the shared tests, with `*.jinja` files rendered for the distribution.
+- **`patch/*.patch` and `tests/`:** per package, the distribution's file replaces the shared one. In tests, `- if: ros_distro in ["humble", "jazzy"]` blocks select distribution-specific parts.
 - **`vinca_pinning.yaml`:** the shared pinning, adjusted by `distro.yaml`:
   - `conda_forge_pinning_version` and `conda_forge_migrations` keep a distribution on its own conda-forge pinning, for example until its next full rebuild;
   - `pinning_overrides` replace shared pins by name, for example jazzy's Python 3.12.

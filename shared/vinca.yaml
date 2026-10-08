@@ -1,6 +1,10 @@
 # vinca settings shared by every distribution; distros/<d>/vinca.yaml adds its own
 # (lists are combined, other keys from the distribution win). See tools/robostack.py.
 package_name_mode: new
+# relative to this file; each distribution adds its own (see distros/<d>/vinca.yaml)
+conda_index:
+  - robostack.yaml
+patch_dir: patch
 
 # The distro mutex: every distribution sets its own version; its run_constraints
 # replace the shared constraint on the same package and add others.

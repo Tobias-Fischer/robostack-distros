@@ -145,7 +145,7 @@ jobs:
     - name: Apply ci.yaml cache controls
       shell: bash -l {0}
       run: |
-        pixi run python tools/ci_config.py --cache-dir "$CACHE_DIR" --config "distros/$DISTRO/ci.yaml" --vinca "distros/$DISTRO/work/vinca.yaml"
+        pixi run python tools/ci_config.py --cache-dir "$CACHE_DIR" --config "distros/$DISTRO/ci.yaml" --vinca "distros/$DISTRO/vinca.yaml"
         mkdir -p "$CACHE_DIR"
         pixi run rattler-index fs "$CACHE_DIR/.." --force
 
