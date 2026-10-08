@@ -75,6 +75,7 @@ packages_select_by_deps:
   - ros_environment
   - ros_workspace
   - rosbridge_suite
+  - rqt_gauges
   - rviz_visual_tools
   - sbg_driver
   - simulation
