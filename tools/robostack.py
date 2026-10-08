@@ -25,6 +25,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -190,7 +191,15 @@ def upload(distro: str, files: list[str], cwd: Path) -> int:
     else:
         token = os.environ.get("ANACONDA_API_TOKEN", "")
         cmd = ["rattler-build", "upload", "anaconda", "-o", s.get("channel_name", f"robostack-{distro}"), "-a", token, "--force"]
-    return run(cmd + files, cwd)
+    # Sigstore (attestations) and the channels fail now and then; uploads are
+    # idempotent (--skip-existing / --force), so retry.
+    for attempt in range(1, 4):
+        rc = run(cmd + files, cwd)
+        if rc == 0 or attempt == 3:
+            return rc
+        print(f"upload attempt {attempt} failed, retrying in {30 * attempt} s", file=sys.stderr)
+        time.sleep(30 * attempt)
+    return rc
 
 
 def task(distro: str, name: str, args: list[str]) -> int:
