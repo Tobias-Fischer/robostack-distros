@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 9ca7c70..bdc56fb 100644
+index 9ca7c70..fb7d276 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -14,7 +14,7 @@ find_package(rclcpp REQUIRED)
@@ -11,7 +11,7 @@ index 9ca7c70..bdc56fb 100644
  find_package(ros_image_to_qimage REQUIRED)
  find_package(rqt_image_overlay_layer REQUIRED)
  
-@@ -29,27 +29,26 @@ set(SOURCES
+@@ -29,27 +29,31 @@ set(SOURCES
    src/list_image_topics.cpp
    src/color_dialog_delegate.cpp
    src/overlay_manager_view.cpp)
@@ -39,11 +39,16 @@ index 9ca7c70..bdc56fb 100644
 -  ros_image_to_qimage
 -  rqt_image_overlay_layer)
 +# ament_target_dependencies() is gone in this distribution's ament_cmake
-+foreach(_dep rclcpp rqt_gui_cpp image_transport ros_image_to_qimage rqt_image_overlay_layer)
++target_link_libraries(rqt_image_overlay PUBLIC
++  rclcpp::rclcpp
++  rqt_gui_cpp::rqt_gui_cpp
++  image_transport::image_transport
++  Qt6::Widgets)
++# these two export include directories and libraries, but no CMake targets
++foreach(_dep ros_image_to_qimage rqt_image_overlay_layer)
 +  target_include_directories(rqt_image_overlay PUBLIC ${${_dep}_INCLUDE_DIRS})
 +  target_link_libraries(rqt_image_overlay PUBLIC ${${_dep}_LIBRARIES})
 +endforeach()
-+target_link_libraries(rqt_image_overlay PUBLIC Qt6::Widgets)
  
  pluginlib_export_plugin_description_file(rqt_gui plugin.xml)  # This must be rqt_gui and not rqt_gui_cpp
  
