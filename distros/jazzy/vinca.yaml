@@ -4,11 +4,11 @@ pixi_version: 0.78.0
 setup_pixi_version: 0.10.2
 
 # mapping for package keys
-build_number: 25
+build_number: 26
 
 mutex_package:
   name: "ros2-distro-mutex"
-  version: "0.19.0"
+  version: "0.20.0"
   upper_bound: "x.x"
   run_constraints:
     - libboost 1.90.*
