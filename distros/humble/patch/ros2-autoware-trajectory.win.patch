@@ -21,7 +21,7 @@ diff --git a/common/autoware_trajectory/include/autoware/trajectory/utils/veloci
  #include "autoware_internal_planning_msgs/msg/path_point_with_lane_id.hpp"
  #include "autoware_planning_msgs/msg/path_point.hpp"
  #include "autoware_planning_msgs/msg/trajectory_point.hpp"
-@@ -49,9 +47,11 @@ search_zero_velocity_position(
+@@ -49,8 +47,11 @@ search_zero_velocity_position(
    }
  
    // Check pairs of consecutive points
@@ -44,9 +44,9 @@ diff --git a/common/autoware_trajectory/include/autoware/trajectory/utils/shift.
  
 -#include <range/v3/view/zip.hpp>
  #include <tl/expected.hpp>
-
+ 
  #include <string>
-@@ -119,8 +118,9 @@ tl::expected<trajectory::Trajectory<PointType>, ShiftError> shift(
+@@ -119,8 +118,10 @@ tl::expected<trajectory::Trajectory<PointType>, ShiftError> shift(
    // Apply shift.
    std::vector<PointType> shifted_points;
    shifted_points.reserve(shift_element.lon_bases.size());
@@ -62,7 +62,7 @@ diff --git a/common/autoware_trajectory/include/autoware/trajectory/utils/shift.
 diff --git a/common/autoware_trajectory/src/utils/shift.cpp b/common/autoware_trajectory/src/utils/shift.cpp
 --- a/common/autoware_trajectory/src/utils/shift.cpp
 +++ b/common/autoware_trajectory/src/utils/shift.cpp
-@@ -225,7 +225,10 @@ static std::pair<std::vector<double>, std::vector<double>> sanitize_same_base(
+@@ -225,8 +225,11 @@ static std::pair<std::vector<double>, std::vector<double>> sanitize_same_base(
    std::vector<double> base_lon;
    std::vector<double> base_lat;
    base_lon.push_back(lon_original.front());
@@ -113,7 +113,7 @@ diff --git a/common/autoware_trajectory/src/utils/reference_path.cpp b/common/au
  }
  
  bool is_waypoint_inside_lanelet(
-@@ -334,14 +335,15 @@ static ReferencePoints sanitize_and_crop(
+@@ -334,14 +335,13 @@ static ReferencePoints sanitize_and_crop(
    const std::vector<std::pair<lanelet::ConstLanelet, double>> & lanelet_with_acc_dist_sequence,
    const double s_start, const double s_end)
  {
@@ -135,7 +135,7 @@ diff --git a/common/autoware_trajectory/src/utils/reference_path.cpp b/common/au
    // sanitize invalid points so that s is monotonic
    for (auto it = s_with_ref.begin(); it != s_with_ref.end();) {
      if (it == s_with_ref.begin()) {
-@@ -366,23 +368,19 @@ static ReferencePoints sanitize_and_crop(
+@@ -366,25 +368,19 @@ static ReferencePoints sanitize_and_crop(
  
    // now s_with_ref is monotonic, so take the element
    auto s_start_it = std::lower_bound(
@@ -166,7 +166,7 @@ diff --git a/common/autoware_trajectory/src/utils/reference_path.cpp b/common/au
      if (it == s_end_it) {
        break;
      }
-@@ -855,9 +853,9 @@ tl::expected<Trajectory<autoware_internal_planning_msgs::msg::PathPointWithLaneId
+@@ -855,9 +853,10 @@ tl::expected<Trajectory<autoware_internal_planning_msgs::msg::PathPointWithLaneId
      consolidate_user_defined_waypoints_and_native_centerline(
        reference_points_chunks, lanelet_sequence, s_start, s_end);
    warning += warn;
@@ -179,7 +179,7 @@ diff --git a/common/autoware_trajectory/src/utils/reference_path.cpp b/common/au
        autoware_internal_planning_msgs::msg::PathPointWithLaneId point;
        {
          // position
-@@ -881,8 +879,8 @@ tl::expected<Trajectory<autoware_internal_planning_msgs::msg::PathPointWithLaneId
+@@ -881,9 +879,8 @@ tl::expected<Trajectory<autoware_internal_planning_msgs::msg::PathPointWithLaneId
            point.lane_ids.push_back(reference_point.next_lanelet_id.value());
          }
        }

@@ -2,7 +2,7 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index eb50d67..6be3b86 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -11,9 +11,16 @@ ament_auto_add_library(autoware_test_utils SHARED
+@@ -11,8 +11,15 @@ ament_auto_add_library(autoware_test_utils SHARED
    src/mock_data_parser.cpp
  )
  target_link_libraries(autoware_test_utils

@@ -2,7 +2,7 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 6efce00..b1d19f1 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -19,12 +19,11 @@ find_package(angles REQUIRED)
+@@ -19,12 +19,12 @@ find_package(angles REQUIRED)
  
  # rviz switched to Qt6: https://github.com/ros2/rviz/pull/1635
 -if(rviz_common_VERSION_MAJOR GREATER_EQUAL 15 AND rviz_common_VERSION_MINOR GREATER_EQUAL 1)

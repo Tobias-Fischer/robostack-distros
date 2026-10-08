@@ -102,6 +102,11 @@ mrpt2:
   add_host: ["assimp", "octomap", "tinyxml2", "libboost-devel", "jsoncpp", "gtest", "libboost-python-devel", "libdc1394", "xorg-libxcomposite", "libftdi", "ros2-octomap"]
   add_run: ["assimp", "octomap", "tinyxml2", "libboost-devel", "jsoncpp", "gtest", "libboost-python-devel", "libdc1394", "xorg-libxcomposite", "libftdi", "ros2-octomap"]
   add_build: ["${{ cdt('libxcomposite-devel') if linux }}"]
+mujoco_ros2_control_plugins:
+  add_host:
+  - if: linux
+    then:
+    - libegl-devel
 mujoco_vendor:
   add_host: ["libmujoco"]
 nav2_constrained_smoother:
@@ -116,10 +121,9 @@ pcl_conversions:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "libboost-devel"]
 plotjuggler:
   add_host: ["libxcb", "${{ 'elfutils' if linux }}", "ros2-ros-workspace", "git-lfs"]
-py_trees:
-  add_host: ["poetry-core"]
 py_trees_js:
-  add_host: ["poetry-core"]
+  add_host:
+  - hatchling
 python_qt_binding:
   # sip <6.16: exact pin conflicts with pyqt5-sip's range; unpinned risks the 6.16.x ABI regression.
   add_host: ["pyqt-builder", "sip <6.16"]

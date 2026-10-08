@@ -35,7 +35,7 @@ diff --git a/src/http_connection.cpp b/src/http_connection.cpp
 diff --git a/src/http_server.cpp b/src/http_server.cpp
 --- a/src/http_server.cpp
 +++ b/src/http_server.cpp
-@@ -13,7 +13,7 @@ HttpServer::HttpServer(const std::string& address, const std::string& port,
+@@ -13,4 +13,4 @@ HttpServer::HttpServer(const std::string& address, const std::string& port,
  
      boost::asio::ip::tcp::resolver resolver(io_service_);
 -    boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve(address, port).begin();

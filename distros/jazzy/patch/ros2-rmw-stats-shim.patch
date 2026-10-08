@@ -28,7 +28,7 @@ index 2d6e10f..66ada90 100644
  add_library(${PROJECT_NAME} SHARED
    src/shim.cpp
    src/stat_collector.cpp
-@@ -45,6 +53,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
+@@ -45,5 +53,6 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
    rmw::rmw
    rosidl_runtime_cpp::rosidl_runtime_cpp
    rosidl_typesupport_cpp::rosidl_typesupport_cpp

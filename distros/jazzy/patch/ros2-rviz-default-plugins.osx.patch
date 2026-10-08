@@ -41,7 +41,7 @@ index f1a193c94..e54aa1595 100644
  #include "rviz_common/ros_topic_display.hpp"
  
  namespace rviz_default_plugins
-@@ -148,8 +151,32 @@ protected:
+@@ -148,8 +151,33 @@ protected:
  
    virtual void unsubscribe()
    {

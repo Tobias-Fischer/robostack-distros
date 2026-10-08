@@ -2,7 +2,7 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 5d1c744..49c58f3 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -17,13 +17,13 @@ endif()
+@@ -17,11 +17,11 @@ endif()
  option(BUILD_SHARED_LIBS "Build using shared libraries" ON)
  
  if (MSVC)

@@ -9,7 +9,7 @@ index d9da9fd147..64c744c311 100644
 +find_package(ode REQUIRED)
 +list(REMOVE_ITEM OMPL_LIBRARIES "ode_double")
 +list(APPEND OMPL_LIBRARIES "ODE::ODE")
-
+ 
  if(NOT CMAKE_CXX_STANDARD)
    set(CMAKE_CXX_STANDARD 17)
 
@@ -25,7 +25,7 @@ index 8b127960cc..a5dbbc262e 100644
  #include "nav2_smac_planner/analytic_expansion.hpp"
  #include "nav2_smac_planner/node_2d.hpp"
  #include "nav2_smac_planner/node_hybrid.hpp"
-@@ -47,7 +46,7 @@ class AStarAlgorithm
+@@ -47,6 +46,6 @@ class AStarAlgorithm
  {
  public:
    typedef NodeT * NodePtr;

@@ -1,7 +1,7 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -106,10 +106,31 @@ pluginlib_export_plugin_description_file(
+@@ -106,15 +106,41 @@ pluginlib_export_plugin_description_file(
  pluginlib_export_plugin_description_file(
    rviz_common robot_state_rviz_plugin_description.xml)
  
@@ -72,7 +72,7 @@ diff --git a/motion_planning_rviz_plugin/CMakeLists.txt b/motion_planning_rviz_p
              ${SOURCE_FILES} ${HEADERS} ${UIC_FILES})
  set_target_properties(moveit_motion_planning_rviz_plugin_core
                        PROPERTIES VERSION "${${PROJECT_NAME}_VERSION}")
-@@ -50,6 +59,13 @@ target_link_libraries(
+@@ -50,7 +59,14 @@ target_link_libraries(
    moveit_ros_warehouse::moveit_ros_warehouse
    pluginlib::pluginlib
    rviz_ogre_vendor::OgreMain
@@ -90,7 +90,7 @@ diff --git a/motion_planning_rviz_plugin/CMakeLists.txt b/motion_planning_rviz_p
 diff --git a/motion_planning_rviz_plugin/src/plugin_init.cpp b/motion_planning_rviz_plugin/src/plugin_init.cpp
 --- a/motion_planning_rviz_plugin/src/plugin_init.cpp
 +++ b/motion_planning_rviz_plugin/src/plugin_init.cpp
-@@ -35,6 +35,24 @@
+@@ -35,6 +35,23 @@
  /* Author: Ioan Sucan */
  
  #include <class_loader/class_loader.hpp>

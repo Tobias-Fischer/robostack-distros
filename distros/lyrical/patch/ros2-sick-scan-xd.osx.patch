@@ -2,9 +2,9 @@ diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 8221433..cf1584a 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -90,7 +90,7 @@ if(BUILD_LIB_HIDE_FUNCTIONS AND NOT WIN32)
+@@ -90,6 +90,6 @@ if(BUILD_LIB_HIDE_FUNCTIONS AND NOT WIN32)
  endif()
-
+ 
  # Switch on, if you use c11-specific commands
 -if(NOT WIN32)
 +if(NOT WIN32 AND NOT APPLE)
