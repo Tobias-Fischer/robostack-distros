@@ -9,6 +9,7 @@ building one package, and skipping one that is already in the cache.
 """
 
 import argparse
+import datetime
 import os
 import sys
 from pathlib import Path
@@ -23,6 +24,15 @@ SECONDS = {  # platform: (per built package, per skipped package)
 JOB_LIMIT_HOURS = 6  # GitHub-hosted runners stop a job after 6 hours
 
 
+def duration(seconds: float) -> str:
+    """1 min, 45 min, 2 h 10 min."""
+    minutes = max(1, round(seconds / 60))
+    if minutes < 60:
+        return f"{minutes} min"
+    h, m = divmod(minutes, 60)
+    return f"{h} h {m} min" if m else f"{h} h"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--recipes", required=True, type=Path)
@@ -35,10 +45,15 @@ def main() -> int:
     to_build = sorted(recipes - cached)
     skipped = len(recipes & cached)
     build, skip = SECONDS.get(args.platform, max(SECONDS.values()))
-    hours = (len(to_build) * build + skipped * skip) / 3600
+    seconds = len(to_build) * build + skipped * skip
+    hours = seconds / 3600
     rounds = int(hours // JOB_LIMIT_HOURS) + 1
+    done = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=seconds)
 
-    text = f"{len(to_build)} packages to build, {skipped} restored from the cache: roughly {hours:.1f} h"
+    text = (
+        f"{len(to_build)} packages to build, {skipped} restored from the cache: "
+        f"roughly {duration(seconds)} (done around {done:%H:%M} UTC)"
+    )
     if hours > JOB_LIMIT_HOURS:
         text += f" (more than the {JOB_LIMIT_HOURS} h job limit: about {rounds} runs, each continuing from the cache)"
     print(text)
