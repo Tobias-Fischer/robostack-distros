@@ -227,7 +227,6 @@ packages_select_by_deps:
   - odom_to_tf_ros2
   - open3d_conversions
   - osrf_testing_tools_cpp
-  - ouster_ros # conda-forge's Windows PCL package doesn't expose pcl_io.lib by the plain name ouster_ros's CMake links against (LNK1181); TODO on windows: cannot open pcl_io.lib
   - pal_statistics
   - perception
   - persist_parameter_server
@@ -551,6 +550,7 @@ packages_select_by_deps:
       - openvdb_vendor
       - orbbec_camera_msgs
       - orbbec_description
+      - ouster_ros # Windows: cannot open pcl_io.lib (LNK1181); only jazzy built it there, last at 0.14.1
       - rosbag2_performance_benchmarking # its _msgs' Python typesupport hits MSVC C1083 on win-64 (rosidl codegen race, same as humble's iiwa14_moveit_config)
       - rosgraph_monitor
       - rqt_action
