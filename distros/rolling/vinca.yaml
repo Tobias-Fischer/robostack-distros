@@ -43,7 +43,10 @@ packages_skip:
   # not yet released for rolling; rtabmap builds fine without it (disables the optional dependent feature)
   - libpointmatcher
 
+  # mujoco_ros2_control_plugins needs EGL (Linux only); ros-rolling built the rest on Linux only
   - if: osx or win
     then:
+      - mujoco_ros2_control
+      - mujoco_ros2_control_demos
       - mujoco_ros2_control_plugins
 
