@@ -44,6 +44,13 @@ packages_exclude:
   # gone in Boost 1.89+ (patch/ros2-sick-safetyscanners-base.patch is for 1.0.3); jazzy
   # never built it
   - sick_safetyscanners2
+  # localtime_r etc. on MSVC; lyrical's/rolling's patch is for 4.8/4.9, ros-jazzy never
+  # built these on Windows
+  - if: win
+    then:
+      - microstrain_inertial_driver
+      - microstrain_inertial_examples
+      - microstrain_inertial_rqt
 
 packages_select_by_deps:
 
