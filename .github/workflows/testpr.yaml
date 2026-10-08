@@ -55,7 +55,7 @@ jobs:
       # git auto-maintenance can leave a lock file in the git clones pixi caches
       # (e.g. vinca's), which breaks every later run restoring that cache
       - name: Disable git auto-maintenance
-        run: git config --global maintenance.auto false && git config --global gc.auto 0
+        run: git config --global maintenance.auto false && git config --global gc.auto 0 && git config --global core.longpaths true
       - uses: prefix-dev/setup-pixi@v0.11.0
         with:
           frozen: true
@@ -93,7 +93,7 @@ jobs:
     # git auto-maintenance can leave a lock file in the git clones pixi caches
     # (e.g. vinca's), which breaks every later run restoring that cache
     - name: Disable git auto-maintenance
-      run: git config --global maintenance.auto false && git config --global gc.auto 0
+      run: git config --global maintenance.auto false && git config --global gc.auto 0 && git config --global core.longpaths true
     - uses: prefix-dev/setup-pixi@v0.11.0
       with:
         frozen: true

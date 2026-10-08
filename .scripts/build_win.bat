@@ -15,6 +15,8 @@ mkdir %CONDA_BLD_PATH%
 
 :: Enable long path names on Windows
 reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f
+:: ... and in git, for sources that vendor packages clone during the build
+git config --global core.longpaths true
 
 for %%X in (%CURRENT_RECIPES%) do (
     echo "BUILDING RECIPE %%X"
