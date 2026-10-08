@@ -656,8 +656,9 @@ def main(command: str, argv: list[str], distro: str | None = None) -> int:
         parser.add_argument("name")
         parser.add_argument("--from", dest="source", required=True)
     if command == "parse-command":
-        parser.add_argument("--body", required=True)
-        parser.add_argument("--association", required=True)
+        # the text comes from the environment: pixi's task shell would re-parse quotes in it
+        parser.add_argument("--body", default=os.environ.get("ROBOSTACK_BOT_BODY", ""))
+        parser.add_argument("--association", default=os.environ.get("ROBOSTACK_BOT_ASSOCIATION", ""))
     if command == "add-package":
         parser.add_argument("names", nargs="+", help="ROS packages, optionally followed by distributions")
         parser.add_argument("--preview", action="store_true", help="don't change files, only report")
