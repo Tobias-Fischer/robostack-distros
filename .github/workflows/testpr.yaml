@@ -1,5 +1,7 @@
 # Pull-request build: only the distributions a PR touches are built
 # (a change outside distros/ affects all of them), on all five platforms.
+name: Build
+
 on:
   pull_request:
   workflow_dispatch:
