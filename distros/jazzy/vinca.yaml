@@ -34,3 +34,10 @@ mutex_package:
     # picks an ffmpeg 9.x build compatible with it.
     - libopenvino-tensorflow-lite-frontend >=2026.3.0,<2026.3.1.0a0
 
+
+packages_exclude:
+
+  # rosidlcpp 0.5.0 formats nlohmann::json ranges with fmt::join, which fmt 12 rejects;
+  # jazzy never built it
+  - rosidlcpp
+

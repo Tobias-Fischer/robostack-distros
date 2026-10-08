@@ -62,8 +62,6 @@ mcap_vendor:
   additional_cmake_args:
     if: unix
     then: '-DCMAKE_CXX_FLAGS="-include cstdint"'
-mujoco_vendor:
-  additional_cmake_args: "-DAMENT_VENDOR_POLICY=NEVER_VENDOR_IGNORE_SATISFIED_CHECK"
 octomap:
   generate_dummy_package_with_run_deps:
     dep_name: octomap

@@ -102,13 +102,6 @@ mrpt2:
   add_host: ["assimp", "octomap", "tinyxml2", "libboost-devel", "jsoncpp", "gtest", "libboost-python-devel", "libdc1394", "xorg-libxcomposite", "libftdi", "ros2-octomap"]
   add_run: ["assimp", "octomap", "tinyxml2", "libboost-devel", "jsoncpp", "gtest", "libboost-python-devel", "libdc1394", "xorg-libxcomposite", "libftdi", "ros2-octomap"]
   add_build: ["${{ cdt('libxcomposite-devel') if linux }}"]
-mujoco_ros2_control_plugins:
-  add_host:
-  - if: linux
-    then:
-    - libegl-devel
-mujoco_vendor:
-  add_host: ["libmujoco"]
 nav2_constrained_smoother:
   add_host: ["${{ 'openblas' if win }}"]
 nav2_mppi_controller:
