@@ -220,7 +220,10 @@ def collect_requirements(
 
 
 def collect_requirements_from_vinca(
-    vinca_path: Path, platform: str, sections: Iterable[str] = ("host", "run")
+    vinca_path: Path,
+    platform: str,
+    sections: Iterable[str] = ("host", "run"),
+    host_names: Optional[set[str]] = None,
 ) -> dict[tuple[Optional[str], str], set[str]]:
     """Like collect_requirements, for every selected package of the configuration
     (not only the recipes that happen to be generated, e.g. with skip_existing)."""
@@ -234,6 +237,8 @@ def collect_requirements_from_vinca(
                 if not spec or "${{" in spec or is_ros_dependency(spec_name(spec)):
                     continue
                 requirements[(condition, spec)].add(name)
+                if section == "host" and host_names is not None:
+                    host_names.add(normalized(spec_name(spec)))
     return requirements
 
 
@@ -300,6 +305,7 @@ def run_solve(
     output_dir: Path,
     *,
     verbose: bool = False,
+    glibc: Optional[str] = None,
 ) -> tuple[bool, str]:
     cmd = rattler_build_executable() + [
         "build",
@@ -324,6 +330,8 @@ def run_solve(
     # Solving for a foreign platform yields __glibc=0 / __osx=0 virtual packages, which
     # makes every package look uninstallable.  Provide sane defaults unless overridden.
     if platform.startswith("linux"):
+        if glibc:
+            env["CONDA_OVERRIDE_GLIBC"] = glibc
         env.setdefault("CONDA_OVERRIDE_GLIBC", glibc_floor(variant_config, platform))
     elif platform.startswith("osx") and sys.platform != "darwin":
         env.setdefault("CONDA_OVERRIDE_OSX", DEFAULT_OSX)
@@ -422,7 +430,13 @@ class Solver:
         self.workdir = workdir
         self.calls = 0
 
-    def solve(self, label: str, pins: list[str], requirements: Iterable[tuple[Optional[str], str]]) -> tuple[bool, str]:
+    def solve(
+        self,
+        label: str,
+        pins: list[str],
+        requirements: Iterable[tuple[Optional[str], str]],
+        glibc: Optional[str] = None,
+    ) -> tuple[bool, str]:
         recipe = self.workdir / label / "recipe.yaml"
         write_fake_recipe(recipe, pins, requirements)
         self.calls += 1
@@ -433,6 +447,7 @@ class Solver:
             self.args.platform,
             self.workdir / "output",
             verbose=self.args.verbose,
+            glibc=glibc,
         )
 
     def find_partner(
@@ -483,11 +498,12 @@ def solve_mode(args: argparse.Namespace) -> int:
     vinca_conf = load_vinca(Path(args.vinca), getattr(args, "platform", None))
     pins = mutex_constraints(vinca_conf) + list(args.pin)
     variant = variant_pins(Path(args.variant_config), args.platform)
+    host_names: Optional[set[str]] = set() if args.source != "recipes" else None
     if args.source == "recipes":
         requirements = collect_requirements(recipes_dir)
         source = f"{len(list(recipes_dir.glob('*/recipe.yaml')))} recipes in {recipes_dir}"
     else:
-        requirements = collect_requirements_from_vinca(Path(args.vinca), args.platform)
+        requirements = collect_requirements_from_vinca(Path(args.vinca), args.platform, host_names=host_names)
         source = f"{len(set().union(*requirements.values())) if requirements else 0} selected packages of {args.vinca}"
     names = {spec_name(spec) for _, spec in requirements}
     channels = args.channel or channels_from_pixi(Path("pixi.toml"))
@@ -512,7 +528,8 @@ def solve_mode(args: argparse.Namespace) -> int:
         print("  -> align mutex_package.run_constraints in vinca.yaml with the rendered pins"
               " (or drop the migration from vinca_pinning.yaml).\n")
 
-    # 2. iterative solve of the whole dependency set
+    # 2. iterative solve of the whole dependency set (the mutex run_constraints are
+    # installed too, so each of them must be satisfiable on its own as well)
     protected = {spec_name(spec) for spec in pins}
     active_pins = list(pins)
     excluded: dict[str, str] = {}
@@ -558,7 +575,11 @@ def solve_mode(args: argparse.Namespace) -> int:
         print("OK: every dependency is co-installable under the current pins.")
         return 0
 
-    report_conflicts(args, solver, excluded, pin_conflicts, requirements, active_pins, variant, solved)
+    real = report_conflicts(args, solver, excluded, pin_conflicts, requirements, active_pins, variant, solved,
+                            host_names)
+    if solved and not real and not pin_conflicts:
+        print("OK: every dependency is co-installable under the current pins (see the notes above).")
+        return 0
     return 1
 
 
@@ -571,7 +592,9 @@ def report_conflicts(
     pins: list[str],
     variant: dict[str, str],
     solved: bool,
-) -> None:
+    host_names: Optional[set[str]] = None,
+) -> int:
+    """Print the conflicts; returns how many are real (not just notes)."""
     protected = {spec_name(spec) for spec in pins}
     if pin_conflicts:
         print(f"{len(pin_conflicts)} mutex constraint(s) contradict {args.variant_config}:")
@@ -642,6 +665,14 @@ def report_conflicts(
             print("   note: the spec is version-restricted (dummy package in pkg_additional_info.yaml?);"
                   " a newer conda-forge version may already be built against the pinned libraries.")
         glibc_needs = sorted({m.group(1) for m in _GLIBC_NEED_RE.finditer(block)}, key=version_tuple)
+        if (glibc_needs and host_names is not None and normalized(culprit) not in host_names
+                and args.platform.startswith("linux")
+                and solver.solve(f"glibc-{culprit}", pins, specs, glibc=glibc_needs[-1])[0]):
+            # only a run requirement, and it only needs a newer glibc than the build
+            # floor: that limits the systems it installs on, it's not a pin conflict
+            details[culprit]["category"] = "runtime-glibc"
+            print(f"   note: only a run requirement, built for glibc >= {glibc_needs[-1]}: installs on such"
+                  " systems only, but doesn't conflict with the pins.")
         if glibc_needs and args.platform.startswith("linux"):
             floor = glibc_floor(Path(args.variant_config), args.platform)
             print(f"   note: needs glibc >= {glibc_needs[-1]} but the build floor (c_stdlib_version /"
@@ -653,15 +684,19 @@ def report_conflicts(
             print(f"   | … ({len(lines) - args.max_lines} more lines)")
         print()
 
+    notes = {name: info for name, info in details.items() if info.get("category")}
+    real = {name: info for name, info in details.items() if not info.get("category")}
     if args.json:
         Path(args.json).write_text(
-            json.dumps({"pin_conflicts": pin_conflicts, "conflicts": details}, indent=2), encoding="utf-8"
+            json.dumps({"pin_conflicts": pin_conflicts, "conflicts": real, "notes": notes}, indent=2),
+            encoding="utf-8",
         )
         print(f"Wrote {args.json}")
     print(f"({solver.calls} solver runs)")
 
     if args.migrations:
-        report_migrations(details, pin_conflicts, pins, Path(args.pinning))
+        report_migrations(real, pin_conflicts, pins, Path(args.pinning))
+    return len(real)
 
 
 # ------------------------------------------------------------------- migrations
