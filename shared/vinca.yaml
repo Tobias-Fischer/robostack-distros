@@ -337,7 +337,6 @@ packages_select_by_deps:
   - sbg_driver
   - sdl2_vendor
   - serial_driver # Serial communication only implemented for linux; requested in https://github.com/RoboStack/ros-humble/issues/302
-  - sick_safetyscanners_base
   - sick_scan_xd
   - simulation
   - simulation_interfaces # requested in https://github.com/RoboStack/ros-humble/issues/304
@@ -563,6 +562,7 @@ packages_select_by_deps:
       - rslidar_sdk # rs_driver's Windows socket code has multiple pre-existing min/max-macro and getsockopt/setsockopt type bugs; not pursuing further
       - rviz_2d_overlay_plugins
       - rviz_satellite
+      - sick_safetyscanners_base # MSVC: -Werror etc. (D8021); jazzy's 1.0.4 builds on win-64 (distros/jazzy/vinca.yaml)
       - smacc2 # needs cxxabi.h (Itanium ABI demangling) and poll.h, both POSIX-only; jazzy excludes it from win-64 the same way
       - spacenav
       - swri_console # Until sync of: https://github.com/ros/rosdistro/pull/49750; MSVC compile error (numeric_limits<T>::max()/min() macro collision); jazzy excludes it from win-64 pending rosdistro sync, see ros/rosdistro#49750
