@@ -1,8 +1,33 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 9ca7c70..142b02b 100644
+index 9ca7c70..bdc56fb 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -43,13 +43,12 @@ add_library(rqt_image_overlay SHARED
+@@ -14,7 +14,7 @@ find_package(rclcpp REQUIRED)
+ find_package(pluginlib REQUIRED)
+ find_package(rqt_gui_cpp REQUIRED)
+ find_package(image_transport REQUIRED)
+-find_package(Qt5Widgets REQUIRED)
++find_package(Qt6Widgets REQUIRED)
+ find_package(ros_image_to_qimage REQUIRED)
+ find_package(rqt_image_overlay_layer REQUIRED)
+ 
+@@ -29,27 +29,26 @@ set(SOURCES
+   src/list_image_topics.cpp
+   src/color_dialog_delegate.cpp
+   src/overlay_manager_view.cpp)
+-qt5_wrap_cpp(SOURCES    # Must do this for qt's Meta-Object Compiler.
++qt6_wrap_cpp(SOURCES    # Must do this for qt's Meta-Object Compiler.
+   src/image_overlay.hpp
+   src/composition_frame.hpp
+   src/compositor.hpp
+   src/image_manager.hpp
+   src/color_dialog_delegate.hpp
+   src/overlay_manager_view.hpp)
+-qt5_wrap_ui(UIS resource/image_overlay.ui resource/configuration_dialog.ui)
++qt6_wrap_ui(UIS resource/image_overlay.ui resource/configuration_dialog.ui)
+ add_library(rqt_image_overlay SHARED
+   ${SOURCES}
+   ${UIS})
  target_include_directories(rqt_image_overlay PUBLIC
    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
    $<INSTALL_INTERFACE:include>)
@@ -18,7 +43,7 @@ index 9ca7c70..142b02b 100644
 +  target_include_directories(rqt_image_overlay PUBLIC ${${_dep}_INCLUDE_DIRS})
 +  target_link_libraries(rqt_image_overlay PUBLIC ${${_dep}_LIBRARIES})
 +endforeach()
-+target_link_libraries(rqt_image_overlay PUBLIC Qt5::Widgets)
++target_link_libraries(rqt_image_overlay PUBLIC Qt6::Widgets)
  
  pluginlib_export_plugin_description_file(rqt_gui plugin.xml)  # This must be rqt_gui and not rqt_gui_cpp
  

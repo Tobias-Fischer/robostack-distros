@@ -23,4 +23,5 @@ full_rebuild: false
 #
 # Remember that dependents are not rebuilt automatically: evict them as well if
 # they must pick up the change.
-evict_cache: []
+evict_cache:
+  - ros_image_to_qimage  # rebuilt with Qt6

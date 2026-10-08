@@ -114,7 +114,7 @@ mrpt2:
 mujoco_ros2_control_plugins:
   add_host: ["libegl-devel"]  # CMake finds OpenGL COMPONENTS EGL
 mujoco_vendor:
-  add_host: ["libgl-devel"]  # MuJoCo's bundled GLFW simulation includes GL/gl.h
+  add_host: ["${{ 'libgl-devel' if linux }}"]  # MuJoCo's bundled GLFW simulation includes GL/gl.h
 nav2_constrained_smoother:
   add_host: ["${{ 'openblas' if win }}", "ceres-solver"]
 pcl_conversions:
@@ -167,13 +167,19 @@ ros_ign_gazebo:
 ros_ign_interfaces:
   add_host: ["ros2-rcl-interfaces"]
 ros_image_to_qimage:
-  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
+  # Qt6, like rqt_gui_cpp (patch/ros2-ros-image-to-qimage.patch)
+  remove_host: ["qt-main"]
+  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "qt6-main"]
 rqt_gui_cpp:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
 rqt_image_overlay:
-  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
+  # Qt6, like rqt_gui_cpp (patch/ros2-rqt-image-overlay.patch)
+  remove_host: ["qt-main"]
+  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "qt6-main"]
 rqt_image_overlay_layer:
-  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
+  # Qt6, like rqt_gui_cpp (patch/ros2-rqt-image-overlay-layer.patch)
+  remove_host: ["qt-main"]
+  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "qt6-main"]
 rqt_image_view:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "qt6-main"]
   remove_host: ["qt-main"]
