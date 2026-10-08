@@ -6,8 +6,8 @@ description: Add, exclude or restrict ROS packages in RoboStack vinca.yaml files
 # Package selection (vinca.yaml)
 
 `distros/<d>/work/vinca.yaml` is assembled from `shared/vinca.yaml` plus
-`distros/<d>/vinca.yaml` (`tools/robostack.py`, `merge_vinca`), and translated into
-vinca's own keys.
+`distros/<d>/vinca.yaml` (`tools/robostack.py`, `merge_vinca`): the package lists are
+combined, vinca applies them.
 
 ## Selecting packages
 

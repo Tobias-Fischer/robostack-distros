@@ -8,6 +8,7 @@ mutex_package:
     - krb5 1.22.*
 
 packages_exclude:
+
   - if: not linux
     then:
       - ament_cmake_xmllint
@@ -20,6 +21,7 @@ packages_exclude:
       - performance_test_fixture
       - rclc_examples
       - rmw_connextdds
+
   - if: win
     then:
       - gz_ros2_control
@@ -45,6 +47,7 @@ packages_skip:
   - if: not (linux and x86_64)
     then:
       - ublox_ubx_interfaces
+
   - if: not linux
     then:
       - event_camera_codecs
@@ -85,6 +88,7 @@ packages_skip:
       - ublox_dgnss_node
       - ur_simulation_gz
       - velodyne_simulator
+
   - if: win
     then:
       - diagnostic_remote_logging
@@ -115,3 +119,4 @@ packages_skip:
       - odom_to_tf_ros2
       - ouster_ros
       - pinocchio
+

@@ -64,6 +64,45 @@ def _key(x) -> str:
     return json.dumps(_norm(json.loads(json.dumps(x))), sort_keys=True)
 
 
+def _entries(items) -> set[tuple[str, str | None]]:
+    out = set()
+    for item in items or []:
+        if isinstance(item, str):
+            out.add((item.replace("-", "_"), None))
+        else:
+            out |= {(n.replace("-", "_"), str(item["if"])) for n in item.get("then") or []}
+    return out
+
+
+def _keep(items, wanted: set) -> list:
+    """The entries of a package list (plain names / if-blocks) that are in wanted."""
+    out = []
+    for item in items or []:
+        if isinstance(item, str):
+            if (item.replace("-", "_"), None) in wanted:
+                out.append(item)
+        else:
+            then = [n for n in item.get("then") or [] if (n.replace("-", "_"), str(item["if"])) in wanted]
+            if then:
+                item["then"] = then
+                for extra in [k for k in item if k not in ("if", "then")]:
+                    del item[extra]
+                out.append(item)
+    return out
+
+
+def _convert_exclusions(vinca) -> None:
+    """vinca's packages_skip_by_deps / packages_remove_from_deps -> packages_exclude
+    (in the remove list) and packages_skip (skip only)."""
+    skip = vinca.pop("packages_skip_by_deps", None) or []
+    remove = vinca.pop("packages_remove_from_deps", None) or []
+    skip_only = _entries(skip) - _entries(remove)
+    if remove:
+        vinca["packages_exclude"] = remove
+    if skip_only:
+        vinca["packages_skip"] = _keep(skip, skip_only)
+
+
 class Source:
     """Files of the old repository, from a working tree or a git ref."""
 
@@ -101,6 +140,7 @@ def import_distro(src: Source, distro: str | None) -> str:
         vinca.pop("package_name_mode", None)
     elif "package_name_mode" not in vinca:
         vinca.insert(1, "package_name_mode", mode)
+    _convert_exclusions(vinca)
     for key in rs.LIST_KEYS:
         common = {_key(i) for i in shared.get(key) or []}
         items = vinca.get(key)

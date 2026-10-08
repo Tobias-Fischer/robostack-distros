@@ -138,8 +138,6 @@ def render_tests(distro: str, dest: Path) -> None:
             shutil.copy2(src, target)
 
 
-# vinca.yaml keys whose lists are combined from shared/ and the distribution
-LIST_KEYS = ("packages_select_by_deps", "packages_skip_by_deps", "packages_remove_from_deps")
 
 
 def load_yaml(path: Path) -> dict:
@@ -169,89 +167,30 @@ def merge_mutex(shared: dict, own: dict) -> dict:
     return merged
 
 
-def _deselect(items: list, deselect: list) -> list:
-    """Drop packages from a package list: a plain name everywhere, a name in an
-    `if: <condition>` block only where the condition holds."""
-    everywhere = {n.replace("-", "_") for n in deselect if isinstance(n, str)}
-    conditional: dict[str, list[str]] = {}
-    for block in deselect:
-        if isinstance(block, dict):
-            for name in block.get("then") or []:
-                conditional.setdefault(name.replace("-", "_"), []).append(str(block["if"]))
-    result = []
-
-    def keep(name: str, condition: str | None) -> None:
-        key = name.replace("-", "_")
-        if key in everywhere:
-            return
-        if key in conditional:
-            excluded = " or ".join(f"({c})" for c in conditional[key])
-            condition = f"({condition}) and not ({excluded})" if condition else f"not ({excluded})"
-        if condition:
-            result.append({"if": condition, "then": [name]})
-        else:
-            result.append(name)
-
-    for item in items:
-        if isinstance(item, str):
-            keep(item, None)
-        else:
-            for name in item.get("then") or []:
-                keep(name, str(item["if"]))
-            for name in item.get("else") or []:
-                keep(name, f"not ({item['if']})")
-    return result
+# package lists combined from shared/vinca.yaml and the distribution's
+LIST_KEYS = ("packages_select_by_deps", "packages_exclude", "packages_skip")
 
 
-# keys of our vinca.yaml files that prepare() translates for vinca
-EXCLUDE_KEYS = ("packages_exclude", "packages_skip")
-
-
-def _dedupe(items: list) -> list:
-    seen, out = set(), []
-    for item in items:
-        marker = json.dumps(item, sort_keys=True)
-        if marker not in seen:
-            seen.add(marker)
-            out.append(item)
-    return out
-
-
-def merge_vinca(shared: dict, own: dict, conda_forge_packages: set[str] | frozenset = frozenset()) -> dict:
-    """shared/vinca.yaml + distros/<d>/vinca.yaml, translated for vinca:
-
-    - packages_select_by_deps: shared and the distribution's, minus what is excluded
-      or skipped (everywhere or under the block's `if:` condition);
-    - packages_exclude: not built, and dropped from other packages' dependencies
-      (vinca's packages_skip_by_deps + packages_remove_from_deps);
-    - packages_skip: not built, but dependents keep depending on it, e.g. on a build
-      that is already published (vinca's packages_skip_by_deps). ROS packages whose
-      name is mapped to a conda-forge package in robostack.yaml are skipped
-      automatically, so the conda-forge package is used instead;
-    - mutex_package: see merge_mutex; other keys: the distribution's win.
-    """
-    merged = {k: v for k, v in shared.items() if k not in EXCLUDE_KEYS and k not in LIST_KEYS}
+def merge_vinca(shared: dict, own: dict) -> dict:
+    """shared/vinca.yaml + distros/<d>/vinca.yaml: the package lists are combined
+    (vinca applies packages_exclude / packages_skip to the selection), mutex_package
+    is merged by merge_mutex, other keys of the distribution win."""
+    merged = {k: v for k, v in shared.items() if k not in LIST_KEYS}
     for key, value in own.items():
         if key == "mutex_package" and isinstance(shared.get(key), dict):
             merged[key] = merge_mutex(shared[key], value or {})
-        elif key not in EXCLUDE_KEYS and key not in LIST_KEYS:
+        elif key not in LIST_KEYS:
             merged[key] = value
-    combined = {key: _dedupe((shared.get(key) or []) + (own.get(key) or [])) for key in EXCLUDE_KEYS + LIST_KEYS}
-    exclude = combined["packages_exclude"]
-    skip = combined["packages_skip"] + sorted(conda_forge_packages)
-    merged["packages_select_by_deps"] = _deselect(combined["packages_select_by_deps"], exclude + skip)
-    merged["packages_skip_by_deps"] = _dedupe(combined["packages_skip_by_deps"] + exclude + skip)
-    merged["packages_remove_from_deps"] = _dedupe(combined["packages_remove_from_deps"] + exclude)
+    for key in LIST_KEYS:
+        seen, items = set(), []
+        for item in (shared.get(key) or []) + (own.get(key) or []):
+            marker = json.dumps(item, sort_keys=True)
+            if marker not in seen:
+                seen.add(marker)
+                items.append(item)
+        if items:
+            merged[key] = items
     return merged
-
-
-def conda_forge_shadowed(distro: str) -> set[str]:
-    """ROS packages of the distribution whose name robostack.yaml maps to a
-    conda-forge package (e.g. tl_expected -> cpp-expected): building them would
-    shadow the conda-forge package under its name."""
-    names = set(load_yaml(DISTROS / distro / "rosdistro_snapshot.yaml"))
-    names |= set(load_yaml(DISTROS / distro / "rosdistro_additional_recipes.yaml"))
-    return names & set(load_yaml(SHARED / "robostack.yaml"))
 
 
 def merge_entries(shared: dict, own: dict) -> dict:
@@ -276,7 +215,7 @@ def prepare(distro: str) -> Path:
     for name in ("patch", "tests"):
         shutil.rmtree(w / name, ignore_errors=True)
 
-    vinca = merge_vinca(load_yaml(SHARED / "vinca.yaml"), load_yaml(d / "vinca.yaml"), conda_forge_shadowed(distro))
+    vinca = merge_vinca(load_yaml(SHARED / "vinca.yaml"), load_yaml(d / "vinca.yaml"))
     vinca.update(
         conda_index=["robostack.yaml"],
         patch_dir="patch",

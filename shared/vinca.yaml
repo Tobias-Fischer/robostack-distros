@@ -585,9 +585,11 @@ packages_select_by_deps:
       - zed_msgs
 
 packages_exclude:
+
   - if: not linux
     then:
       - pendulum_control
       - rttest
       - tlsf
       - tlsf_cpp
+
