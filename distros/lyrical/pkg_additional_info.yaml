@@ -119,12 +119,6 @@ urdfdom_headers:
     max_pin: 'x.x'
     # the version on ros is outdated w.r.t. to the conda-forge one
     override_version: '3.0.0'
-visp:
-  generate_dummy_package_with_run_deps:
-    dep_name: visp
-    max_pin: 'x.x'
-    # the version on ros is outdated w.r.t. to the conda-forge one
-    override_version: '3.6.0'
 zenoh_cpp_vendor:
   additional_cmake_args: "-DAMENT_VENDOR_POLICY=NEVER_VENDOR_IGNORE_SATISFIED_CHECK -DUSE_SYSTEM_ZENOH=ON"
 # Remove build_number fields below on new full rebuild
@@ -161,4 +155,7 @@ slam_toolbox:
 tf_transformations:
   build_number: 28
 turtlesim:
+  build_number: 28
+visp:
+  # the published build depends on visp 3.6 (OpenCV 4 / protobuf < 7); rebuild for 3.7.0
   build_number: 28
