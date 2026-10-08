@@ -4,7 +4,7 @@
     pixi run rs <distro> update-snapshot              # snapshot the latest rosdistro sync, summarise bumps
     pixi run rs rosdistro-syncs                       # bot jobs for distributions with a new sync
     pixi run rs <distro> find-stale                   # published packages built against outdated pins
-    pixi run rs update-pinning                        # move shared/pinning/conda_forge.yaml forward
+    pixi run rs <distro> update-pinning               # latest conda-forge pinning + rebuild plan
     pixi run rs new-distro NAME --from DISTRO         # add distros/NAME, seeded from DISTRO
     pixi run rs add-package PKG... [DISTRO...] [--preview]   # select packages for building
     pixi run rs parse-command --body TEXT --association ROLE   # for @robostack-bot comments
@@ -23,7 +23,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -34,9 +34,9 @@ BOT_COMMANDS = {
     "add-package": "add ROS packages to the package selection (opens a PR; anyone can ask)",
     "update-rosdistro-snapshot": "refresh the distribution's rosdistro_snapshot.yaml (opens a PR)",
     "find-stale-packages": "list its published packages built against outdated pins",
-    "update-conda-forge-pinning": "move the shared conda-forge pinning to the latest version (opens a PR)",
+    "update-conda-forge-pinning": "move the conda-forge pinning to the latest version, rebuilding what changed pins affect (opens a PR)",
 }
-PER_DISTRO_COMMANDS = ("update-rosdistro-snapshot", "find-stale-packages")
+PER_DISTRO_COMMANDS = ("update-rosdistro-snapshot", "find-stale-packages", "update-conda-forge-pinning")
 ALLOWED_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
 
 
@@ -46,6 +46,7 @@ class Result:
     summary: str
     changed: bool = False
     ok: bool = True
+    labels: list[str] = field(default_factory=list)  # extra labels for the bot's PR
 
 
 def tail(text: str, lines: int = 80) -> str:
@@ -143,18 +144,17 @@ def sync_mutex_constraints(distro: str) -> list[str]:
 REPODATA_SUBDIRS = ("noarch", "linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64")
 
 
-def released_build_number(distro: str) -> int | None:
-    """Highest build number of the distribution's packages on its channel (the mutex
-    aside), or None when the channel can't be read."""
+def released_builds(distro: str) -> dict[str, int] | None:
+    """Highest build number of every package on the distribution's channel (all
+    platforms), or None when the channel can't be read."""
     import urllib.error
     import urllib.request
 
     s = rs.settings(distro)
     name = s.get("channel_name", f"robostack-{distro}")
     base = f"https://repo.prefix.dev/{name}" if s.get("upload_target", "prefix") == "prefix" else rs.channel_url(distro)
-    mutex = (rs.read_vinca(distro).get("mutex_package") or {}).get("name")
-    prefixes = (f"ros-{distro}-", "ros2-")
-    highest, read = None, False
+    builds: dict[str, int] = {}
+    read = False
     for subdir in REPODATA_SUBDIRS:
         try:
             request = urllib.request.Request(f"{base}/{subdir}/repodata.json", headers={"User-Agent": "robostack-bot"})
@@ -166,9 +166,20 @@ def released_build_number(distro: str) -> int | None:
             raise
         read = True
         for record in [*data.get("packages", {}).values(), *data.get("packages.conda", {}).values()]:
-            if record["name"].startswith(prefixes) and record["name"] != mutex:
-                highest = max(highest or 0, int(record.get("build_number", 0)))
-    return highest if read else None
+            builds[record["name"]] = max(builds.get(record["name"], 0), int(record.get("build_number", 0)))
+    return builds if read else None
+
+
+def released_build_number(distro: str, builds: dict[str, int] | None = None) -> int | None:
+    """Highest build number of the distribution's packages on its channel (the mutex
+    aside), or None when the channel can't be read."""
+    builds = released_builds(distro) if builds is None else builds
+    if builds is None:
+        return None
+    mutex = (rs.read_vinca(distro).get("mutex_package") or {}).get("name")
+    prefixes = (f"ros-{distro}-", "ros2-")
+    numbers = [n for name, n in builds.items() if name.startswith(prefixes) and name != mutex]
+    return max(numbers) if numbers else None
 
 
 def bump_rebuild(distro: str) -> list[str]:
@@ -208,6 +219,84 @@ def bump_rebuild(distro: str) -> list[str]:
                 ry.dump(data, fh)
             lines.append(f"removed {len(dropped)} per-package build numbers: " + ", ".join(dropped))
     return lines
+
+
+# A pinning change that rebuilds more than this share of a distribution's packages is
+# done as a full rebuild (new mutex minor version) instead of a partial one.
+FULL_REBUILD_SHARE = 0.5
+
+
+def plan_rebuild(distro: str, old_cbc: str) -> tuple[dict[str, str], int]:
+    """Packages of the distribution that the change from old_cbc to its current
+    conda_build_config.yaml has to rebuild (with the reason), and how many packages
+    it has (vinca-rebuild-plan)."""
+    from vinca import rebuild
+
+    new = yaml.safe_load((rs.DISTROS / distro / "conda_build_config.yaml").read_text()) or {}
+    changed = rebuild.changed_pins(yaml.safe_load(old_cbc) or {}, new)
+    if not changed:
+        return {}, 0
+    requirements, prefix = rebuild.requirements_from_vinca(rs.prepare(distro))
+    return rebuild.plan(requirements, changed, prefix), len(requirements)
+
+
+def bump_partial(distro: str, packages: dict[str, str], mutex_changed: bool) -> list[str]:
+    """Rebuild just these packages: a per-package build number above everything the
+    channel has, and, when its run_constraints changed, a new build of the mutex (its
+    version stays, so every other published package keeps working with it)."""
+    builds = released_builds(distro)
+    current = int(re.search(r"(?m)^build_number:\s*(\d+)", (rs.DISTROS / distro / "vinca.yaml").read_text()).group(1))
+    released = released_build_number(distro, builds)
+    number = (current if released is None else max(current, released)) + 1
+
+    info = rs.DISTROS / distro / "pkg_additional_info.yaml"
+    ry = _ruamel()
+    data = (ry.load(info.read_text()) if info.is_file() else None) or {}
+    for pkg in packages:
+        entry = data.get(pkg)
+        if entry is None:
+            data[pkg] = {"build_number": number}
+        else:
+            entry["build_number"] = number
+    with info.open("w") as fh:
+        ry.dump(data, fh)
+    lines = [f"{len(packages)} packages get `build_number: {number}` in `distros/{distro}/pkg_additional_info.yaml`"]
+
+    if mutex_changed:
+        path = rs.DISTROS / distro / "vinca.yaml"
+        text = path.read_text()
+        mutex = (rs.read_vinca(distro).get("mutex_package") or {}).get("name")
+        mutex_build = ((builds or {}).get(mutex, number - 1)) + 1
+        block = re.search(r"(?m)^mutex_package:\n((?:[ \t]+.*\n|\n)*)", text)
+        if not block:
+            raise SystemExit(f"{path}: no mutex_package")
+        body = block.group(1)
+        if re.search(r"(?m)^  build_number:", body):
+            body = re.sub(r"(?m)^(  build_number:\s*)\d+", rf"\g<1>{mutex_build}", body, count=1)
+        else:
+            body = f"  build_number: {mutex_build}\n" + body
+        path.write_text(text[: block.start(1)] + body + text[block.end(1):])
+        lines.append(f"mutex `{mutex}`: new build {mutex_build} with the updated run_constraints (same version)")
+    return lines
+
+
+def dependency_conflicts(distro: str) -> set[str] | None:
+    """Packages that can't be installed together with the rest of the distribution's
+    dependencies under its current pins and mutex constraints (check_dependency_compat.py,
+    linux-64); None when the check itself failed."""
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "conflicts.json"
+        rc = rs.task(distro, "check-deps", ["--platform", "linux-64", "--no-migrations", "--json", str(out)])
+        if rc == 0:
+            return set()
+        if not out.is_file():
+            return None
+        data = json.loads(out.read_text())
+    return set(data.get("pin_conflicts") or {}) | set(data.get("conflicts") or {})
+
+
+def _details(summary: str, lines: list[str]) -> list[str]:
+    return ["<details>", f"<summary>{summary}</summary>", "", *lines, "", "</details>"]
 
 
 SYNC_TAG = re.compile(r"^(?P<distro>[a-z]+)/(?P<date>\d{4}-\d{2}-\d{2})$")
@@ -346,55 +435,111 @@ def find_stale(distro: str) -> Result:
 # --------------------------------------------------------------------------- #
 # whole repository
 # --------------------------------------------------------------------------- #
-def update_pinning() -> Result:
-    """Latest conda-forge pinning for everyone that follows the shared one; migrations
-    are selected for the dependencies of all distributions."""
-    from vinca import pinning
-
+def _set_pinning(distro: str, version: str, migrations: list[str]) -> str:
+    """Write the new pinning version and migrations where the distribution takes them
+    from: its own distro.yaml, or shared/pinning/conda_forge.yaml. Returns that file."""
+    if rs.settings(distro).get("conda_forge_pinning_version"):
+        path = rs.DISTROS / distro / "distro.yaml"
+        text = path.read_text()
+        text = re.sub(r"(?m)^conda_forge_pinning_version:.*$", f"conda_forge_pinning_version: {version}", text, count=1)
+        text = re.sub(r"(?m)^conda_forge_migrations:(?:.*\n)(?:[ \t]+.*\n)*",
+                      f"conda_forge_migrations: [{', '.join(migrations)}]\n", text, count=1)
+        path.write_text(text)
+        return f"distros/{distro}/distro.yaml"
     shared = rs.SHARED / "pinning" / "conda_forge.yaml"
-    before = yaml.safe_load(shared.read_text()) or {}
-    dependencies: set[str] = set()
-    for distro in rs.distros():
-        print(f"Collecting dependencies of {distro}", flush=True)
-        dependencies |= pinning.dependencies_from_vinca(rs.prepare(distro), pinning.DEFAULT_PLATFORMS)
-    with tempfile.TemporaryDirectory() as tmp:
-        spec = Path(tmp) / "vinca_pinning.yaml"
-        spec.write_text(shared.read_text() + "\n" + (rs.SHARED / "pinning" / "overrides.yaml").read_text())
-        version, migrations, reports = pinning.update_pinning(spec, dependencies=dependencies)
-    if str(before.get("conda_forge_pinning_version")) == str(version) and list(before.get("migrations") or []) == list(migrations):
-        return Result("Pinning is up to date", f"Already on conda-forge-pinning {version}.")
     header = [l for l in shared.read_text().splitlines() if l.startswith("#")]
     body = [f"conda_forge_pinning_version: {version}", "migrations:"] + [f"  - {m}" for m in migrations]
     shared.write_text("\n".join(header + body) + "\n")
-    followers = [d for d in rs.distros() if not rs.settings(d).get("conda_forge_pinning_version")]
-    rebuilds: list[str] = []
-    for distro in followers:
-        cbc = rs.DISTROS / distro / "conda_build_config.yaml"
-        before_cbc = cbc.read_text() if cbc.is_file() else ""
-        rs.task(distro, "render-pinning", [])
-        if cbc.read_text() == before_cbc:
-            rebuilds.append(f"- **{distro}**: pins unchanged, no rebuild")
-            continue
-        constraints = sync_mutex_constraints(distro)
-        rebuilds.append(f"- **{distro}**: " + "; ".join(bump_rebuild(distro)))
-        if constraints:
-            rebuilds.append("  - mutex run_constraints: " + ", ".join(constraints))
+    return "shared/pinning/conda_forge.yaml"
+
+
+def update_pinning(distro: str) -> Result:
+    """Move the distribution's conda-forge pinning to the latest version, with the
+    migrations that are done for its dependencies. Only the packages that use a changed
+    pin (and what depends on them) are rebuilt, unless that is most of them."""
+    from vinca import pinning
+
+    settings = rs.settings(distro)
+    before = (settings.get("conda_forge_pinning_version"), list(settings.get("conda_forge_migrations") or []))
+    if not before[0]:
+        shared = yaml.safe_load((rs.SHARED / "pinning" / "conda_forge.yaml").read_text()) or {}
+        before = (shared.get("conda_forge_pinning_version"), list(shared.get("migrations") or []))
+    print(f"Collecting dependencies of {distro}", flush=True)
+    work = rs.prepare(distro)
+    dependencies = pinning.dependencies_from_vinca(work, pinning.DEFAULT_PLATFORMS)
+    version, migrations, reports = pinning.update_pinning(work / "vinca_pinning.yaml", dependencies=dependencies)
+    if str(before[0]) == str(version) and before[1] == list(migrations):
+        return Result(f"{distro}: pinning is up to date", f"{distro} is on conda-forge-pinning {version}.")
+    where = _set_pinning(distro, str(version), list(migrations))
+
+    cbc = rs.DISTROS / distro / "conda_build_config.yaml"
+    before_cbc = cbc.read_text() if cbc.is_file() else ""
+    print(f"Checking the dependencies of {distro} with the current pins", flush=True)
+    conflicts_before = dependency_conflicts(distro)
+    rs.task(distro, "render-pinning", [])
+    added = sorted(set(migrations) - set(before[1]))
+    candidates = {name for name, _ in reports}
+    finished = sorted(set(before[1]) - set(migrations) - candidates)
+    removed = sorted(set(before[1]) - set(migrations) - set(finished))
     lines = [
-        f"Moved `shared/pinning/conda_forge.yaml` to conda-forge-pinning `{version}`, with migrations "
-        "selected for the dependencies of every distribution.",
+        f"Moves **{distro}** from conda-forge-pinning `{before[0]}` to `{version}` (`{where}`).",
         "",
-        "Applied migrations: " + (", ".join(f"`{m}`" for m in migrations) or "none"),
+        "Migrations: " + (", ".join(f"`{m}`" for m in migrations) or "none")
+        + (f"; new: {', '.join(f'`{m}`' for m in added)}" if added else "")
+        + (f"; finished (now part of the base pinning): {', '.join(f'`{m}`' for m in finished)}" if finished else "")
+        + (f"; dropped: {', '.join(f'`{m}`' for m in removed)}" if removed else ""),
         "",
-        *[f"- `{name}`: {report}" for name, report in reports],
-        "",
-        "Re-rendered `conda_build_config.yaml` of: " + (", ".join(followers) or "none")
-        + " (the others pin their own version in `distro.yaml`).",
-        "",
-        *rebuilds,
-        "",
-        "Check the mutex `run_constraints` that aren't plain pins with `pixi run rs <distro> check-deps`.",
     ]
-    return Result("Update conda-forge pinning", "\n".join(lines), changed=True)
+    conflicts = False
+    if cbc.read_text() == before_cbc:
+        lines.append("The rendered pins don't change: nothing to rebuild.")
+    else:
+        constraints = sync_mutex_constraints(distro)
+        print(f"Planning the rebuild of {distro}", flush=True)
+        packages, total = plan_rebuild(distro, before_cbc)
+        if not packages and not constraints:
+            lines.append("The pins change, but no package uses them: nothing to rebuild.")
+        elif total and len(packages) > FULL_REBUILD_SHARE * total:
+            lines.append(f"**Full rebuild**: {len(packages)} of {total} packages use a changed pin or depend "
+                         "on one. " + "; ".join(bump_rebuild(distro)))
+        else:
+            lines.append(f"**Rebuild {len(packages)} of {total} packages** (they use a changed pin or depend "
+                         "on one): " + "; ".join(bump_partial(distro, packages, bool(constraints))))
+            if packages:
+                lines += ["", *_details(f"Packages to rebuild ({len(packages)})", [
+                    f"- `{name}`: {reason}" for name, reason in sorted(packages.items())])]
+        if constraints:
+            lines += ["", "Mutex run_constraints: " + ", ".join(constraints)]
+        conflicts_after = dependency_conflicts(distro)
+        if conflicts_after is None or conflicts_before is None:
+            conflicts = conflicts_after is None
+            lines += ["", "Dependency check (linux-64): ❌ the check failed, see the workflow log"
+                      if conflicts else "Dependency check (linux-64): no comparison (the check with the old pins failed)"]
+        else:
+            new_conflicts = sorted(conflicts_after - conflicts_before)
+            conflicts = bool(new_conflicts)
+            lines += ["", "Dependency check (linux-64): " + (
+                "❌ new conflicts: " + ", ".join(f"`{n}`" for n in new_conflicts) if new_conflicts
+                else "✅ no new conflicts")]
+            if conflicts_before:
+                lines += ["", *_details(f"Conflicts that already exist with the current pins ({len(conflicts_before)})",
+                                        [", ".join(f"`{n}`" for n in sorted(conflicts_before))])]
+
+    groups: dict[str, list[str]] = {"selected": [], "waiting": [], "other": []}
+    for name, text in reports:
+        key = "selected" if text.startswith(("selected", "kept")) else "waiting" if text.startswith("waiting") else "other"
+        groups[key].append(f"- `{name}`: {text}")
+    lines += [
+        "",
+        *_details(f"Migrations used ({len(groups['selected'])})", groups["selected"] or ["none"]),
+        "",
+        *_details(f"Migrations waiting for our dependencies' feedstocks ({len(groups['waiting'])})",
+                  groups["waiting"] or ["none"]),
+        "",
+        *_details(f"Migrations that don't concern {distro} ({len(groups['other'])})", groups["other"] or ["none"]),
+    ]
+    return Result(f"{distro}: update conda-forge pinning to {version}", "\n".join(lines), changed=True,
+                  labels=["dependency-conflict"] if conflicts else [])
 
 
 def new_distro(name: str, source: str) -> Result:
@@ -667,6 +812,7 @@ def report(result: Result, summary_file: str | None) -> int:
     if out := os.environ.get("GITHUB_OUTPUT"):
         with open(out, "a") as fh:
             fh.write(f"title={result.title}\nchanged={str(result.changed).lower()}\nok={str(result.ok).lower()}\n")
+            fh.write(f"labels={','.join(result.labels)}\n")
     return 0 if result.ok else 1
 
 
@@ -698,7 +844,12 @@ def main(command: str, argv: list[str], distro: str | None = None) -> int:
         print(json.dumps(rosdistro_syncs()))
         return 0
     if command == "update-pinning":
-        return report(update_pinning(), args.summary)
+        if distro:
+            return report(update_pinning(distro), args.summary)
+        results = [update_pinning(d) for d in rs.distros()]
+        return report(Result("Update conda-forge pinning", "\n\n---\n\n".join(r.summary for r in results),
+                             changed=any(r.changed for r in results), ok=all(r.ok for r in results),
+                             labels=sorted({label for r in results for label in r.labels})), args.summary)
     if command == "new-distro":
         return report(new_distro(args.name, args.source), args.summary)
     if command == "update-snapshot":

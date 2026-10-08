@@ -2,12 +2,15 @@
 #
 # - daily: a snapshot PR for every distribution with a new rosdistro sync (the ROS
 #   release team tags each sync, e.g. jazzy/2026-10-05; `rosdistro_sync: manual` in
-#   distro.yaml opts out, like rolling); Mondays also the shared conda-forge pinning.
+#   distro.yaml opts out, like rolling), and a conda-forge pinning PR when there's a new
+#   pinning version or a migration became usable (only packages using a changed pin, and
+#   what depends on them, are rebuilt; the PR is labelled dependency-conflict when the
+#   new pins can't be installed together).
 # - on demand (owners, members and collaborators):
 #     Actions > robostack-bot > Run workflow, an issue from the "robostack-bot command"
 #     template, or a comment: @robostack-bot <command> [<distro>]
 #   commands: update-rosdistro-snapshot [<distro>...|all] | find-stale-packages [<distro>...|all] |
-#             update-conda-forge-pinning | add-package <pkg>... [<distro>...]
+#             update-conda-forge-pinning [<distro>...|all] | add-package <pkg>... [<distro>...]
 # - package requests (the "Package request" issue form or `@robostack-bot add-package`,
 #   from anyone): the bot opens a PR that adds the packages; maintainers review it.
 #   Every other command is for owners, members and collaborators.
@@ -72,10 +75,8 @@ jobs:
         run: |
           case "$EVENT" in
             schedule)
-              jobs=$(pixi run -q rs rosdistro-syncs)
-              if [ "$(date -u +%u)" = 1 ]; then
-                jobs=$(echo "$jobs" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin) + [{"command":"update-conda-forge-pinning","distro":"","args":"","preview":False}]))')
-              fi ;;
+              # rosdistro syncs, and the conda-forge pinning of every distribution
+              jobs=$(pixi run -q rs rosdistro-syncs | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin) + [{"command":"update-conda-forge-pinning","distro":d,"args":"","preview":False} for d in sys.argv[1:]]))' $(ls distros)) ;;
             workflow_dispatch)  # only people with write access can dispatch
               jobs=$(ROBOSTACK_BOT_BODY="@robostack-bot $COMMAND $PACKAGES $DISTRO" ROBOSTACK_BOT_ASSOCIATION=OWNER pixi run -q rs parse-command) ;;
             *)
@@ -132,7 +133,7 @@ jobs:
               pixi run rs add-package $ARGS "${extra[@]}" --summary "$RUNNER_TEMP/summary.md" ;;
             update-rosdistro-snapshot) pixi run rs "$DISTRO" update-snapshot --summary "$RUNNER_TEMP/summary.md" ;;
             find-stale-packages) pixi run rs "$DISTRO" find-stale --summary "$RUNNER_TEMP/summary.md" ;;
-            update-conda-forge-pinning) pixi run rs update-pinning --summary "$RUNNER_TEMP/summary.md" ;;
+            update-conda-forge-pinning) pixi run rs "$DISTRO" update-pinning --summary "$RUNNER_TEMP/summary.md" ;;
           esac
           status=$?
           cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null
@@ -153,7 +154,9 @@ jobs:
           commit-message: ${{ steps.bot.outputs.title }}
           title: ${{ steps.bot.outputs.title }}
           body-path: ${{ runner.temp }}/summary.md
-          labels: robostack-bot
+          labels: |
+            robostack-bot
+            ${{ steps.bot.outputs.labels }}
       - name: Reply on the issue / pull request
         if: always() && (github.event_name == 'issue_comment' || github.event_name == 'issues')
         env:
