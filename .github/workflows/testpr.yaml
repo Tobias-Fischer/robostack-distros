@@ -17,6 +17,13 @@ permissions:
   contents: read
 
 env:
+  # No git auto-maintenance: it can leave a lock file in the git clones pixi keeps in
+  # its cache (e.g. vinca's), which breaks every later run restoring that cache.
+  GIT_CONFIG_COUNT: "2"
+  GIT_CONFIG_KEY_0: maintenance.auto
+  GIT_CONFIG_VALUE_0: "false"
+  GIT_CONFIG_KEY_1: gc.auto
+  GIT_CONFIG_VALUE_1: "0"
   PYTHONIOENCODING: utf-8
   SAVE_CACHE_AS_ARTIFACT: 'true'
 
