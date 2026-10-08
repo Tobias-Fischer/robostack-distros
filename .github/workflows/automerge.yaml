@@ -1,0 +1,43 @@
+name: Auto-merge
+
+# Adding the "automerge" label to a pull request turns on GitHub's auto-merge: the
+# pull request is merged as soon as the required checks ("All green") pass.
+# Removing the label turns it off again. Pull requests without the label are never
+# merged automatically.
+#
+# pull_request_target so that the token can merge pull requests from forks too; the
+# pull request's code is never checked out or run here.
+
+on:
+  pull_request_target:
+    types: [labeled, unlabeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    if: github.event.label.name == 'automerge'
+    runs-on: ubuntu-latest
+    steps:
+      # The merge has to come from the bot (or a PAT): a merge made with the
+      # workflow's own token would not trigger the main build workflow.
+      - name: Bot token
+        id: app
+        if: vars.ROBOSTACK_BOT_APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.ROBOSTACK_BOT_APP_ID }}
+          private-key: ${{ secrets.ROBOSTACK_BOT_PRIVATE_KEY }}
+      - name: Turn auto-merge on or off
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token || secrets.GHA_PAT || github.token }}
+          PR: ${{ github.event.pull_request.html_url }}
+          ACTION: ${{ github.event.action }}
+        run: |
+          if [ "$ACTION" = labeled ]; then
+            gh pr merge "$PR" --auto --merge
+          else
+            gh pr merge "$PR" --disable-auto
+          fi

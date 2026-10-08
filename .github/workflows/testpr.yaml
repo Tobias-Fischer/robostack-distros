@@ -216,3 +216,18 @@ jobs:
           echo "Workflow generation attempt ${attempt} failed; retrying..." >&2
           sleep 15
         done
+
+  # One stable check for branch protection / auto-merge: the build matrix differs
+  # from PR to PR, so require this job instead of the individual builds.
+  all-green:
+    name: All green
+    needs: [plan, check, build]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job succeeded (or had nothing to build)
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success" or .result == "skipped")' > /dev/null
