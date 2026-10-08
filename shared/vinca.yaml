@@ -433,6 +433,8 @@ packages_select_by_deps:
       - easynav_vff_controller
       - libcamera
       - livox_ros_driver2
+      - mujoco_ros2_control # Isaac ROS deploy / Unitree G1 simulation; runtime uses Linux-specific files; mujoco_ros2_control_plugins needs EGL
+      - mujoco_ros2_control_demos # Use readlink and access at runtime linux-specific file
       - navmap_core
       - navmap_ros
       - navmap_ros_interfaces
@@ -545,8 +547,6 @@ packages_select_by_deps:
       - med14_moveit_config
       - med7_moveit_config
       - mobile_robot_simulator
-      - mujoco_ros2_control # Isaac ROS deploy / Unitree G1 simulation; Use readlink and access at runtime linux-specific file
-      - mujoco_ros2_control_demos # Use readlink and access at runtime linux-specific file
       - openvdb_vendor
       - orbbec_camera_msgs
       - orbbec_description
