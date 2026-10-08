@@ -129,6 +129,7 @@ packages_select_by_deps:
   # Not on win-64 elsewhere (MSVC C1083 in its _msgs), but humble's 0.15 builds there
   - if: win
     then:
+      - cartographer_ros
       - rosbag2_performance_benchmarking
       - serial_driver  # humble's builds there (LNK1181 on rolling)
       - udp_driver

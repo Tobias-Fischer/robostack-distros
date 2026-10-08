@@ -106,7 +106,6 @@ packages_select_by_deps:
   - bondcpp
   - builtin_interfaces
   - can_msgs
-  - cartographer_ros
   - cascade_lifecycle_msgs # Requested in https://www.linkedin.com/feed/update/urn:li:activity:7346559234177703938/
   - cl_ros2_timer
   - clearpath_common
@@ -516,6 +515,7 @@ packages_select_by_deps:
       - autoware_qp_interface
       - autoware_trajectory # depends on autoware_motion_utils
       - bonxai_ros
+      - cartographer_ros # lyrical win-64: unresolved tf2_ros::Buffer vftable (LNK2019); humble/jazzy build it there (their vinca.yaml)
       - cloudini_lib
       - cloudini_ros
       - dual_laser_merger

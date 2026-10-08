@@ -50,5 +50,6 @@ packages_select_by_deps:
   # not on win-64 elsewhere (GCC-only compile flags), but jazzy's 1.0.4 builds there
   - if: win
     then:
+      - cartographer_ros
       - sick_safetyscanners_base
 
