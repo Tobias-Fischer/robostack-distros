@@ -130,6 +130,8 @@ packages_select_by_deps:
   - if: win
     then:
       - rosbag2_performance_benchmarking
+      - serial_driver  # humble's builds there (LNK1181 on rolling)
+      - udp_driver
 
   # humble's popf has a macOS patch (patch/ros2-popf.patch); elsewhere plansys2 is Linux only
   - if: osx

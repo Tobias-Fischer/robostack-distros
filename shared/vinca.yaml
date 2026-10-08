@@ -336,7 +336,6 @@ packages_select_by_deps:
   - rviz_visual_tools
   - sbg_driver
   - sdl2_vendor
-  - serial_driver # Serial communication only implemented for linux; requested in https://github.com/RoboStack/ros-humble/issues/302
   - sick_scan_xd
   - simulation
   - simulation_interfaces # requested in https://github.com/RoboStack/ros-humble/issues/304
@@ -371,7 +370,6 @@ packages_select_by_deps:
   - twist_mux
   - twist_stamper # Requested in https://github.com/RoboStack/ros-rolling/issues/12
   - ublox # Kumar Robotics; compilation fails on Windows and osx
-  - udp_driver # Serial communication only implemented for linux; Requested in https://github.com/RoboStack/ros-humble/issues/345
   - ur
   - ur_calibration # Universal Robots, requested in https://github.com/RoboStack/ros-humble/issues/217
   - ur_client_library
@@ -562,6 +560,7 @@ packages_select_by_deps:
       - rslidar_sdk # rs_driver's Windows socket code has multiple pre-existing min/max-macro and getsockopt/setsockopt type bugs; not pursuing further
       - rviz_2d_overlay_plugins
       - rviz_satellite
+      - serial_driver # Serial communication only implemented for linux; requested in https://github.com/RoboStack/ros-humble/issues/302
       - sick_safetyscanners_base # MSVC: -Werror etc. (D8021); jazzy's 1.0.4 builds on win-64 (distros/jazzy/vinca.yaml)
       - smacc2 # needs cxxabi.h (Itanium ABI demangling) and poll.h, both POSIX-only; jazzy excludes it from win-64 the same way
       - spacenav
@@ -572,6 +571,7 @@ packages_select_by_deps:
       - ublox_dgnss # Aussie Robots
       - ublox_dgnss_node
       - ublox_ubx_interfaces
+      - udp_driver # Serial communication only implemented for linux; Requested in https://github.com/RoboStack/ros-humble/issues/345
       - velodyne
       - vision_msgs_rviz_plugins
       - visp # zbar has no Windows build on conda-forge
