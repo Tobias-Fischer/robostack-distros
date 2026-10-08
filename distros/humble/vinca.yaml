@@ -131,3 +131,9 @@ packages_select_by_deps:
     then:
       - rosbag2_performance_benchmarking
 
+  # humble's popf has a macOS patch (patch/ros2-popf.patch); elsewhere plansys2 is Linux only
+  - if: osx
+    then:
+      - plansys2_bringup
+      - plansys2_bt_actions
+

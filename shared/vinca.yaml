@@ -439,6 +439,8 @@ packages_select_by_deps:
       - navmap_ros_interfaces
       - nobleo_socketcan_bridge # Depends on socketcan
       - orbbec_camera
+      - plansys2_bringup
+      - plansys2_bt_actions
       - plansys2_core
       - plansys2_domain_expert
       - plansys2_executor
@@ -549,8 +551,6 @@ packages_select_by_deps:
       - openvdb_vendor
       - orbbec_camera_msgs
       - orbbec_description
-      - plansys2_bringup
-      - plansys2_bt_actions
       - rosbag2_performance_benchmarking # its _msgs' Python typesupport hits MSVC C1083 on win-64 (rosidl codegen race, same as humble's iiwa14_moveit_config)
       - rosgraph_monitor
       - rqt_action
