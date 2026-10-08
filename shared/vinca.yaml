@@ -475,6 +475,7 @@ packages_select_by_deps:
       - sick_safetyscanners2
       - sick_safetyscanners2_interfaces
       - slider_publisher
+      - smacc2 # needs cxxabi.h and poll.h (POSIX), and LTTng on macOS; humble builds it on macOS too (distros/humble/vinca.yaml)
       - spatio_temporal_voxel_layer # Uses linux-specific flags in  https://github.com/SteveMacenski/spatio_temporal_voxel_layer/blob/e23d730d35407bd8e2bf9c33d10388a6a07c735d/spatio_temporal_voxel_layer/CMakeLists.txt#L124,; Uses linux-specific flags (CMakeLists.txt#L124), should be easy to fix
       - turtlebot4_base
       - turtlebot4_bringup
@@ -562,7 +563,6 @@ packages_select_by_deps:
       - rviz_satellite
       - serial_driver # Serial communication only implemented for linux; requested in https://github.com/RoboStack/ros-humble/issues/302
       - sick_safetyscanners_base # MSVC: -Werror etc. (D8021); jazzy's 1.0.4 builds on win-64 (distros/jazzy/vinca.yaml)
-      - smacc2 # needs cxxabi.h (Itanium ABI demangling) and poll.h, both POSIX-only; jazzy excludes it from win-64 the same way
       - spacenav
       - swri_console # Until sync of: https://github.com/ros/rosdistro/pull/49750; MSVC compile error (numeric_limits<T>::max()/min() macro collision); jazzy excludes it from win-64 pending rosdistro sync, see ros/rosdistro#49750
       - swri_serial_util # Serial communication only implemented for linux; needs sys/ioctl.h/termios.h (POSIX serial APIs); not on Windows (shared/patch/ros2-swri-serial-util.patch makes it build on macOS)

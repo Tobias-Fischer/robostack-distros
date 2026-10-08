@@ -139,4 +139,5 @@ packages_select_by_deps:
     then:
       - plansys2_bringup
       - plansys2_bt_actions
+      - smacc2
 
