@@ -1,6 +1,14 @@
 # vinca settings shared by every distribution; distros/<d>/vinca.yaml adds its own
 # (lists are combined, other keys from the distribution win). See tools/robostack.py.
 package_name_mode: both
+# Mapped to conda-forge in shared/robostack.yaml (tl_expected -> cpp-expected,
+# sophus -> sophus). Where they are also ROS packages (humble, jazzy, kilted), vinca
+# would otherwise build the ROS package under the conda-forge name, which shadows the
+# conda-forge package (e.g. no tl-expected CMake config for rsl).
+packages_skip_by_deps:
+  - sophus
+  - tl_expected
+
 packages_select_by_deps:
   - ackermann_msgs
   - ament_cmake_black

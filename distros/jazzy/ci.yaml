@@ -2,9 +2,8 @@
 #
 # testpr.yml caches the packages it builds per pull request, and rattler-build
 # skips everything that is already in that cache. This file tells it what to
-# throw away before building. It is owned by this distribution (the template
-# never overwrites it); set it in your PR, and reset it to the defaults below
-# before or right after merging.
+# throw away before building. Set it in your PR, and reset it to the defaults
+# below before or right after merging.
 
 # Ignore the PR build cache and rebuild everything, e.g. for a full rebuild PR
 # that bumps the build number of all packages.
@@ -24,4 +23,10 @@ full_rebuild: false
 #
 # Remember that dependents are not rebuilt automatically: evict them as well if
 # they must pick up the change.
-evict_cache: []
+evict_cache:
+  # built from ROS sources under the conda-forge names before shared/vinca.yaml
+  # skipped them; the conda-forge packages must be used instead
+  - cpp-expected
+  - sophus
+  # empty win-64 build from a cancelled run
+  - rmw_fastrtps_shared_cpp

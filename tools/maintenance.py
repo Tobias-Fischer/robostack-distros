@@ -1,7 +1,8 @@
 """Maintenance commands (used by robostack-bot, .github/workflows/bot.yml).
 
     pixi run rs check                                 # sanity checks of the whole repository
-    pixi run rs <distro> update-snapshot              # refresh rosdistro_snapshot.yaml, summarise bumps
+    pixi run rs <distro> update-snapshot              # snapshot the latest rosdistro sync, summarise bumps
+    pixi run rs rosdistro-syncs                       # bot jobs for distributions with a new sync
     pixi run rs <distro> find-stale                   # published packages built against outdated pins
     pixi run rs update-pinning                        # move shared/pinning/conda_forge.yaml forward
     pixi run rs new-distro NAME --from DISTRO         # add distros/NAME, seeded from DISTRO
@@ -30,7 +31,7 @@ import yaml
 import robostack as rs
 
 BOT_COMMANDS = {
-    "add-package": "add ROS packages to the package selection (opens a PR; a preview for non-maintainers)",
+    "add-package": "add ROS packages to the package selection (opens a PR; anyone can ask)",
     "update-rosdistro-snapshot": "refresh the distribution's rosdistro_snapshot.yaml (opens a PR)",
     "find-stale-packages": "list its published packages built against outdated pins",
     "update-conda-forge-pinning": "move the shared conda-forge pinning to the latest version (opens a PR)",
@@ -60,27 +61,241 @@ def _versions(path: Path) -> dict[str, str]:
 
 
 def snapshot_changes(old: dict[str, str], new: dict[str, str]) -> str:
+    """Counts up front, the lists folded away (they run to hundreds of lines)."""
     added, removed = sorted(set(new) - set(old)), sorted(set(old) - set(new))
     bumped = sorted(k for k in set(old) & set(new) if old[k] != new[k])
     lines = [f"{len(bumped)} updated, {len(added)} added, {len(removed)} removed packages."]
+
+    def fold(title: str, body: list[str]) -> None:
+        lines.extend(["", f"<details><summary>{title}</summary>", "", *body, "", "</details>"])
+
     if bumped:
-        lines += ["", "| package | old | new |", "|---|---|---|"] + [f"| {k} | {old[k]} | {new[k]} |" for k in bumped]
+        fold(f"Updated ({len(bumped)})", ["| package | old | new |", "|---|---|---|"]
+             + [f"| {k} | {old[k]} | {new[k]} |" for k in bumped])
     if added:
-        lines += ["", "Added: " + ", ".join(f"`{k}`" for k in added)]
+        fold(f"Added ({len(added)})", [", ".join(f"`{k}`" for k in added)])
     if removed:
-        lines += ["", "Removed: " + ", ".join(f"`{k}`" for k in removed)]
+        fold(f"Removed ({len(removed)})", [", ".join(f"`{k}`" for k in removed)])
     return "\n".join(lines)
 
 
+def _ruamel():
+    from ruamel.yaml import YAML
+
+    ry = YAML()
+    ry.preserve_quotes = True
+    ry.width = 4096
+    ry.indent(mapping=2, sequence=4, offset=2)
+    return ry
+
+
+def sync_mutex_constraints(distro: str) -> list[str]:
+    """Move `<pkg> <version>.*` run_constraints of the mutex to the rendered pin of
+    the same package in conda_build_config.yaml. Other constraints stay as they are."""
+    path = rs.DISTROS / distro / "vinca.yaml"
+    pins = yaml.safe_load((rs.DISTROS / distro / "conda_build_config.yaml").read_text()) or {}
+    changes: list[str] = []
+
+    def repl(m: re.Match) -> str:
+        name, old = m.group(2), m.group(3)
+        pin = pins.get(name.replace("-", "_"))
+        if not (isinstance(pin, list) and pin):
+            return m.group(0)
+        # same precision as before (`libprotobuf 7.35.*` stays at major.minor)
+        new = ".".join(str(pin[0]).split(".")[: len(old.split("."))])
+        if new == old:
+            return m.group(0)
+        changes.append(f"`{name}` {old}.* → {new}.*")
+        return f"{m.group(1)}{name} {new}.*"
+
+    text = path.read_text()
+    head, sep, rest = text.partition("run_constraints:")
+    if sep:
+        block = re.match(r"(?:[ \t]*(?:-.*|#.*)?\n)*", rest).group(0)
+        block_new = re.sub(r"(?m)^([ \t]*-[ \t]+)([A-Za-z0-9_.-]+) ([0-9][0-9.]*)\.\*[ \t]*$", repl, block)
+        path.write_text(head + sep + block_new + rest[len(block):])
+    return changes
+
+
+REPODATA_SUBDIRS = ("noarch", "linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64")
+
+
+def released_build_number(distro: str) -> int | None:
+    """Highest build number of the distribution's packages on its channel (the mutex
+    aside), or None when the channel can't be read."""
+    import urllib.error
+    import urllib.request
+
+    s = rs.settings(distro)
+    name = s.get("channel_name", f"robostack-{distro}")
+    base = f"https://repo.prefix.dev/{name}" if s.get("upload_target", "prefix") == "prefix" else rs.channel_url(distro)
+    mutex = (yaml.safe_load((rs.DISTROS / distro / "vinca.yaml").read_text()).get("mutex_package") or {}).get("name")
+    prefixes = (f"ros-{distro}-", "ros2-")
+    highest, read = None, False
+    for subdir in REPODATA_SUBDIRS:
+        try:
+            request = urllib.request.Request(f"{base}/{subdir}/repodata.json", headers={"User-Agent": "robostack-bot"})
+            with urllib.request.urlopen(request, timeout=300) as response:
+                data = json.load(response)
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                continue
+            raise
+        read = True
+        for record in [*data.get("packages", {}).values(), *data.get("packages.conda", {}).values()]:
+            if record["name"].startswith(prefixes) and record["name"] != mutex:
+                highest = max(highest or 0, int(record.get("build_number", 0)))
+    return highest if read else None
+
+
+def bump_rebuild(distro: str) -> list[str]:
+    """Rebuild everything: build_number = highest released build number + 1 (so every
+    package gets a new build, whatever the current value), mutex minor + 1, and no
+    per-package build numbers."""
+    path = rs.DISTROS / distro / "vinca.yaml"
+    text = path.read_text()
+    current = int(re.search(r"(?m)^build_number:\s*(\d+)", text).group(1))
+    released = released_build_number(distro)
+    number = current + 1 if released is None else released + 1
+    text = re.sub(r"(?m)^(build_number:\s*)\d+", rf"\g<1>{number}", text, count=1)
+    m = re.search(r"(?m)^mutex_package:\n(?:[ \t]+.*\n|\n)*?[ \t]+version:[ \t]*[\"']?(\d+)\.(\d+)\.(\d+)", text)
+    if not m:
+        raise SystemExit(f"{path}: no mutex_package version")
+    old_mutex = ".".join(m.group(1, 2, 3))
+    new_mutex = f"{m.group(1)}.{int(m.group(2)) + 1}.0"
+    text = text[:m.start(1)] + new_mutex + text[m.end(3):]
+    path.write_text(text)
+    source = "channel unreadable, current + 1" if released is None else f"highest released build {released} + 1"
+    lines = [f"`build_number` {current} → {number} ({source}), mutex {old_mutex} → {new_mutex} (rebuilds every package)"]
+
+    info = rs.DISTROS / distro / "pkg_additional_info.yaml"
+    if info.is_file():
+        ry = _ruamel()
+        data = ry.load(info.read_text()) or {}
+        dropped = []
+        for pkg in list(data):
+            entry = data[pkg]
+            if isinstance(entry, dict) and "build_number" in entry:
+                dropped.append(f"`{pkg}` ({entry['build_number']})")
+                del entry["build_number"]
+                if not entry:
+                    del data[pkg]
+        if dropped:
+            with info.open("w") as fh:
+                ry.dump(data, fh)
+            lines.append(f"removed {len(dropped)} per-package build numbers: " + ", ".join(dropped))
+    return lines
+
+
+SYNC_TAG = re.compile(r"^(?P<distro>[a-z]+)/(?P<date>\d{4}-\d{2}-\d{2})$")
+ROSDISTRO = "https://github.com/ros/rosdistro"
+
+
+def latest_sync(distro: str) -> str | None:
+    """Newest sync tag of the distribution in ros/rosdistro, e.g. jazzy/2026-10-05.
+    The ROS release team tags every sync from ros-testing to the main repositories."""
+    import urllib.request
+
+    headers = {"User-Agent": "robostack-bot", "Accept": "application/vnd.github+json"}
+    if token := os.environ.get("GITHUB_TOKEN"):
+        headers["Authorization"] = f"Bearer {token}"
+    url = f"https://api.github.com/repos/ros/rosdistro/git/matching-refs/tags/{distro}/"
+    with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=60) as response:
+        refs = json.load(response)
+    tags = [r["ref"].removeprefix("refs/tags/") for r in refs]
+    tags = [t for t in tags if (m := SYNC_TAG.match(t)) and m["distro"] == distro]
+    return max(tags, key=lambda t: t.split("/")[1], default=None)
+
+
+def _announcement(distro: str, date: str) -> str:
+    """Link to the Discourse announcement of a sync ("New Packages for Jazzy Jalisco
+    2026-10-05"), or to a search for it."""
+    import urllib.parse
+    import urllib.request
+
+    search = f"https://discourse.openrobotics.org/search?q={urllib.parse.quote(f'{distro} {date} in:title')}"
+    try:
+        request = urllib.request.Request(search.replace("/search?", "/search.json?"), headers={"User-Agent": "robostack-bot"})
+        with urllib.request.urlopen(request, timeout=30) as response:
+            topics = json.load(response).get("topics", [])
+    except Exception:
+        return search
+    for topic in topics:
+        if re.match(r"(?i)new packages", topic.get("title", "")) and date in topic["title"]:
+            return f"https://discourse.openrobotics.org/t/{topic['slug']}/{topic['id']}"
+    return search
+
+
+def _set_setting(distro: str, key: str, value: str) -> None:
+    """Set a top-level scalar in distros/<d>/distro.yaml, keeping the rest as is."""
+    path = rs.DISTROS / distro / "distro.yaml"
+    text = path.read_text()
+    line = f"{key}: {value}"
+    if re.search(rf"(?m)^{key}:.*$", text):
+        text = re.sub(rf"(?m)^{key}:.*$", line, text, count=1)
+    else:
+        text = text.rstrip("\n") + "\n" + line + "\n"
+    path.write_text(text)
+
+
+def _pending_sync(distro: str) -> str | None:
+    """The sync recorded on an open bot PR for the distribution, if any."""
+    branch = f"bot/update-rosdistro-snapshot-{distro}"
+    fetch = subprocess.run(["git", "fetch", "-q", "--depth=1", "origin", branch], cwd=rs.ROOT, capture_output=True)
+    if fetch.returncode:
+        return None
+    show = subprocess.run(["git", "show", f"FETCH_HEAD:distros/{distro}/distro.yaml"], cwd=rs.ROOT,
+                          capture_output=True, text=True)
+    return (yaml.safe_load(show.stdout) or {}).get("rosdistro_sync") if show.returncode == 0 else None
+
+
+def rosdistro_syncs() -> list[dict]:
+    """Bot jobs for the distributions with a rosdistro sync newer than the one they
+    (or their open snapshot PR) are on. Distributions with `rosdistro_sync: manual`
+    are left out."""
+    jobs = []
+    for distro in rs.distros():
+        recorded = rs.settings(distro).get("rosdistro_sync")
+        if recorded == "manual":
+            continue
+        latest = latest_sync(distro)
+        known = [t for t in (recorded, _pending_sync(distro)) if t]
+        if latest and all(latest.split("/")[1] > t.split("/")[1] for t in known):
+            print(f"{distro}: new rosdistro sync {latest} (on {recorded or 'none'})", file=sys.stderr)
+            jobs.append({"command": "update-rosdistro-snapshot", "distro": distro, "args": "", "preview": False})
+        else:
+            print(f"{distro}: on the latest sync {latest}", file=sys.stderr)
+    return jobs
+
+
 def update_snapshot(distro: str) -> Result:
+    """Snapshot the distribution's latest rosdistro sync (rosdistro master with
+    `rosdistro_sync: manual`), then bump for a full rebuild."""
     snapshot = rs.DISTROS / distro / "rosdistro_snapshot.yaml"
+    recorded = rs.settings(distro).get("rosdistro_sync")
+    ref = None if recorded == "manual" else latest_sync(distro)
     old = _versions(snapshot)
-    if rs.task(distro, "create-snapshot", []):
+    if rs.task(distro, "create-snapshot", ["--rosdistro-ref", ref] if ref else []):
         return Result(f"{distro}: snapshot update failed", "`vinca-snapshot` failed, see the log.", ok=False)
     new = _versions(snapshot)
+    if ref:
+        _set_setting(distro, "rosdistro_sync", ref)
+        date = ref.split("/")[1]
+        source = [
+            f"rosdistro sync [`{ref}`]({ROSDISTRO}/tree/{ref})"
+            + (f" ([changes since `{recorded}`]({ROSDISTRO}/compare/{recorded}...{ref}))" if recorded else "")
+            + f", [announcement]({_announcement(distro, date)}).",
+            "",
+        ]
+        title = f"{distro}: rosdistro sync {date}"
+    else:
+        source, title = ["rosdistro master (this distribution doesn't follow syncs).", ""], f"{distro}: update rosdistro snapshot"
     if old == new:
-        return Result(f"{distro}: snapshot is up to date", "No package versions changed.")
-    return Result(f"{distro}: update rosdistro snapshot", snapshot_changes(old, new), changed=True)
+        return Result(f"{distro}: snapshot is up to date", "\n".join(source) + "No package versions changed.",
+                      changed=bool(ref and ref != recorded))
+    bump = bump_rebuild(distro)
+    return Result(title, "\n".join(source) + snapshot_changes(old, new) + "\n\n" + "\n".join(f"- {l}" for l in bump),
+                  changed=True)
 
 
 def find_stale(distro: str) -> Result:
@@ -99,7 +314,8 @@ def find_stale(distro: str) -> Result:
     stale = proc.returncode != 0
     return Result(
         f"{distro}: {'stale packages' if stale else 'no stale packages'}",
-        f"`check_dependency_compat.py --stale --repodata {url}`\n\n```\n{output}\n```",
+        f"`check_dependency_compat.py --stale --repodata {url}`\n\n"
+        f"<details><summary>Report</summary>\n\n```\n{output}\n```\n\n</details>",
         ok=not stale,
     )
 
@@ -128,8 +344,18 @@ def update_pinning() -> Result:
     body = [f"conda_forge_pinning_version: {version}", "migrations:"] + [f"  - {m}" for m in migrations]
     shared.write_text("\n".join(header + body) + "\n")
     followers = [d for d in rs.distros() if not rs.settings(d).get("conda_forge_pinning_version")]
+    rebuilds: list[str] = []
     for distro in followers:
+        cbc = rs.DISTROS / distro / "conda_build_config.yaml"
+        before_cbc = cbc.read_text() if cbc.is_file() else ""
         rs.task(distro, "render-pinning", [])
+        if cbc.read_text() == before_cbc:
+            rebuilds.append(f"- **{distro}**: pins unchanged, no rebuild")
+            continue
+        constraints = sync_mutex_constraints(distro)
+        rebuilds.append(f"- **{distro}**: " + "; ".join(bump_rebuild(distro)))
+        if constraints:
+            rebuilds.append("  - mutex run_constraints: " + ", ".join(constraints))
     lines = [
         f"Moved `shared/pinning/conda_forge.yaml` to conda-forge-pinning `{version}`, with migrations "
         "selected for the dependencies of every distribution.",
@@ -140,6 +366,10 @@ def update_pinning() -> Result:
         "",
         "Re-rendered `conda_build_config.yaml` of: " + (", ".join(followers) or "none")
         + " (the others pin their own version in `distro.yaml`).",
+        "",
+        *rebuilds,
+        "",
+        "Check the mutex `run_constraints` that aren't plain pins with `pixi run rs <distro> check-deps`.",
     ]
     return Result("Update conda-forge pinning", "\n".join(lines), changed=True)
 
@@ -184,6 +414,10 @@ def new_distro(name: str, source: str) -> Result:
     return Result(f"New distribution {name}", "\n".join(lines), changed=True, ok=not any(steps))
 
 
+PACKAGE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")  # valid ROS package names only
+MAX_PACKAGES = 10  # per request
+
+
 def _package_name(name: str) -> str:
     """ROS package name from a request: `ros-humble-foo-bar`, `ros2-foo-bar`, `foo-bar` -> foo_bar."""
     name = name.strip().strip("`'\",.").lower()
@@ -219,12 +453,7 @@ def _available(distro: str) -> set[str]:
 
 def _append_selection(path: Path, packages: list[str]) -> None:
     """Append to packages_select_by_deps keeping the file's comments (round trip)."""
-    from ruamel.yaml import YAML
-
-    ry = YAML()
-    ry.preserve_quotes = True
-    ry.width = 4096
-    ry.indent(mapping=2, sequence=4, offset=2)
+    ry = _ruamel()
     data = ry.load(path.read_text()) if path.is_file() else {}
     data.setdefault("packages_select_by_deps", [])
     items = data["packages_select_by_deps"]
@@ -242,7 +471,8 @@ def _append_selection(path: Path, packages: list[str]) -> None:
 def add_package(packages: list[str], distros: list[str], preview: bool = False) -> Result:
     """Select ROS packages for building, in the given (default: all) distributions
     that have them, and list the recipes this adds on linux-64."""
-    wanted = list(dict.fromkeys(_package_name(p) for p in packages if p.strip()))
+    wanted = list(dict.fromkeys(n for n in (_package_name(p) for p in packages if p.strip()) if PACKAGE_NAME.match(n)))
+    wanted = wanted[:MAX_PACKAGES]
     if not wanted:
         return Result("add-package: no package given", "Name at least one ROS package.", ok=False)
     targets = distros or rs.distros()
@@ -305,57 +535,68 @@ def add_package(packages: list[str], distros: list[str], preview: bool = False) 
 
 
 def _default_ci_yaml() -> str:
-    return (
-        "# Temporary controls for the pull-request build (.github/workflows/testpr.yml).\n"
-        "full_rebuild: false\n"
-        "evict_cache: []\n"
-    )
+    return (rs.TOOLS / "ci.default.yaml").read_text()
 
 
-def parse_command(body: str, association: str) -> dict | None:
+def parse_command(body: str, association: str) -> list[dict]:
     """What a comment or issue asks for:
 
-    - `@robostack-bot <command> [<distro>]` / `@robostack-bot add-package <pkg>... [<distro>...]`
+    - `@robostack-bot <command> [<distro>... | all]`, `@robostack-bot add-package <pkg>... [<distro>...]`
     - the "robostack-bot command" and "Package request" issue forms
 
-    Returns {"command", "distro", "args", "preview"}; non-maintainers only get an
-    add-package preview (no PR), everything else is ignored for them.
+    Returns the jobs to run, each {"command", "distro", "args", "preview"} (one per
+    distribution for the per-distribution commands). Anyone can request packages
+    (add-package opens the PR for them too, maintainers review and merge it); the
+    other commands are for owners, members and collaborators.
     """
     body = body or ""
     maintainer = association.upper() in ALLOWED_ASSOCIATIONS
     command, rest = "", ""
     if m := re.search(r"^\s*@robostack-bot,?\s+(?:please\s+)?([a-z-]+)([^\n]*)", body, re.I | re.M):
         command, rest = m.group(1).lower(), m.group(2)
-    elif m := re.search(r"###\s*Package names?\s*\n+([^\n#]+)", body, re.I):
-        command, rest = "add-package", m.group(1)
-        if dm := re.search(r"###\s*Distributions?\s*\n+((?:\s*- \[[ xX]\].*\n?)+)", body):
-            rest += " " + " ".join(re.findall(r"- \[[xX]\]\s*([a-z]+)", dm.group(1)))
-    elif m := re.search(r"###\s*Command\s*\n+\s*([a-z-]+)(?:[\s\S]*?###\s*Distribution\s*\n+\s*([a-z]+))?", body, re.I):
-        command, rest = m.group(1).lower(), m.group(2) or ""
+    else:
+        form = _form_fields(body)
+        if form.get("package names"):
+            command, rest = "add-package", form["package names"]
+        elif form.get("command"):
+            command, rest = form["command"].lower(), form.get("packages", "")
+        rest += " " + form.get("distributions", "")
     if command not in BOT_COMMANDS:
-        return None
-    words = [w for w in re.split(r"[\s,]+", rest.strip()) if w and w != "_No"]
-    known = set(rs.distros())
+        return []
+    known = rs.distros()
+    words = [w for w in re.split(r"[\s,]+", rest.strip()) if w and w.lower() not in ("_no", "response_", "none")]
+    distros = [w.lower() for w in words if w.lower() in known]
+    if any(w.lower() == "all" for w in words):
+        distros = []  # every distribution
     if command == "add-package":
-        distros = [w for w in words if w in known]
-        packages = [w for w in words if w not in known and w.lower() not in ("response_", "response")]
+        packages = [w for w in words if w.lower() not in known and w.lower() != "all"]
+        packages = [p for p in packages if PACKAGE_NAME.match(_package_name(p))][:MAX_PACKAGES]
         if not packages:
-            return None
-        return {"command": command, "distro": "", "args": " ".join(packages + distros), "preview": not maintainer}
+            return []
+        return [{"command": command, "distro": "", "args": " ".join(packages + distros), "preview": False}]
     if not maintainer:
-        return None
-    distro = words[0].lower() if words else ""
+        return []
     if command in PER_DISTRO_COMMANDS:
-        if distro not in known:
-            return None
-        return {"command": command, "distro": distro, "args": "", "preview": False}
-    return {"command": command, "distro": "", "args": "", "preview": False}
+        return [{"command": command, "distro": d, "args": "", "preview": False} for d in distros or known]
+    return [{"command": command, "distro": "", "args": "", "preview": False}]
+
+
+def _form_fields(body: str) -> dict[str, str]:
+    """Fields of an issue form: `### Label` headings, each followed by its value."""
+    fields: dict[str, str] = {}
+    for m in re.finditer(r"(?m)^###\s*(.+?)\s*\n([\s\S]*?)(?=^###|\Z)", body):
+        label, value = m.group(1).strip().lower(), m.group(2).strip()
+        label = {"package name": "package names", "distribution": "distributions"}.get(label, label)
+        checked = re.findall(r"- \[[xX]\]\s*(\S+)", value)
+        fields[label] = " ".join(checked) if re.search(r"- \[[ xX]\]", value) else value
+    return fields
 
 
 def check() -> Result:
     """Sanity checks: every distribution assembles and its generated files are consistent."""
     problems: list[str] = []
-    known = {"channel_name", "upload_target", "conda_forge_pinning_version", "conda_forge_migrations", "pinning_overrides"}
+    known = {"channel_name", "upload_target", "conda_forge_pinning_version", "conda_forge_migrations", "pinning_overrides",
+             "rosdistro_sync"}
     for distro in rs.distros():
         d = rs.DISTROS / distro
         settings = rs.settings(distro)
@@ -363,6 +604,9 @@ def check() -> Result:
             problems.append(f"{distro}: unknown keys in distro.yaml: {sorted(unknown)}")
         if settings.get("upload_target", "prefix") not in ("prefix", "anaconda"):
             problems.append(f"{distro}: upload_target must be prefix or anaconda")
+        sync = settings.get("rosdistro_sync")
+        if sync is not None and sync != "manual" and not ((m := SYNC_TAG.match(str(sync))) and m["distro"] == distro):
+            problems.append(f"{distro}: rosdistro_sync must be 'manual' or a sync tag like {distro}/2026-10-05")
         if bool(settings.get("conda_forge_pinning_version")) != bool(settings.get("conda_forge_migrations")):
             problems.append(f"{distro}: set conda_forge_pinning_version and conda_forge_migrations together")
         w = rs.prepare(distro)
@@ -419,8 +663,7 @@ def main(command: str, argv: list[str], distro: str | None = None) -> int:
         parser.add_argument("--preview", action="store_true", help="don't change files, only report")
     args = parser.parse_args(argv)
     if command == "parse-command":
-        parsed = parse_command(args.body, args.association)
-        print(json.dumps(parsed or {}))
+        print(json.dumps(parse_command(args.body, args.association)))
         return 0
     if command == "add-package":
         known = set(rs.distros())
@@ -429,6 +672,9 @@ def main(command: str, argv: list[str], distro: str | None = None) -> int:
         return report(add_package(packages, distros, preview=args.preview), args.summary)
     if command == "check":
         return report(check(), args.summary)
+    if command == "rosdistro-syncs":
+        print(json.dumps(rosdistro_syncs()))
+        return 0
     if command == "update-pinning":
         return report(update_pinning(), args.summary)
     if command == "new-distro":

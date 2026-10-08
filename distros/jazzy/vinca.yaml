@@ -199,9 +199,7 @@ packages_select_by_deps:
   - urg_node
   - vector_pursuit_controller
   - velodyne_simulator
-  - visp
 
-  # Packages only built on Linux (hardware-specific deps or Linux-only APIs; a few were previously attempted on macOS/Windows and failed there).
   - if: linux
     then:
       - apriltag_ros  # Depends (indirectly) on libcamera
@@ -387,6 +385,7 @@ packages_select_by_deps:
       - trac_ik
       - velodyne
       - vision_msgs_rviz_plugins
+      - visp # zbar has no Windows build on conda-forge
       - web_video_server      # error C2338: static_assert failed: 'the Header struct is not properly packed' error on Windows
       - yasmin
       - yasmin_cli

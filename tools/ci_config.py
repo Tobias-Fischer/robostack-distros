@@ -10,7 +10,8 @@ script, so temporary rebuild controls live in ci.yaml instead of in the
       - roboplan*               # or a glob
 
 Each evict_cache entry matches both package name prefixes (``ros2-`` and
-``ros-<distro>-``), so the same entry works with ``package_name_mode: both``.
+``ros-<distro>-``), so the same entry works with ``package_name_mode: both``, and
+the plain name (packages that vinca built under a conda-forge name).
 """
 
 import argparse
@@ -51,7 +52,7 @@ def main() -> int:
         # A plain name only matches that package (name-version-build.conda);
         # a glob is used as given.
         suffix = name if "*" in name else f"{name}-[0-9]*"
-        for prefix in ("ros2-", f"ros-{distro}-"):
+        for prefix in ("ros2-", f"ros-{distro}-", ""):
             for path in sorted(cache.glob(prefix + suffix)):
                 print(f"ci.yaml: evicting {path.name}")
                 path.unlink()

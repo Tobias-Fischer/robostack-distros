@@ -56,6 +56,7 @@ jobs:
         with:
           frozen: true
           pixi-version: v0.75.0
+          cache-write: false  # the build jobs save the pixi environment cache
       - name: Sanity checks (every distribution assembles, generated files up to date, sorted)
         run: pixi run rs check
 
@@ -89,6 +90,9 @@ jobs:
       with:
         frozen: true
         pixi-version: v0.75.0
+        # every distribution's job on a platform has the same cache key; let one
+        # of them save it instead of all racing ("Unable to reserve cache")
+        cache-write: ${{ matrix.distro == fromJSON(needs.plan.outputs.distros)[0] }}
 
     - name: Windows workarounds (short build path, long paths, PATH and SDK clean-up)
       if: runner.os == 'Windows'
@@ -145,6 +149,10 @@ jobs:
         mkdir -p "$CACHE_DIR"
         pixi run rattler-index fs "$CACHE_DIR/.." --force
 
+    - name: See packages restored by cache
+      shell: bash -l {0}
+      run: ls -la "$CACHE_DIR" || true
+
     - name: Build recipes
       id: build-recipes
       shell: bash -l {0}
@@ -174,6 +182,16 @@ jobs:
         if-no-files-found: warn
         retention-days: 7
 
+    - name: Drop the package a cancellation may have cut short
+      # Cancelling can kill the compiler while the build script carries on, and
+      # rattler-build then packages an empty build (seen on Windows); the newest
+      # artifact is the only one that can be affected.
+      if: ${{ always() && steps.build-recipes.outcome == 'cancelled' }}
+      shell: bash -l {0}
+      run: |
+        newest=$(ls -t "$CACHE_DIR"/*.conda 2>/dev/null | head -1)
+        if [ -n "$newest" ]; then echo "Removing $newest"; rm -f "$newest"; fi
+
     - name: Save build cache
       if: ${{ always() && contains(fromJSON('["success","failure","cancelled"]'), steps.build-recipes.outcome) }}
       uses: actions/cache/save@v5
@@ -183,4 +201,10 @@ jobs:
 
     - name: Generate the staged build workflows (catches post-merge problems)
       shell: bash -l {0}
-      run: pixi run rs "$DISTRO" gha --platform "$PLATFORM" --batch-size 25
+      run: |
+        for attempt in 1 2 3; do
+          if pixi run rs "$DISTRO" gha --platform "$PLATFORM" --batch-size 25; then break; fi
+          if [[ "${attempt}" == "3" ]]; then echo "Workflow generation failed after 3 attempts" >&2; exit 1; fi
+          echo "Workflow generation attempt ${attempt} failed; retrying..." >&2
+          sleep 15
+        done

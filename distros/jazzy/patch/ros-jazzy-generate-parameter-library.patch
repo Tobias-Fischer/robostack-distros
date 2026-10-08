@@ -1,0 +1,43 @@
+Use conda-forge's tl-expected (cpp-expected) only, without the tl_expected
+backward-compatibility redirection (the ROS package is not built).
+
+diff --git a/cmake/generate_parameter_library.cmake b/cmake/generate_parameter_library.cmake
+index 0e7ca5a..99262df 100644
+--- a/cmake/generate_parameter_library.cmake
++++ b/cmake/generate_parameter_library.cmake
+@@ -97,19 +97,11 @@ macro(generate_parameter_library LIB_NAME YAML_FILE)
+     rsl::rsl
+     tcb_span::tcb_span
+     tl::expected
+-    # for backward compatibility
+-    # remove once this redirection is removed
+-    # https://github.com/PickNikRobotics/cpp_polyfills/pull/12
+-    tl_expected::tl_expected
+   )
+   install(DIRECTORY ${LIB_INCLUDE_DIR} DESTINATION include)
+   ament_export_dependencies(
+     fmt parameter_traits rclcpp rclcpp_lifecycle rsl tcb_span
+     tl-expected
+-    # for backward compatibility
+-    # remove once this redirection is removed
+-    # https://github.com/PickNikRobotics/cpp_polyfills/pull/12
+-    tl_expected
+   )
+ endmacro()
+ 
+diff --git a/generate_parameter_library-extras.cmake b/generate_parameter_library-extras.cmake
+index 00f0ab8..95efa6c 100644
+--- a/generate_parameter_library-extras.cmake
++++ b/generate_parameter_library-extras.cmake
+@@ -32,11 +32,6 @@ find_package(rsl REQUIRED)
+ find_package(rclcpp_lifecycle REQUIRED)
+ find_package(tcb_span REQUIRED)
+ find_package(tl-expected REQUIRED)
+-# for backward compatibility
+-# remove once this redirection is removed
+-# https://github.com/PickNikRobotics/cpp_polyfills/pull/12
+-set(tl_expected_DEPRECATED_QUIET TRUE)
+ find_package(parameter_traits REQUIRED)
+-find_package(tl_expected REQUIRED)
+ 
+ include("${generate_parameter_library_DIR}/generate_parameter_library.cmake")

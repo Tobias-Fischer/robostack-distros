@@ -2,8 +2,13 @@ tests:
   # Regression test for https://github.com/RoboStack/ros-humble/issues/274
   - script:
     - if: osx
+[% if distro in ("humble", "jazzy", "kilted") %]
+      # CycloneDDS 0.10 doesn't know allow_multicast; ROS_LOCALHOST_ONLY works there
+      then: export ROS_LOCALHOST_ONLY=1 RMW_IMPLEMENTATION=rmw_cyclonedds_cpp && launch_test robot_state_publisher_smoke_test_launch.py
+[% else %]
       # See https://github.com/RoboStack/ros-lyrical/pull/56 for the macOS discovery failure and rationale.
       then: export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp CYCLONEDDS_URI='<CycloneDDS><Domain><General><Interfaces><NetworkInterface name="lo0" multicast="true" allow_multicast="true"/></Interfaces></General></Domain></CycloneDDS>' && launch_test robot_state_publisher_smoke_test_launch.py
+[% endif %]
 [% if distro == "humble" %]
     # win-64 (humble) hits a "Type support not from this implementation" /
     # "rcl node's rmw handle is invalid" crash with the default RMW; use
