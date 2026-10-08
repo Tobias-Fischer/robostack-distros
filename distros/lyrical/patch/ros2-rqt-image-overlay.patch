@@ -1,0 +1,24 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9ca7c70..142b02b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -43,13 +43,12 @@ add_library(rqt_image_overlay SHARED
+ target_include_directories(rqt_image_overlay PUBLIC
+   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+   $<INSTALL_INTERFACE:include>)
+-ament_target_dependencies(rqt_image_overlay
+-  rclcpp
+-  rqt_gui_cpp
+-  image_transport
+-  Qt5Widgets
+-  ros_image_to_qimage
+-  rqt_image_overlay_layer)
++# ament_target_dependencies() is gone in this distribution's ament_cmake
++foreach(_dep rclcpp rqt_gui_cpp image_transport ros_image_to_qimage rqt_image_overlay_layer)
++  target_include_directories(rqt_image_overlay PUBLIC ${${_dep}_INCLUDE_DIRS})
++  target_link_libraries(rqt_image_overlay PUBLIC ${${_dep}_LIBRARIES})
++endforeach()
++target_link_libraries(rqt_image_overlay PUBLIC Qt5::Widgets)
+ 
+ pluginlib_export_plugin_description_file(rqt_gui plugin.xml)  # This must be rqt_gui and not rqt_gui_cpp
+ 

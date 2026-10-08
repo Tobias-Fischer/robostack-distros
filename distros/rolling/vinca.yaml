@@ -31,6 +31,11 @@ mutex_package:
     # picks an ffmpeg 9.x build compatible with it.
     - libopenvino-tensorflow-lite-frontend >=2026.3.0,<2026.3.1.0a0
 
+packages_exclude:
+
+  # needs ros_image_to_qimage, which rolling doesn't have
+  - rqt_image_overlay
+
 packages_skip:
   - rplidar_ros
   - rviz_visual_tools

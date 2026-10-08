@@ -254,7 +254,7 @@ def generate_gha(distro: str, args: list[str]) -> int:
     trigger branch and file name, and tells the build scripts which distro to build."""
     parser = argparse.ArgumentParser(prog="rs <distro> gha")
     parser.add_argument("--platform", required=True)
-    parser.add_argument("--batch-size", default="10")
+    parser.add_argument("--batch-size", default="25")
     ns = parser.parse_args(args)
     d = work_dir(distro)
     branch = f"buildbranch_{distro}_{ns.platform.replace('-', '_')}"

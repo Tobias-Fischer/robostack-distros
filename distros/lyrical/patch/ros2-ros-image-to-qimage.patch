@@ -1,0 +1,19 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 73439fc..2c2a789 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -18,10 +18,10 @@ add_library(ros_image_to_qimage src/ros_image_to_qimage.cpp)
+ target_include_directories(ros_image_to_qimage PUBLIC
+   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+   $<INSTALL_INTERFACE:include>)
+-ament_target_dependencies(ros_image_to_qimage
+-  sensor_msgs
+-  Qt5Widgets
+-  cv_bridge)
++target_link_libraries(ros_image_to_qimage PUBLIC
++  ${sensor_msgs_TARGETS}
++  Qt5::Widgets
++  cv_bridge::cv_bridge)
+ 
+ install(
+   DIRECTORY include/
