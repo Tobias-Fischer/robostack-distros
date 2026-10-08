@@ -47,8 +47,7 @@ ROS packages whose name `shared/robostack.yaml` maps to a conda-forge package (e
 `tl_expected` -> `cpp-expected`) are skipped automatically, so the conda-forge package
 is used and not shadowed by a ROS build of the same name.
 
-`pixi run rs check` rejects vinca's `packages_skip_by_deps` / `packages_remove_from_deps`
-in our files. vinca's revision is pinned in `pixi.toml`; if that pin moves, re-check
+vinca rejects the old `packages_skip_by_deps` / `packages_remove_from_deps` keys. vinca's revision is pinned in `pixi.toml`; if that pin moves, re-check
 `vinca/main.py` and `vinca/resolve.py`.
 
 ## Recipes vs. artifacts

@@ -620,10 +620,6 @@ def check() -> Result:
     problems: list[str] = []
     known = {"channel_name", "upload_target", "conda_forge_pinning_version", "conda_forge_migrations", "pinning_overrides",
              "rosdistro_sync"}
-    for path in [rs.SHARED / "vinca.yaml"] + [rs.DISTROS / d / "vinca.yaml" for d in rs.distros()]:
-        legacy = {"packages_skip_by_deps", "packages_remove_from_deps", "packages_deselect"} & set(rs.load_yaml(path))
-        if legacy:
-            problems.append(f"{path.relative_to(rs.ROOT)}: use packages_exclude / packages_skip instead of {sorted(legacy)}")
     for distro in rs.distros():
         d = rs.DISTROS / distro
         settings = rs.settings(distro)
