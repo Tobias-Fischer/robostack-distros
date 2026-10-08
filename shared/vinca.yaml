@@ -566,7 +566,7 @@ packages_select_by_deps:
       - smacc2 # needs cxxabi.h (Itanium ABI demangling) and poll.h, both POSIX-only; jazzy excludes it from win-64 the same way
       - spacenav
       - swri_console # Until sync of: https://github.com/ros/rosdistro/pull/49750; MSVC compile error (numeric_limits<T>::max()/min() macro collision); jazzy excludes it from win-64 pending rosdistro sync, see ros/rosdistro#49750
-      - swri_serial_util # Serial communication only implemented for linux; needs sys/ioctl.h/termios.h (POSIX serial APIs); win-only here (macOS patch already covers it), unlike jazzy's broader linux-only exclusion
+      - swri_serial_util # Serial communication only implemented for linux; needs sys/ioctl.h/termios.h (POSIX serial APIs); not on Windows (shared/patch/ros2-swri-serial-util.patch makes it build on macOS)
       - system_modes_msgs
       - trac_ik
       - ublox_dgnss # Aussie Robots
