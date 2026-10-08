@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 83b4588..c7db62b 100644
+index 83b4588..3a4d6bb 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -7,7 +7,7 @@ find_package(ament_cmake REQUIRED)
@@ -29,7 +29,7 @@ index 83b4588..c7db62b 100644
      else()
        list(APPEND cmake_configure_args -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
      endif()
-@@ -59,10 +66,17 @@ macro(build_nlohmann_json_schema_validator)
+@@ -59,15 +66,25 @@ macro(build_nlohmann_json_schema_validator)
    include(ExternalProject)
    # clone v2.4.0
    set(nlohmann_json_schema_validator_version c780404a84dd9ba978ba26bc58d17cb43fa7bc80)
@@ -49,3 +49,11 @@ index 83b4588..c7db62b 100644
      TIMEOUT 6000
      ${cmake_commands}
      CMAKE_ARGS
+       -DCMAKE_INSTALL_PREFIX=${json_external_project_dir}/install/
+       -DBUILD_SHARED_LIBS:BOOL=ON
++      # the library has no dllexport annotations: without this MSVC builds the .dll
++      # but no import .lib, and consumers (rmf_task_ros2) fail with LNK1181
++      -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS:BOOL=ON
+       -DJSON_VALIDATOR_BUILD_TESTS:BOOL=OFF
+       -DJSON_VALIDATOR_BUILD_EXAMPLES:BOOL=OFF
+       ${cmake_configure_args}
