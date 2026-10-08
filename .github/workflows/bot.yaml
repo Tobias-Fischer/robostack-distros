@@ -73,9 +73,9 @@ jobs:
                 jobs=$(echo "$jobs" | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin) + [{"command":"update-conda-forge-pinning","distro":"","args":"","preview":False}]))')
               fi ;;
             workflow_dispatch)  # only people with write access can dispatch
-              jobs=$(pixi run -q rs parse-command --body "@robostack-bot $COMMAND $PACKAGES $DISTRO" --association OWNER) ;;
+              jobs=$(ROBOSTACK_BOT_BODY="@robostack-bot $COMMAND $PACKAGES $DISTRO" ROBOSTACK_BOT_ASSOCIATION=OWNER pixi run -q rs parse-command) ;;
             *)
-              jobs=$(pixi run -q rs parse-command --body "$BODY" --association "$ASSOCIATION") ;;
+              jobs=$(ROBOSTACK_BOT_BODY="$BODY" ROBOSTACK_BOT_ASSOCIATION="$ASSOCIATION" pixi run -q rs parse-command) ;;
           esac
           echo "jobs=$jobs" | tee -a "$GITHUB_OUTPUT"
 
