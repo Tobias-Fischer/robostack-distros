@@ -83,11 +83,6 @@ py_trees:
   add_host: ["poetry-core"]
 py_trees_js:
   add_host: ["poetry-core"]
-py_trees_ros_tutorials:
-  # the mock GUI is ported to PyQt6 (patch/ros2-py-trees-ros-tutorials.patch): PyQt5 and
-  # PyQt6 (the rqt stack) can't be installed together
-  remove_run: ["pyqt", "pyqt-builder"]
-  add_run: ["pyqt6"]
 pybind11_json_vendor:
   add_host: ["pybind11_json"]
   add_run: ["pybind11_json"]
