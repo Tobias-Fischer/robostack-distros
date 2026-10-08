@@ -124,3 +124,10 @@ packages_skip:
       - ouster_ros
       - pinocchio
 
+packages_select_by_deps:
+
+  # Not on win-64 elsewhere (MSVC C1083 in its _msgs), but humble's 0.15 builds there
+  - if: win
+    then:
+      - rosbag2_performance_benchmarking
+

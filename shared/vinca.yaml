@@ -308,7 +308,6 @@ packages_select_by_deps:
   - ros_ign
   - ros_ign_interfaces
   - ros_workspace
-  - rosbag2_performance_benchmarking # its _msgs' Python typesupport hits MSVC C1083 on win-64 (rosidl codegen race, same as humble's iiwa14_moveit_config)
   - rosbag2_storage_mcap
   - rosbridge_suite
   - rosgraph_monitor_msgs
@@ -552,6 +551,7 @@ packages_select_by_deps:
       - orbbec_description
       - plansys2_bringup
       - plansys2_bt_actions
+      - rosbag2_performance_benchmarking # its _msgs' Python typesupport hits MSVC C1083 on win-64 (rosidl codegen race, same as humble's iiwa14_moveit_config)
       - rosgraph_monitor
       - rqt_action
       - rqt_bag
