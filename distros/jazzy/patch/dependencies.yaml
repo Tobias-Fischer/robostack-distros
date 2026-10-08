@@ -117,6 +117,9 @@ plotjuggler:
 py_trees_js:
   add_host:
   - hatchling
+py_trees_ros_tutorials:
+  # the mock GUI imports PyQt5 (jazzy's rqt stack is Qt5 too), but package.xml doesn't declare it
+  add_run: ["pyqt"]
 python_qt_binding:
   # sip <6.16: exact pin conflicts with pyqt5-sip's range; unpinned risks the 6.16.x ABI regression.
   add_host: ["pyqt-builder", "sip <6.16"]
