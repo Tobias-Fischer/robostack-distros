@@ -5,3 +5,4 @@ upload_target: prefix
 conda_forge_pinning_version: 2026.09.25.23.22.04
 conda_forge_migrations: [elfutils0196, giflib6, go_macos, gstreamer128, hdf52, libboost190, proj99, urdfdom6,
   vtk970]
+rosdistro_sync: lyrical/2026-10-05
