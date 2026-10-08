@@ -254,7 +254,6 @@ packages_select_by_deps:
   - radar_msgs
   - random_numbers
   - rclc
-  - rclc_examples # MSVC C2055 on rcl_timer_t in callback signatures; root cause unresolved, already excluded on humble too
   - rclc_lifecycle
   - rclc_parameter
   - rclcpp
@@ -551,6 +550,7 @@ packages_select_by_deps:
       - orbbec_camera_msgs
       - orbbec_description
       - ouster_ros # Windows: cannot open pcl_io.lib (LNK1181); only jazzy built it there, last at 0.14.1
+      - rclc_examples # MSVC C2055 on rcl_timer_t in callback signatures; root cause unresolved, already excluded on humble too
       - rosbag2_performance_benchmarking # its _msgs' Python typesupport hits MSVC C1083 on win-64 (rosidl codegen race, same as humble's iiwa14_moveit_config)
       - rosgraph_monitor
       - rqt_action
