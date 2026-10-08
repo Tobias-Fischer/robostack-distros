@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 9dc2b82c..1d248be7 100644
+index 8d3ecf9..403d67f 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -30,6 +30,16 @@ find_package(nlohmann_json_schema_validator REQUIRED)
@@ -26,7 +26,7 @@ index 9dc2b82c..1d248be7 100644
 -    ${rmf_task_msgs_LIBRARIES}
 -    ${rclcpp_LIBRARIES}
      nlohmann_json::nlohmann_json
-     nlohmann_json_schema_validator
+     nlohmann_json_schema_validator::validator
  )
  
 +if(WIN32)
