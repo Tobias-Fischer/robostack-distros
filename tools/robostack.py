@@ -62,6 +62,33 @@ def run(cmd: list[str], cwd: Path) -> int:
     return subprocess.run(cmd, cwd=cwd).returncode
 
 
+# prefix.dev's sharded repodata (what rattler reads) lists a new upload a few minutes
+# after repodata.json does, so a stage that starts right after the previous one
+# uploaded can find no candidates for a package that is on the channel.
+INDEX_LAG_MESSAGE = b"No candidates were found"
+INDEX_LAG_RETRIES = 2
+INDEX_LAG_WAIT = 180
+
+
+def run_build(cmd: list[str], cwd: Path) -> int:
+    """run() for staged builds: retry when the solver misses a package, waiting for
+    the channel's index to catch up with the previous stage's uploads."""
+    for attempt in range(INDEX_LAG_RETRIES + 1):
+        print("+", " ".join(cmd), f"  (in {cwd.relative_to(ROOT)})", flush=True)
+        missing = False
+        with subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as proc:
+            for line in proc.stdout:
+                sys.stdout.buffer.write(line)
+                sys.stdout.buffer.flush()
+                missing = missing or INDEX_LAG_MESSAGE in line
+        if proc.returncode == 0 or not missing or attempt == INDEX_LAG_RETRIES:
+            return proc.returncode
+        print(f"A dependency was not found; waiting {INDEX_LAG_WAIT} s for the channel index "
+              f"(retry {attempt + 1} of {INDEX_LAG_RETRIES})", file=sys.stderr, flush=True)
+        time.sleep(INDEX_LAG_WAIT)
+    return proc.returncode
+
+
 # --------------------------------------------------------------------------- #
 # generated files
 # --------------------------------------------------------------------------- #
@@ -266,7 +293,7 @@ def task(distro: str, name: str, args: list[str]) -> int:
     if name == "build":
         return run(rattler_build(distro, ["--recipe-dir", "./recipes", *args]), w)
     if name == "build-ci":  # used by .scripts/build_unix.sh / build_win.bat
-        return run(rattler_build(distro, args, skip_existing=False), w)
+        return run_build(rattler_build(distro, args, skip_existing=False), w)
     if name == "build-one":
         pkg = args[0] if args else "ros2-ros-workspace"
         for patch in (d / "patch").glob(f"{pkg}.*patch"):
