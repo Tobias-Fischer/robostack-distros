@@ -115,6 +115,22 @@ In the PR, CI uses its cache unless told otherwise. A full rebuild PR sets
   `shared/pkg_additional_info.yaml`; the distribution's keys win.
 - Only in the current PR: `evict_cache` in `distros/<d>/ci.yaml`.
 
+## ABI compatibility of ROS package updates (prototype)
+
+`tools/abi_check.py` compares two builds of packages with libabigail's `abidiff`
+(Linux only; run it in a Linux VM or CI):
+
+```bash
+pixi run abi-check --channel https://conda.anaconda.org/robostack-jazzy --platform linux-64 --distro jazzy --latest-pairs 30
+pixi run abi-check --old old.conda --new new.conda
+```
+
+Per package: `compatible`, `additions` (only added symbols), `soname` (SONAME
+changed, symbols unchanged; dependents must be relinked, e.g. MoveIt's versioned
+SONAMEs), `incompatible` (removed or changed symbols, or a removed library), or
+`no libraries`. Published packages are stripped, so only exported symbols are
+compared: struct layout changes need builds with debug information.
+
 ## Packages built against outdated pins
 
 ```bash
