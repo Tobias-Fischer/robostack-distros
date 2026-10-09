@@ -131,6 +131,7 @@ packages_select_by_deps:
     then:
       - cartographer_ros
       - rosbag2_performance_benchmarking
+      - rplidar_ros
       - serial_driver  # humble's builds there (LNK1181 on rolling)
       - udp_driver
 
