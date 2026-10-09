@@ -1,0 +1,16 @@
+# Shared conda-forge pinning of all distributions, rendered into each
+# distribution's vinca_pinning.yaml (template/vinca_pinning.yaml.jinja).
+# Updated by `robostack-bot update-conda-forge-pinning`; a distribution can stay on
+# an older version with the `conda_forge_pinning_version` /
+# `conda_forge_migrations` copier answers.
+conda_forge_pinning_version: 2026.09.25.23.22.04
+migrations:
+  - elfutils0196
+  - giflib6
+  - go_macos
+  - gstreamer128
+  - hdf52
+  - libboost190
+  - proj99
+  - urdfdom6
+  - vtk970
