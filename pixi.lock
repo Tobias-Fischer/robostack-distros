@@ -69,7 +69,7 @@ environments:
       - conda: https://prefix.dev/conda-forge/linux-64/patchelf-0.19.2-hee9eb32_0.conda
       - conda: https://prefix.dev/conda-forge/linux-64/python-3.14.7-hcd007b5_106_cp314.conda
       - conda: https://prefix.dev/conda-forge/linux-64/pyyaml-6.0.3-py314h67df5f8_1.conda
-      - conda: https://prefix.dev/conda-forge/linux-64/rattler-build-0.57.2-he64ecbb_1.conda
+      - conda: https://prefix.dev/conda-forge/linux-64/rattler-build-0.76.1-hf01adef_0.conda
       - conda: https://prefix.dev/conda-forge/linux-64/rattler-index-0.31.5-h10a7753_0.conda
       - conda: https://prefix.dev/conda-forge/linux-64/readline-8.3-hd6e31c0_1.conda
       - conda: https://prefix.dev/conda-forge/linux-64/rhash-1.4.6-hb03c661_2.conda
@@ -80,7 +80,7 @@ environments:
       - conda: https://prefix.dev/conda-forge/noarch/python_abi-3.14-9_cp314.conda
       - conda: https://prefix.dev/conda-forge/noarch/setuptools-81.0.0-pyh332efcf_0.conda
       - conda: https://prefix.dev/conda-forge/noarch/tzdata-2026c-h151e31d_0.conda
-      - pypi: git+https://github.com/RoboStack/vinca.git?rev=837434ef34f3af183a035c6b211cac9912833414#837434ef34f3af183a035c6b211cac9912833414
+      - pypi: git+https://github.com/Tobias-Fischer/vinca.git?rev=ed3493cb303e571fd78dd8812869e5b44726acb0#ed3493cb303e571fd78dd8812869e5b44726acb0
       - pypi: https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/12/74/ef303ec980ef962ffe548fa36cb138bb399d1d1315731ba7bb81da85f7e0/rosdistro-1.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl
@@ -141,7 +141,7 @@ environments:
       - conda: https://prefix.dev/conda-forge/linux-aarch64/patchelf-0.19.2-hfb11796_0.conda
       - conda: https://prefix.dev/conda-forge/linux-aarch64/python-3.14.7-hbec3b18_106_cp314.conda
       - conda: https://prefix.dev/conda-forge/linux-aarch64/pyyaml-6.0.3-py314h807365f_1.conda
-      - conda: https://prefix.dev/conda-forge/linux-aarch64/rattler-build-0.57.2-hb434046_1.conda
+      - conda: https://prefix.dev/conda-forge/linux-aarch64/rattler-build-0.76.1-hc342849_0.conda
       - conda: https://prefix.dev/conda-forge/linux-aarch64/rattler-index-0.31.5-hf75afee_0.conda
       - conda: https://prefix.dev/conda-forge/linux-aarch64/readline-8.3-ha7194a6_1.conda
       - conda: https://prefix.dev/conda-forge/linux-aarch64/rhash-1.4.6-he30d5cf_2.conda
@@ -152,7 +152,7 @@ environments:
       - conda: https://prefix.dev/conda-forge/noarch/python_abi-3.14-9_cp314.conda
       - conda: https://prefix.dev/conda-forge/noarch/setuptools-81.0.0-pyh332efcf_0.conda
       - conda: https://prefix.dev/conda-forge/noarch/tzdata-2026c-h151e31d_0.conda
-      - pypi: git+https://github.com/RoboStack/vinca.git?rev=837434ef34f3af183a035c6b211cac9912833414#837434ef34f3af183a035c6b211cac9912833414
+      - pypi: git+https://github.com/Tobias-Fischer/vinca.git?rev=ed3493cb303e571fd78dd8812869e5b44726acb0#ed3493cb303e571fd78dd8812869e5b44726acb0
       - pypi: https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/12/74/ef303ec980ef962ffe548fa36cb138bb399d1d1315731ba7bb81da85f7e0/rosdistro-1.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl
@@ -210,14 +210,14 @@ environments:
       - conda: https://prefix.dev/conda-forge/osx-64/openssl-3.6.5-h332eb6d_0.conda
       - conda: https://prefix.dev/conda-forge/osx-64/python-3.14.7-hafa0b4b_106_cp314.conda
       - conda: https://prefix.dev/conda-forge/osx-64/pyyaml-6.0.3-py314h10d0514_1.conda
-      - conda: https://prefix.dev/conda-forge/osx-64/rattler-build-0.57.2-h4728fb8_1.conda
+      - conda: https://prefix.dev/conda-forge/osx-64/rattler-build-0.76.1-h1311731_0.conda
       - conda: https://prefix.dev/conda-forge/osx-64/rattler-index-0.31.5-hca43645_0.conda
       - conda: https://prefix.dev/conda-forge/osx-64/readline-8.3-h000c2f7_1.conda
       - conda: https://prefix.dev/conda-forge/osx-64/rhash-1.4.6-ha1e9b39_2.conda
       - conda: https://prefix.dev/conda-forge/osx-64/tk-8.6.13-ha6c374e_4.conda
       - conda: https://prefix.dev/conda-forge/osx-64/yaml-0.2.5-had63097_3.conda
       - conda: https://prefix.dev/conda-forge/osx-64/zstd-1.5.7-hbc1a06c_7.conda
-      - pypi: git+https://github.com/RoboStack/vinca.git?rev=837434ef34f3af183a035c6b211cac9912833414#837434ef34f3af183a035c6b211cac9912833414
+      - pypi: git+https://github.com/Tobias-Fischer/vinca.git?rev=ed3493cb303e571fd78dd8812869e5b44726acb0#ed3493cb303e571fd78dd8812869e5b44726acb0
       - pypi: https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/12/74/ef303ec980ef962ffe548fa36cb138bb399d1d1315731ba7bb81da85f7e0/rosdistro-1.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl
@@ -275,14 +275,14 @@ environments:
       - conda: https://prefix.dev/conda-forge/osx-arm64/openssl-3.6.5-h55eecbc_0.conda
       - conda: https://prefix.dev/conda-forge/osx-arm64/python-3.14.7-h0ae1c2c_106_cp314.conda
       - conda: https://prefix.dev/conda-forge/osx-arm64/pyyaml-6.0.3-py314h6e9b3f0_1.conda
-      - conda: https://prefix.dev/conda-forge/osx-arm64/rattler-build-0.57.2-h6fdd925_1.conda
+      - conda: https://prefix.dev/conda-forge/osx-arm64/rattler-build-0.76.1-h74d5219_0.conda
       - conda: https://prefix.dev/conda-forge/osx-arm64/rattler-index-0.31.5-h7b803a5_0.conda
       - conda: https://prefix.dev/conda-forge/osx-arm64/readline-8.3-h8b90a29_1.conda
       - conda: https://prefix.dev/conda-forge/osx-arm64/rhash-1.4.6-h84a0fba_2.conda
       - conda: https://prefix.dev/conda-forge/osx-arm64/tk-8.6.13-hbeba79b_4.conda
       - conda: https://prefix.dev/conda-forge/osx-arm64/yaml-0.2.5-h74c22ad_3.conda
       - conda: https://prefix.dev/conda-forge/osx-arm64/zstd-1.5.7-hf451053_7.conda
-      - pypi: git+https://github.com/RoboStack/vinca.git?rev=837434ef34f3af183a035c6b211cac9912833414#837434ef34f3af183a035c6b211cac9912833414
+      - pypi: git+https://github.com/Tobias-Fischer/vinca.git?rev=ed3493cb303e571fd78dd8812869e5b44726acb0#ed3493cb303e571fd78dd8812869e5b44726acb0
       - pypi: https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/12/74/ef303ec980ef962ffe548fa36cb138bb399d1d1315731ba7bb81da85f7e0/rosdistro-1.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl
@@ -338,7 +338,7 @@ environments:
       - conda: https://prefix.dev/conda-forge/win-64/openssl-3.6.5-hf411b9b_0.conda
       - conda: https://prefix.dev/conda-forge/win-64/python-3.14.7-h53f6dd8_106_cp314.conda
       - conda: https://prefix.dev/conda-forge/win-64/pyyaml-6.0.3-py314h2359020_1.conda
-      - conda: https://prefix.dev/conda-forge/win-64/rattler-build-0.57.2-h18a1a76_1.conda
+      - conda: https://prefix.dev/conda-forge/win-64/rattler-build-0.76.1-he94b42d_0.conda
       - conda: https://prefix.dev/conda-forge/win-64/rattler-index-0.31.5-h91801bb_0.conda
       - conda: https://prefix.dev/conda-forge/win-64/tk-8.6.13-h967ab96_4.conda
       - conda: https://prefix.dev/conda-forge/win-64/ucrt-10.0.26100.0-h57928b3_0.conda
@@ -347,7 +347,7 @@ environments:
       - conda: https://prefix.dev/conda-forge/win-64/vcomp14-14.51.36247-habf1de7_41.conda
       - conda: https://prefix.dev/conda-forge/win-64/yaml-0.2.5-h6a83c73_3.conda
       - conda: https://prefix.dev/conda-forge/win-64/zstd-1.5.7-h534d264_7.conda
-      - pypi: git+https://github.com/RoboStack/vinca.git?rev=837434ef34f3af183a035c6b211cac9912833414#837434ef34f3af183a035c6b211cac9912833414
+      - pypi: git+https://github.com/Tobias-Fischer/vinca.git?rev=ed3493cb303e571fd78dd8812869e5b44726acb0#ed3493cb303e571fd78dd8812869e5b44726acb0
       - pypi: https://files.pythonhosted.org/packages/0b/a7/71ac2cff56fec219ed242bb11b8efb69fcc4bec75db06fb7bfe35de520e6/certifi-2026.7.22-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/12/74/ef303ec980ef962ffe548fa36cb138bb399d1d1315731ba7bb81da85f7e0/rosdistro-1.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/12/b3/231ffd4ab1fc9d679809f356cebee130ac7daa00d6d6f3206dd4fd137e9e/distro-1.9.0-py3-none-any.whl
@@ -886,22 +886,23 @@ packages:
   run_exports: {}
   size: 202391
   timestamp: 1770223462836
-- conda: https://prefix.dev/conda-forge/linux-64/rattler-build-0.57.2-he64ecbb_1.conda
-  sha256: 7050df6859e1f3c1223dead79b1f4aa5b92f7519db7ad7cb5982d87fd2999852
-  md5: 4d9aed902b2afb49657a4e85f493aedd
+- conda: https://prefix.dev/conda-forge/linux-64/rattler-build-0.76.1-hf01adef_0.conda
+  sha256: d9476ee6237db525d4f2bb49e67f4e68719644a6adb754994118192e8d3cc920
+  md5: a721700e8181fb5e4c1b371987f7c0eb
   depends:
   - patchelf
+  - libstdcxx >=15
+  - libgcc >=15
   - __glibc >=2.17,<3.0.a0
-  - libgcc >=14
-  - openssl >=3.5.5,<4.0a0
+  - openssl >=3.5.8,<4.0a0
   constrains:
   - __glibc >=2.17
   license: BSD-3-Clause
   license_family: BSD
   purls: []
   run_exports: {}
-  size: 19271452
-  timestamp: 1770649397185
+  size: 19561706
+  timestamp: 1789389044876
 - conda: https://prefix.dev/conda-forge/linux-64/rattler-index-0.31.5-h10a7753_0.conda
   sha256: 09cc437c855086dacc5eb079e0ef4e803ad1481a01e2d1888a61aee0997acc4a
   md5: a7095c222125caa80758999f633e1fca
@@ -1470,21 +1471,22 @@ packages:
   run_exports: {}
   size: 195678
   timestamp: 1770223441816
-- conda: https://prefix.dev/conda-forge/linux-aarch64/rattler-build-0.57.2-hb434046_1.conda
-  sha256: 51a369b6cfe24fa0f8f7a7ea9bb77158f8806f43b196ce5a30a61892092afe64
-  md5: 9f14051749d3c1b3e0318a6b8a54b0ca
+- conda: https://prefix.dev/conda-forge/linux-aarch64/rattler-build-0.76.1-hc342849_0.conda
+  sha256: 45a7837ba1b33d2b8ab4f66cf396a985b9d49e25a8f221bdc5e4452a0059abf8
+  md5: 2b315913f52f71b0b0cafe30c1c5c2df
   depends:
   - patchelf
-  - libgcc >=14
-  - openssl >=3.5.5,<4.0a0
+  - libstdcxx >=15
+  - libgcc >=15
+  - openssl >=3.5.8,<4.0a0
   constrains:
   - __glibc >=2.17
   license: BSD-3-Clause
   license_family: BSD
   purls: []
   run_exports: {}
-  size: 19846896
-  timestamp: 1770649419199
+  size: 19054533
+  timestamp: 1789389033349
 - conda: https://prefix.dev/conda-forge/linux-aarch64/rattler-index-0.31.5-hf75afee_0.conda
   sha256: 332321ce14ae5c2d471db5f4b3a13f3c70360dbcee294a398512de058c79f54d
   md5: bb4f8d531aaefb38859eeb5277aac2a3
@@ -2028,19 +2030,20 @@ packages:
   run_exports: {}
   size: 191947
   timestamp: 1770226344240
-- conda: https://prefix.dev/conda-forge/osx-64/rattler-build-0.57.2-h4728fb8_1.conda
-  sha256: 5ec581b4f39060c1b90687627f4b0bf04ee62d405f43072de7c83a46a9448324
-  md5: 286416d9d4b0c9fedd90e0ed56be240c
+- conda: https://prefix.dev/conda-forge/osx-64/rattler-build-0.76.1-h1311731_0.conda
+  sha256: 1e1c90835f13bc2225502e1d18bb124b73fcbf80d8c339932496a47e9acb75df
+  md5: 5a5b03d4e292a0dd303f190dd9fc909b
   depends:
-  - __osx >=10.13
+  - libcxx >=21
+  - __osx >=11.0
   constrains:
-  - __osx >=10.13
+  - __osx >=11.0
   license: BSD-3-Clause
   license_family: BSD
   purls: []
   run_exports: {}
-  size: 17788466
-  timestamp: 1770649457751
+  size: 19075633
+  timestamp: 1789389091418
 - conda: https://prefix.dev/conda-forge/osx-64/rattler-index-0.31.5-hca43645_0.conda
   sha256: ee6542a6bd763f58cc1e6d3b8b70816b1aa20f80d8f7d4d75bd195ff94c76f40
   md5: 34482f1edda229ad12ea95e261c26caf
@@ -2505,10 +2508,11 @@ packages:
   run_exports: {}
   size: 189475
   timestamp: 1770223788648
-- conda: https://prefix.dev/conda-forge/osx-arm64/rattler-build-0.57.2-h6fdd925_1.conda
-  sha256: 7fa90a0d2ecb767796cadfa6f1384e52229c9cdd10c11ce49a3428048f64b91c
-  md5: a28d853fd6fff4914e3248343b158837
+- conda: https://prefix.dev/conda-forge/osx-arm64/rattler-build-0.76.1-h74d5219_0.conda
+  sha256: 7da95b859c8f04edcd64077719f0fbe891244cd688e1e4176e205d318d09535c
+  md5: db2e01dca41265c66b5a3c2d65849172
   depends:
+  - libcxx >=21
   - __osx >=11.0
   constrains:
   - __osx >=11.0
@@ -2516,8 +2520,8 @@ packages:
   license_family: BSD
   purls: []
   run_exports: {}
-  size: 16253611
-  timestamp: 1770649407683
+  size: 17540271
+  timestamp: 1789389037150
 - conda: https://prefix.dev/conda-forge/osx-arm64/rattler-index-0.31.5-h7b803a5_0.conda
   sha256: 090e1707a06de52be1e61083ef0495aa3bc9c335cf65c80af0f67d4ca2be5477
   md5: d1305520d9d027244137eb688f67a45d
@@ -2946,9 +2950,9 @@ packages:
   run_exports: {}
   size: 181257
   timestamp: 1770223460931
-- conda: https://prefix.dev/conda-forge/win-64/rattler-build-0.57.2-h18a1a76_1.conda
-  sha256: 9b575a5eaae1c427251d75ad36f6707f541e59056adcde35fca410c7f5aa29aa
-  md5: 545404bf30528513fd12c111b01c95a0
+- conda: https://prefix.dev/conda-forge/win-64/rattler-build-0.76.1-he94b42d_0.conda
+  sha256: 8825b67ae50f887334350f0c81a0818b4cf551e1aca00a947d1fd74105732ff6
+  md5: 2b0a2e175aa4e3239c3c91c86f32d70c
   depends:
   - vc >=14.3,<15
   - vc14_runtime >=14.44.35208
@@ -2957,8 +2961,8 @@ packages:
   license_family: BSD
   purls: []
   run_exports: {}
-  size: 16311008
-  timestamp: 1770649439173
+  size: 20119294
+  timestamp: 1789389029287
 - conda: https://prefix.dev/conda-forge/win-64/rattler-index-0.31.5-h91801bb_0.conda
   sha256: c3ff1eca8e17fab8aae4cb7161a8a0c9ea46cfa6af508a92b6a5e3d2b66f4ea3
   md5: 33e5d80562641bba6d5b4aec4c0d2209
@@ -3075,7 +3079,7 @@ packages:
     - zstd >=1.5.7,<1.6.0a0
   size: 387535
   timestamp: 1786599623274
-- pypi: git+https://github.com/RoboStack/vinca.git?rev=837434ef34f3af183a035c6b211cac9912833414#837434ef34f3af183a035c6b211cac9912833414
+- pypi: git+https://github.com/Tobias-Fischer/vinca.git?rev=ed3493cb303e571fd78dd8812869e5b44726acb0#ed3493cb303e571fd78dd8812869e5b44726acb0
   name: vinca
   version: 0.2.0
   requires_dist:

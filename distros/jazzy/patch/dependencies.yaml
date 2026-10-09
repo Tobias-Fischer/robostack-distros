@@ -4,7 +4,7 @@ autoware_utils_pcl:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
 backward_ros:
   # binutils linux-only: -liberty not found on macOS.
-  add_host: ["${{ 'binutils' if linux }}", "${{ 'elfutils' if linux }}", "ros-jazzy-ament-cmake-libraries"]
+  add_host: ["${{ 'binutils' if linux }}", "${{ 'elfutils' if linux }}", "ros2-ament-cmake-libraries"]
 cartographer_ros:
   add_host: ["cartographer 2.*", "libboost-devel"]
 cloudini_lib:
@@ -20,7 +20,7 @@ easynav_octomap_maps_manager:
   # drop once easynav_octomap_maps_manager is updated to 0.4.2
   add_host: ["octomap"]
 foxglove_bridge:
-  add_host: ["ros-jazzy-ament-cmake"]
+  add_host: ["ros2-ament-cmake"]
 geometric_shapes:
   add_host: ["octomap"]
 gz_cmake_vendor:
@@ -89,8 +89,8 @@ intra_process_demo:
   # Depends on opencv with gui support, see https://github.com/ros2/demos/blob/8f361a1ece2daae54016959f3ea9ab2e7692ddbb/intra_process_demo/include/image_pipeline/image_view_node.hpp#L58
   add_run: ["libopencv * *qt6*"]
 lbr_ros2_control:
-  add_host: ["ros-jazzy-kinematics-interface"]
-  add_run: ["ros-jazzy-kinematics-interface"]
+  add_host: ["ros2-kinematics-interface"]
+  add_run: ["ros2-kinematics-interface"]
 libg2o:
   add_host: ["${{ 'libglu' if linux }}", "${{ 'freeglut' if not osx }}"]
 mimick_vendor:
@@ -99,11 +99,9 @@ mimick_vendor:
 moveit_visual_tools:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
 mrpt2:
-  add_host: ["assimp", "octomap", "tinyxml2", "libboost-devel", "jsoncpp", "gtest", "libboost-python-devel", "libdc1394", "xorg-libxcomposite", "libftdi", "ros-jazzy-octomap"]
-  add_run: ["assimp", "octomap", "tinyxml2", "libboost-devel", "jsoncpp", "gtest", "libboost-python-devel", "libdc1394", "xorg-libxcomposite", "libftdi", "ros-jazzy-octomap"]
+  add_host: ["assimp", "octomap", "tinyxml2", "libboost-devel", "jsoncpp", "gtest", "libboost-python-devel", "libdc1394", "xorg-libxcomposite", "libftdi", "ros2-octomap"]
+  add_run: ["assimp", "octomap", "tinyxml2", "libboost-devel", "jsoncpp", "gtest", "libboost-python-devel", "libdc1394", "xorg-libxcomposite", "libftdi", "ros2-octomap"]
   add_build: ["${{ cdt('libxcomposite-devel') if linux }}"]
-mujoco_vendor:
-  add_host: ["libmujoco"]
 nav2_constrained_smoother:
   add_host: ["${{ 'openblas' if win }}"]
 nav2_mppi_controller:
@@ -115,11 +113,13 @@ openvdb_vendor:
 pcl_conversions:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "libboost-devel"]
 plotjuggler:
-  add_host: ["libxcb", "${{ 'elfutils' if linux }}", "ros-jazzy-ros-workspace", "git-lfs"]
-py_trees:
-  add_host: ["poetry-core"]
+  add_host: ["libxcb", "${{ 'elfutils' if linux }}", "ros2-ros-workspace", "git-lfs"]
 py_trees_js:
-  add_host: ["poetry-core"]
+  add_host:
+  - hatchling
+py_trees_ros_tutorials:
+  # the mock GUI imports PyQt5 (jazzy's rqt stack is Qt5 too), but package.xml doesn't declare it
+  add_run: ["pyqt"]
 python_qt_binding:
   # sip <6.16: exact pin conflicts with pyqt5-sip's range; unpinned risks the 6.16.x ABI regression.
   add_host: ["pyqt-builder", "sip <6.16"]
@@ -135,13 +135,13 @@ roboplan_example_models:
   add_host: ["${{ 'dlfcn-win32' if win }}"]
 roboplan_ros_examples:
   # package.xml misses the ament_cmake dep; fixed in roboplan_ros 0.7.0, drop after that release.
-  add_host: ["ros-jazzy-ament-cmake"]
+  add_host: ["ros2-ament-cmake"]
 ros_gz_sim:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
 ros_ign_gazebo:
-  add_host: ["ros-jazzy-std-msgs", "ros-jazzy-rclcpp", "${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
+  add_host: ["ros2-std-msgs", "ros2-rclcpp", "${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
 ros_ign_interfaces:
-  add_host: ["ros-jazzy-rcl-interfaces"]
+  add_host: ["ros2-rcl-interfaces"]
 ros_image_to_qimage:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
 rqt_gui_cpp:
@@ -177,11 +177,11 @@ uncrustify_vendor:
   # See https://github.com/ament/uncrustify_vendor/blob/jazzy/CMakeLists.txt#L19
   add_run: ["uncrustify >=0.78"]
 ur_moveit_config:
-  add_host: ["ros-jazzy-rclpy"]
-  add_run: ["ros-jazzy-rclpy"]
+  add_host: ["ros2-rclpy"]
+  add_run: ["ros2-rclpy"]
 vision_msgs_rviz_plugins:
   add_build: ["${{ 'qt-main' if (build_platform != target_platform) }}"]
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
 warehouse_ros_sqlite:
-  add_host: ["ros-jazzy-sqlite3-vendor"]
-  add_run: ["ros-jazzy-sqlite3-vendor"]
+  add_host: ["ros2-sqlite3-vendor"]
+  add_run: ["ros2-sqlite3-vendor"]

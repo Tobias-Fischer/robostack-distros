@@ -51,23 +51,23 @@ from __future__ import annotations
 
 import glob
 import os
-import re
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path.cwd()  # the distribution directory (pixi run rs <distro> ...)
 PATCH_DIR = REPO_ROOT / "patch"
 
-_ROS_DISTRO_RE = re.compile(r"^ros_distro:\s*(\S+)\s*$", re.MULTILINE)
 
 
 def get_ros_distro() -> str:
-    vinca_yaml = (REPO_ROOT / "vinca.yaml").read_text()
-    match = _ROS_DISTRO_RE.search(vinca_yaml)
-    if not match:
+    from vinca.configuration import read_vinca_yaml
+    from vinca.platforms import get_conda_subdir
+
+    ros_distro = read_vinca_yaml(REPO_ROOT / "vinca.yaml", get_conda_subdir()).get("ros_distro")
+    if not ros_distro:
         print("Could not find 'ros_distro:' in vinca.yaml", file=sys.stderr)
         sys.exit(2)
-    return match.group(1)
+    return ros_distro
 
 
 def build_patches_dict(patch_dir: Path) -> dict[str, dict[str, list[str]]]:
@@ -109,8 +109,13 @@ def shortname_of(name: str, ros_distro: str) -> str:
 
 
 def main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
+    parser.add_argument("--patch-dir", type=Path, default=PATCH_DIR, help="default: ./patch")
+    args = parser.parse_args()
     ros_distro = get_ros_distro()
-    patches = build_patches_dict(PATCH_DIR)
+    patches = build_patches_dict(args.patch_dir)
 
     groups: dict[str, list[str]] = {}
     for prefix in patches:

@@ -1,0 +1,13 @@
+diff --git a/src/odom_to_tf.cpp b/src/odom_to_tf.cpp
+index c8c1ef9..e4f265f 100644
+--- a/src/odom_to_tf.cpp
++++ b/src/odom_to_tf.cpp
+@@ -1,3 +1,8 @@
++#ifdef _MSC_VER
++// MSVC only accepts the alternative operator spellings (`not`, `and`, ...) with
++// /permissive- or this header
++#include <ciso646>
++#endif
+ #include <geometry_msgs/msg/transform_stamped.hpp>
+ #include <nav_msgs/msg/odometry.hpp>
+ #include <rclcpp/rclcpp.hpp>

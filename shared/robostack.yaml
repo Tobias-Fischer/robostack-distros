@@ -49,6 +49,9 @@ ca-certificates:
   robostack: [ca-certificates]
 cargo:
   robostack: [rust]
+# chrony and network-manager: system services used by the TurtleBot 4 setup, not conda packages.
+chrony:
+  robostack: []
 clang-format:
   robostack: [clang-format]
 clang-tidy:
@@ -732,6 +735,8 @@ netpbm:
     linux: [netpbm]
     osx: [netpbm]
     win64: []
+network-manager:
+  robostack: []
 nlohmann-json-dev:
   robostack: [nlohmann_json]
 nlopt:
@@ -1198,6 +1203,8 @@ range-v3:
   robostack: [range-v3]
 rapidjson-dev:
   robostack: [rapidjson]
+rmw_opensplice_cpp:
+  robostack: []
 roboticstoolbox-python:
   robostack: [roboticstoolbox-python]
 rsync:

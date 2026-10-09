@@ -1,6 +1,6 @@
 """Apply the PR-build cache controls from the distribution-owned ci.yaml.
 
-testpr.yml restores the build cache of the pull request and then runs this
+testpr.yaml restores the build cache of the pull request and then runs this
 script, so temporary rebuild controls live in ci.yaml instead of in the
 (template-owned) workflow file:
 
@@ -10,8 +10,8 @@ script, so temporary rebuild controls live in ci.yaml instead of in the
       - roboplan*               # or a glob
 
 Each evict_cache entry matches both package name prefixes (``ros2-`` and
-``ros-<distro>-``), so the same entry works with ``package_name_mode: both``, and
-the plain name (packages that vinca built under a conda-forge name).
+``ros-<distro>-``, for builds made before ``package_name_mode: new``) and the plain
+name (packages that vinca built under a conda-forge name).
 """
 
 import argparse

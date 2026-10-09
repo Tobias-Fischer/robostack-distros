@@ -8,9 +8,12 @@ the [RoboStack documentation](https://robostack.github.io/GettingStarted.html).
 |---|---|
 | rolling | [robostack-rolling](https://prefix.dev/channels/robostack-rolling) |
 | lyrical | [robostack-lyrical](https://prefix.dev/channels/robostack-lyrical) |
-| kilted | [robostack-kilted](https://anaconda.org/robostack-kilted) |
 | jazzy | [robostack-jazzy](https://anaconda.org/robostack-jazzy) |
 | humble | [robostack-staging](https://anaconda.org/robostack-staging) |
+
+Packages are named `ros2-<package>`, e.g. `ros2-desktop` or `ros2-rclcpp`; the
+distribution comes from the channel. The older `ros-<distro>-<package>` names are no
+longer built.
 
 **A package is missing?** Open a *Package request* issue. robostack-bot opens a pull
 request that adds it to the build, and a maintainer reviews it.
@@ -36,40 +39,43 @@ If you use RoboStack in your academic work, please cite:
 ```
 distros/<distro>/          only what is specific to one distribution
   distro.yaml              channel, upload target, conda-forge pinning version/migrations, own pins, rosdistro sync
-  vinca.yaml               ros_distro, build number, mutex, its own package selection
+  vinca.yaml               extends shared/vinca.yaml: ros_distro, build number, mutex version, its exceptions
   pkg_additional_info.yaml its own per-package settings (build numbers, version-specific cmake args)
   patch/                   its patches; patch/dependencies.yaml its own dependency fixes
   rosdistro_snapshot.yaml, rosdistro_additional_recipes.yaml
   ci.yaml                  temporary PR-build controls (full rebuild, cache evictions)
   conda_build_config.yaml  generated: `pixi run rs <distro> render-pinning`
-  work/                    generated, git-ignored: what vinca and rattler-build run on
+  work/                    generated, git-ignored: where vinca and rattler-build run
 shared/                    the same for every distribution
-  vinca.yaml               settings and packages selected in every distribution
+  vinca.yaml               settings and the package selection of every distribution
   pkg_additional_info.yaml per-package settings that are the same everywhere
-  dependencies.yaml        dependency fixes that are the same everywhere
-  robostack.yaml, packages-ignore.yaml   rosdep key -> conda package mapping
+  patch/dependencies.yaml  dependency fixes that are the same everywhere
+  robostack.yaml           rosdep key -> conda package mapping (`robostack: []` drops a key)
   pinning/                 conda-forge pinning version, migrations and overrides
-  tests/                   package tests (ros2-<pkg>.yaml; *.jinja for distro-specific bits)
+  tests/                   package tests (ros2-<pkg>.yaml; `if: ros_distro ...` for distro-specific bits)
 tools/robostack.py         `pixi run rs ...`: every task, for one distribution or the repository
 tools/maintenance.py       checks and robostack-bot commands
 tools/import_distro.py     (re)import a distribution from its own repository
 tools/*.py                 check_patches_clean_apply, check_dependency_compat, build_gap_report, ...
 .scripts/                  staged build scripts (build_unix.sh, build_win.bat)
-.github/workflows/         testpr.yml, main.yml (staged build branches), bot.yml
+.github/workflows/         testpr.yaml, main.yaml (staged build branches), bot.yaml
 .claude/skills/             procedures for agents (debug a build, patches, versions/rebuilds, package selection)
 pixi.toml                  one environment for all distributions (one vinca, one rattler-build)
 ```
 
 ### How shared and distribution files combine
 
-`pixi run rs <distro> <task>` first assembles `distros/<distro>/work/`:
+`distros/<distro>/vinca.yaml` starts with `extends: ../../shared/vinca.yaml`; vinca
+combines the two, and the files next to each:
 
 - **`vinca.yaml`:**
-  - The package lists (`packages_select_by_deps`, `packages_skip_by_deps`, `packages_remove_from_deps`) are `shared/` plus the distribution's.
-  - Other keys come from the distribution if it sets them, else from `shared/`. A distribution that differs from a shared setting just sets it, like kilted's `package_name_mode: legacy`.
-  - `skip_existing`, `conda_index`, `patch_dir` and the snapshot paths are filled in automatically.
+  - The package selection (`packages_select_by_deps`) lives in `shared/` for every distribution; vinca skips packages a distribution's rosdistro doesn't have.
+  - Exceptions, in `shared/` or a distribution: `packages_exclude` (not built, dropped from other packages' dependencies) and `packages_skip` (not built, dependents keep the dependency), each as plain names or under `- if: <condition>`. ROS packages mapped to conda-forge in `robostack.yaml` are skipped automatically.
+  - `mutex_package`: name, `upper_bound` and the common `run_constraints` are shared. Each distribution sets its own `version`, and its `run_constraints` replace the shared constraint on the same package (e.g. jazzy's `libprotobuf 7.35.*`) or add new ones.
+  - Other keys come from the distribution if it sets them, else from `shared/`. A distribution that differs from a shared setting just sets it.
+  - Paths are relative to the file that sets them. `distros/<distro>/work/vinca.yaml` (generated) extends the distribution's file and adds `skip_existing` (its channel).
 - **`pkg_additional_info.yaml` and `patch/dependencies.yaml`:** merged per package. The distribution's keys win, for example its own `build_number` on top of a shared `additional_cmake_args`.
-- **`tests/`:** the shared tests, with `*.jinja` files rendered for the distribution.
+- **`patch/*.patch` and `tests/`:** per package, the distribution's file replaces the shared one. In tests, `- if: ros_distro in ["humble", "jazzy"]` blocks select distribution-specific parts.
 - **`vinca_pinning.yaml`:** the shared pinning, adjusted by `distro.yaml`:
   - `conda_forge_pinning_version` and `conda_forge_migrations` keep a distribution on its own conda-forge pinning, for example until its next full rebuild;
   - `pinning_overrides` replace shared pins by name, for example jazzy's Python 3.12.
@@ -99,10 +105,10 @@ of a distribution uses `full_rebuild: true` there. A new build number goes into 
 
 ### CI
 
-- **Pull requests** (`testpr.yml`):
+- **Pull requests** (`testpr.yaml`):
   - A PR that only touches `distros/<distro>/` builds that distribution. Changes anywhere else (except documentation) build every distribution.
   - Each selected distribution is built on all five platforms, with its own build cache. The `check` job runs `pixi run rs check`.
-- **After a merge** (`main.yml`): for every changed distribution and platform, the job regenerates the recipes and the staged build workflow, and pushes them to `buildbranch_<distro>_<platform>`.
+- **After a merge** (`main.yaml`): for every changed distribution and platform, the job regenerates the recipes and the staged build workflow, and pushes them to `buildbranch_<distro>_<platform>`.
   - The workflow is named `build_<distro>_<platform>.yml` and runs `.scripts/build_*.sh` in `distros/<distro>/work`.
   - Those workflows build the packages and upload them to the distribution's channel.
 - **Repository variables:**
@@ -114,11 +120,11 @@ of a distribution uses `full_rebuild: true` there. A new build number goes into 
 
 ### robostack-bot
 
-`.github/workflows/bot.yml` runs `tools/maintenance.py`:
+`.github/workflows/bot.yaml` runs `tools/maintenance.py`:
 
 | command | who | what it does |
 |---|---|---|
-| `add-package <pkg>... [<distro>...]` | anyone | Adds ROS packages to the selection of the given (default: every) distribution that has them, in sorted position, in `shared/vinca.yaml` if that's all of them. Opens a PR listing what will be built on linux-64 (and what is already published as a dependency). Valid ROS package names only, at most 10 per request. |
+| `add-package <pkg>... [<distro>...]` | anyone | Adds ROS packages to the shared selection in `shared/vinca.yaml`, in sorted position; every distribution that has them builds them. Opens a PR listing, for the given (default: every) distribution, what will be built on linux-64 (and what is already published as a dependency). Valid ROS package names only, at most 10 per request. |
 | `update-rosdistro-snapshot [<distro>... \| all]` | maintainers | Snapshots the distribution's latest rosdistro sync (the release team's tag, e.g. `jazzy/2026-10-05`, recorded as `rosdistro_sync` in `distro.yaml`; rosdistro master for `rosdistro_sync: manual`, like rolling), then sets `build_number` to the highest build of the distribution's released packages + 1, bumps the mutex minor version and removes all per-package build numbers: a full rebuild. The PR links the sync's announcement and lists the version bumps. Runs daily for distributions with a new sync. |
 | `find-stale-packages [<distro>... \| all]` | maintainers | Published packages built against pins that no longer match, with the build-number snippet to rebuild them. Replies only. |
 | `update-conda-forge-pinning` | maintainers | Moves `shared/pinning/conda_forge.yaml` to the latest conda-forge pinning (migrations selected for the dependencies of all distributions) and re-renders the distributions that follow it. Those whose pins changed get the same build number and mutex bump, and their mutex `run_constraints` of the form `<pkg> <version>.*` follow the new pins. Runs weekly. |

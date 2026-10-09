@@ -13,12 +13,10 @@ set "FEEDSTOCK_ROOT=%cd%"
 
 mkdir %CONDA_BLD_PATH%
 
-:: git's background auto-maintenance can hold (and then delete) a lock file in a
-:: cached source clone while rattler-build copies it, failing the build.
-git config --global maintenance.auto false
-
 :: Enable long path names on Windows
 reg add HKLM\SYSTEM\CurrentControlSet\Control\FileSystem /v LongPathsEnabled /t REG_DWORD /d 1 /f
+:: ... and in git, for sources that vendor packages clone during the build
+git config --global core.longpaths true
 
 for %%X in (%CURRENT_RECIPES%) do (
     echo "BUILDING RECIPE %%X"

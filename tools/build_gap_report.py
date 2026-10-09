@@ -34,10 +34,6 @@ _DISTRO_PREFIX_RE = re.compile(r'^(?:ros-[a-z]+-|ros\d+-)')
 # "built but no recipe" gaps.
 _CHECK_PATCHES_RE = re.compile(r'-check-patches(?:-(?:linux|osx|win|emscripten|any))?$')
 
-_TOP_LEVEL_BUILD_NUMBER_RE = re.compile(r'^build_number:\s*(\d+)\s*$')
-_MUTEX_HEADER_RE = re.compile(r'^mutex_package:\s*$')
-_MUTEX_NAME_RE = re.compile(r'^\s+name:\s*"?([\w.-]+)"?\s*$')
-_MUTEX_BUILD_NUMBER_RE = re.compile(r'^\s+build_number:\s*(\d+)\s*$')
 
 
 def parse_args() -> argparse.Namespace:
@@ -81,14 +77,6 @@ def parse_args() -> argparse.Namespace:
         "--any-build-number",
         action="store_true",
         help="Don't filter by build_number at all (count every artifact regardless of age)",
-    )
-    parser.add_argument(
-        "--pkg-additional-info",
-        default="pkg_additional_info.yaml",
-        help=(
-            "pkg_additional_info.yaml to read per-package build_number overrides from "
-            "(default: pkg_additional_info.yaml)"
-        ),
     )
     return parser.parse_args()
 
@@ -139,66 +127,36 @@ def build_number_from_artifact(filename: str) -> int | None:
 
 
 def read_vinca_config(vinca_yaml: Path) -> tuple[int | None, str | None, int | None]:
-    """Parse (build_number, mutex_package_name, mutex_build_number) out of vinca.yaml
-    without requiring a YAML library, since this script has no other dependencies."""
+    """(build_number, mutex_package_name, mutex_build_number) of vinca.yaml, as vinca
+    reads it (configurations it extends included)."""
     if not vinca_yaml.is_file():
         return None, None, None
+    from vinca.configuration import read_vinca_yaml
+    from vinca.platforms import get_conda_subdir
 
-    build_number: int | None = None
-    mutex_name: str | None = None
-    mutex_build_number: int | None = None
-    in_mutex_block = False
-
-    for line in vinca_yaml.read_text().splitlines():
-        if in_mutex_block:
-            if line.startswith((" ", "\t")):
-                m = _MUTEX_NAME_RE.match(line)
-                if m:
-                    mutex_name = m.group(1)
-                m = _MUTEX_BUILD_NUMBER_RE.match(line)
-                if m:
-                    mutex_build_number = int(m.group(1))
-                continue
-            in_mutex_block = False  # fall through: this line starts the next top-level key
-
-        m = _TOP_LEVEL_BUILD_NUMBER_RE.match(line)
-        if m:
-            build_number = int(m.group(1))
-            continue
-        if _MUTEX_HEADER_RE.match(line):
-            in_mutex_block = True
-
-    return build_number, mutex_name, mutex_build_number
+    conf = read_vinca_yaml(vinca_yaml, get_conda_subdir())
+    mutex = conf.get("mutex_package") or {}
+    as_int = lambda v: int(v) if v is not None else None  # noqa: E731
+    return as_int(conf.get("build_number")), mutex.get("name"), as_int(mutex.get("build_number"))
 
 
-_PKG_INFO_TOP_LEVEL_KEY_RE = re.compile(r'^([A-Za-z0-9_.]+):\s*(?:#.*)?$')
-_PKG_INFO_BUILD_NUMBER_RE = re.compile(r'^\s+build_number:\s*(\d+)\s*$')
+def read_pkg_build_number_overrides(vinca_yaml: Path) -> dict[str, int]:
+    """Per-package `build_number:` overrides from pkg_additional_info.yaml (of
+    vinca.yaml and the configurations it extends) — a surgical way to force a
+    rebuild of just one package without bumping the global build_number. Keyed by
+    the ROS package name (underscores), same convention as
+    normalize_name(...).replace('-', '_')."""
+    if not vinca_yaml.is_file():
+        return {}
+    from vinca.configuration import read_vinca_yaml
+    from vinca.platforms import get_conda_subdir
 
-
-def read_pkg_build_number_overrides(pkg_info_yaml: Path) -> dict[str, int]:
-    """Parse per-package `build_number:` overrides out of pkg_additional_info.yaml —
-    a surgical way to force a rebuild of just one package without bumping vinca.yaml's
-    global build_number for everything. Keyed by the ROS package name as written there
-    (underscores), same convention as normalize_name(...).replace('-', '_')."""
-    overrides: dict[str, int] = {}
-    if not pkg_info_yaml.is_file():
-        return overrides
-
-    current_key: str | None = None
-    for line in pkg_info_yaml.read_text().splitlines():
-        if not line.strip() or line.lstrip().startswith("#"):
-            continue
-        if not line[0].isspace():
-            m = _PKG_INFO_TOP_LEVEL_KEY_RE.match(line)
-            current_key = m.group(1) if m else None
-            continue
-        if current_key is None:
-            continue
-        m = _PKG_INFO_BUILD_NUMBER_RE.match(line)
-        if m:
-            overrides[current_key] = int(m.group(1))
-
-    return overrides
+    info = read_vinca_yaml(vinca_yaml, get_conda_subdir()).get("_pkg_additional_info") or {}
+    return {
+        str(pkg): int(entry["build_number"])
+        for pkg, entry in info.items()
+        if isinstance(entry, dict) and entry.get("build_number") is not None
+    }
 
 
 def expected_build_number(
@@ -321,7 +279,7 @@ def main() -> int:
                 "(pass --build-number or --any-build-number) — counting artifacts "
                 "from every build_number, including stale ones from earlier rebuilds.\n"
             )
-        pkg_build_number_overrides = read_pkg_build_number_overrides(Path(args.pkg_additional_info))
+        pkg_build_number_overrides = read_pkg_build_number_overrides(Path(args.vinca_yaml))
     mutex_norm_name = normalize_name(mutex_name) if mutex_name else None
 
     if build_number is not None:
@@ -329,7 +287,7 @@ def main() -> int:
             f", mutex build_number {mutex_build_number}" if mutex_build_number is not None else ""
         )
         override_note = (
-            f", {len(pkg_build_number_overrides)} per-package override(s) from {args.pkg_additional_info}"
+            f", {len(pkg_build_number_overrides)} per-package override(s) from pkg_additional_info.yaml"
             if pkg_build_number_overrides
             else ""
         )

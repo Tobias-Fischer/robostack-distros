@@ -1,21 +1,17 @@
+extends: ../../shared/vinca.yaml
 ros_distro: humble
+patch_dir: patch
+rosdistro_snapshot: rosdistro_snapshot.yaml
+rosdistro_additional_recipes: rosdistro_additional_recipes.yaml
 
 build_number: 20
 
 mutex_package:
-  name: "ros2-distro-mutex"
   version: "0.10.0"
-  upper_bound: "x.x"
   run_constraints:
-    - libboost 1.90.*
-    - libboost-devel 1.90.*
-    - pcl 1.15.1.*
-    - gazebo 11.*
-    - libprotobuf 7.35.1.*
-    - vtk 9.7.0.*
     - krb5 1.22.*
 
-packages_skip_by_deps:
+packages_exclude:
 
   - if: not linux
     then:
@@ -26,49 +22,10 @@ packages_skip_by_deps:
       - mujoco_ros2_control_demos
       - mujoco_vendor
       - osrf_testing_tools_cpp
-      - pendulum_control
       - performance_test_fixture
       - rclc_examples
       - rmw_connextdds
-      - tlsf
-      - tlsf_cpp
 
-  # Gazebo Classic packages unavailable on Windows (libprotobuf pin conflict); robot_localization pulled in transitively via clearpath_control.
-  - if: win
-    then:
-      - gz_ros2_control
-      - gz_ros2_control_demos
-      - robot_localization
-      - ros_gz_sim
-      - ros_gz_sim_demos
-      - ros_ign_gazebo  # legacy-name counterpart of ros_gz_sim, not merely a dependent of it
-      - ros_ign_gazebo_demos
-      - ros_ign_image  # Modern gz-sim integration is unsupported on Humble Windows; see issue #68.
-      - rttest
-      - test_ros_gz_bridge
-      - velodyne_gazebo_plugins  # links Gazebo Classic's Ogre libs; win-64 is missing OgreBites.lib
-
-  - as2_behaviors_trajectory_generation  # nested FetchContent'd NLopt violates CMake 4's minimum version floor; too fragile to patch, skip for now
-
-packages_remove_from_deps:
-
-  - if: not linux
-    then:
-      - ament_cmake_xmllint
-      - ament_xmllint
-      - mimick_vendor
-      - mujoco_ros2_control
-      - mujoco_ros2_control_demos
-      - mujoco_vendor
-      - osrf_testing_tools_cpp
-      - pendulum_control
-      - performance_test_fixture
-      - rclc_examples
-      - rmw_connextdds
-      - tlsf
-      - tlsf_cpp
-
-  # Strip these from any other recipe's deps too, matching the packages_skip_by_deps exclusion above (avoids dangling refs from direct dependents).
   - if: win
     then:
       - gz_ros2_control
@@ -79,249 +36,78 @@ packages_remove_from_deps:
       - ros_ign_gazebo
       - ros_ign_gazebo_demos
       - ros_ign_image
-      - rttest
       - test_ros_gz_bridge
       - velodyne_gazebo_plugins
 
 # These are the packages that are built on all platforms (only a subset, to reduce maintainer load)
 
-packages_select_by_deps:
-  - ament_cmake
-  - ament_cmake_clang_tidy
-  - ament_cmake_nose
-  - ament_cmake_vendor_package # Requested in https://github.com/RoboStack/ros-humble/pull/210
-  - ament_flake8
-  - ament_lint
-  - ament_lint_common
-  - ament_pep257
-  - ament_pycodestyle
-  - apex_test_tools
-  - apriltag            # AprilRobotics
-  - apriltag_detector_mit
-  - apriltag_detector_umich
-  - apriltag_draw
-  - apriltag_tools
-  - automatika_ros_sugar
-  - autoware_adapi_v1_msgs
-  - autoware_adapi_version_msgs
-  - autoware_auto_msgs
-  - autoware_internal_debug_msgs
-  - autoware_internal_metric_msgs
-  - autoware_internal_perception_msgs
-  - autoware_internal_planning_msgs
-  - autoware_lanelet2_extension
-  - autoware_lanelet2_extension_python
-  - autoware_lint_common
-  - autoware_msgs
-  - autoware_utils_debug
-  - autoware_utils_diagnostics
-  - autoware_utils_geometry
-  - autoware_utils_logging
-  - autoware_utils_math
-  - autoware_utils_pcl
-  - autoware_utils_rclcpp
-  - autoware_utils_system
-  - autoware_utils_tf
-  - autoware_utils_uuid
-  - autoware_utils_visualization
-  - avt_vimba_camera_msgs    #  Allied Vision Technologies
-  - aws_robomaker_small_warehouse_world # AWS Robotics
-  - behaviortree_cpp_v3
-  - bno055              # flynneva
-  - bond_core
-  - bondcpp
-  - builtin_interfaces
-  - cartographer_ros
-  - cascade-lifecycle-msgs  # Requested in https://www.linkedin.com/feed/update/urn:li:activity:7346559234177703938/
-  - clearpath_common
-  - color_util
-  - control-toolbox
-  - control_msgs
-  - demo_nodes_cpp
-  - demo_nodes_py
-  - diff-drive-controller
-  - gazebo-ros-pkgs
-  - gazebo_dev
-  - gazebo_msgs
-  - gazebo_plugins
-  - gazebo_ros
-  - gazebo_ros2_control
-  - gazebo_ros2_control_demos
-  - gazebo_ros_pkgs
-  - geodesy
-  - geographic_info
-  - geometry_tutorials
-  - graph_msgs          # PickNik Robotics
-  - gtsam  # requested in https://github.com/RoboStack/ros-humble/issues/307
-  - imu_calib
-  - imu_tools
-  - imu_transformer
-  - io_context
-  - irobot_create_common_bringup
-  - irobot_create_control
-  - irobot_create_description
-  - irobot_create_msgs
-  - irobot_create_nodes
-  - irobot_create_toolbox
-  - joint-state-publisher # probably this should not be here as there is some strange porting to ros2
-  - joy
-  - joy_teleop
-  - key_teleop
-  - librealsense2
-  - marker-msgs         # TUW Robotics
-  - mavros_msgs
-  - mocap4r2_msgs
-  - mouse_teleop
-  - moveit2_tutorials
-  - moveit_resources
-  - moveit_ros_occupancy_map_monitor
-  - mujoco_ros2_control_msgs
-  - mujoco_vendor
-  - nav2_bringup
-  - nmea_msgs
-  - nmea_navsat_driver
-  - open3d_conversions
-  - osrf_testing_tools_cpp
-  - pal_statistics
-  - persist_parameter_server
-  - pick_ik
-  - picknik_ament_copyright
-  - pilz-industrial-motion-planner
-  - plotjuggler_msgs
-  - point_cloud_transport_py
-  - pointcloud_to_laserscan  # requested in https://github.com/RoboStack/ros-humble/issues/249
-  - polygon_utils  # requested in https://github.com/RoboStack/ros-humble/issues/256
-  - ptz_action_server_msgs
-  - py-binding-tools
-  - py_trees_js
-  - py_trees_ros_tutorials
-  - radar_msgs
-  - rclc
-  - rclc_examples
-  - rclc_lifecycle
-  - rclc_parameter
-  - rclcpp
-  - rclcpp-cascade-lifecycle
-  - rclpy
-  - rcpputils
-  - rcutils
-  - realtime_tools
-  - rmw
-  - robot_controllers
-  - ros2-control-cmake
-  - ros_core
-  - ros_gz_interfaces  # Modern gz-sim integration isn't supported on Humble/Windows (see issue #68); this is the only part we include, for Linux/macOS.
-  - ros_ign
-  - ros_ign_interfaces
-  - rosbag2-performance-benchmarking
-  - rosbag2_storage_mcap
-  - rosidl-generator-dds-idl
-  - rosidl_runtime_c
-  - rosidl_runtime_cpp
-  - rosidl_typesupport_introspection_c
-  - rosidl_typesupport_introspection_cpp
-  - rplidar_ros
-  - rqt
-  - rqt-gui
-  - rqt-moveit
-  - rqt-robot-dashboard
-  - rqt-robot-monitor
-  - rqt-robot-steering
-  - rqt_controller_manager
-  - rqt_joint_trajectory_controller
-  - rqt_runtime_monitor
-  - rtabmap
-  - rtcm_msgs
-  - rviz2
-  - rviz_2d_overlay_msgs
-  - sdl2_vendor
-  - serial_driver  # requested in https://github.com/RoboStack/ros-humble/issues/302
-  - sick_scan_xd
-  - simulation_interfaces  # requested in https://github.com/RoboStack/ros-humble/issues/304
-  - smacc2_msgs
-  - stubborn_buddies    # Open RMF; Requested in https://github.com/RoboStack/ros-humble/issues/325
-  - system_modes        # Micro-ROS
-  - teleop_tools
-  - tf-transformations
-  - tf_transformations  # DLu
-  - topic_based_ros2_control
-  - topic_tools
-  - tracetools
-  - tracetools_launch
-  - tracetools_trace
-  - turtle-tf2-py
-  - turtle_tf2_cpp
-  - turtle_tf2_py
-  - turtlebot3_gazebo
-  - turtlebot3_simulations
-  - udp_driver  # Requested in https://github.com/RoboStack/ros-humble/issues/345
-  - ur_calibration      # Universal Robots, requested in https://github.com/RoboStack/ros-humble/issues/217
-  - ur_client_library
-  - ur_robot_driver     # Universal Robots
-  - urdf_launch
-  - urdf_tutorial
-  - urg-node
-  - vector_pursuit_controller
-  - vision-msgs
-  - visp
-  - yaml_cpp_vendor
-  - zed_description  # Requested in https://github.com/RoboStack/ros-humble/issues/421
 
-  # These packages are currently not build on Windows, but they may with some work.
-  - if: not win
+# Shared selections that humble doesn't build on some platforms (see also
+# packages_skip_by_deps / packages_remove_from_deps).
+
+packages_skip:
+  - as2_behaviors_trajectory_generation  # nested FetchContent'd NLopt violates CMake 4's minimum version floor; too fragile to patch, skip for now
+
+  - if: not (linux and x86_64)
     then:
-      - as2_cli
-      - as2_msgs
-      - automatika_embodied_agents  # rosidl_typesupport_fastrtps_c symbols fail to link on win-64 (LNK unresolved __imp_get_serialized_size_*); root cause unclear, skip rather than guess blind
-      - autoware_core  # error C1189: WinSock.h has already been included
-      - autoware_core_control  # depends on autoware_motion_utils
-      - autoware_core_localization  # depends on autoware_ekf_localizer
-      - autoware_ekf_localizer  # Windows error C2338: 'First argument to logging macros must be an rclcpp::Logger'
-      - autoware_internal_localization_msgs
-      - autoware_lanelet2_utils  # Windows errors: C3546 (no parameter packs to expand), C2678 (no operator '|' for transform_view)
-      - autoware_motion_utils  # Windows error C2765: explicit specialization of a function template cannot have default arguments
-      - autoware_osqp_interface
-      - autoware_pose_initializer  # depends on autoware_motion_utils
-      - autoware_qp_interface  # a few compilation errors, solvable; upstream has CI on Windows, see RoboStack/ros-humble#205
-      - autoware_trajectory  # depends on autoware_motion_utils
-      - cloudini_lib
-      - cloudini_ros
+      - ublox_ubx_interfaces
+
+  - if: not linux
+    then:
+      - event_camera_codecs
+      - event_camera_renderer
+      - foxglove_bridge
+      - joy_linux
+      - moveit_ros_perception
+      - moveit_runtime
+      - orbbec_camera_msgs
+      - orbbec_description
+      - plotjuggler
+      - plotjuggler_ros
+      - point_cloud_transport_plugins
+      - random_numbers
+      - realsense2_camera
+      - realsense2_description
+      - rmw_stats_shim
+      - robotiq_controllers
+      - robotiq_description
+      - ros_gz
+      - rosgraph_monitor
+      - rosgraph_monitor_msgs
+      - rqt_mocap4r2_control
+      - rqt_tf_tree
+      - rviz_2d_overlay_plugins
+      - rviz_satellite
+      - sick_safetyscanners_base
+      - turtlebot4_description
+      - turtlebot4_desktop
+      - turtlebot4_msgs
+      - turtlebot4_navigation
+      - turtlebot4_node
+      - turtlebot4_simulator
+      - turtlebot4_viz
+      - twist_stamper
+      - ublox
+      - ublox_dgnss
+      - ublox_dgnss_node
+      - ur_simulation_gz
+      - velodyne_simulator
+
+  - if: win
+    then:
       - diagnostic_remote_logging
-      - dual_laser_merger  # Windows error C3861: '__builtin_unreachable' identifier not found
-      - dynmsg  # uses dlopen()/dlfcn.h (POSIX-only) and fails to find yaml-cpp/yaml.h on win-64
-      - ffmpeg_image_transport  # TODO on windows: fix iconv link issue
-      - foxglove_compressed_video_transport
-      - grid_map
-      - gz_ros2_control
-      - ign_ros2_control
-      - iiwa14_moveit_config  # Windows error C1083: Cannot open compiler generated file: ''
-      - iiwa7_moveit_config
       - kinematics_interface
       - kinematics_interface_kdl
       - laser_segmentation
-      - lbr_bringup
-      - lbr_demos_advanced_cpp
-      - lbr_demos_advanced_py
-      - lbr_demos_cpp
-      - lbr_demos_py
-      - lbr_description
-      - lbr_fri_idl
-      - lbr_fri_ros2
-      - lbr_fri_ros2_stack
-      - lbr_moveit
-      - lbr_moveit_cpp
-      - lbr_ros2_control
-      - libg2o  # error C2338 static_assert: iterator type in g2o/examples/sphere/create_sphere.vcxproj must be unsigned 32-bit+
+      - libg2o
       - mavlink
       - mavros
       - mavros_extras
-      - med14_moveit_config
-      - med7_moveit_config
-      - microstrain_inertial_description  # Microstrain IMU packages; fail on windows with FileTracker error FTK1011
+      - microstrain_inertial_description
       - microstrain_inertial_driver
       - microstrain_inertial_examples
       - microstrain_inertial_msgs
-      - microstrain_inertial_rqt  # requested in RoboStack/ros-humble#352
+      - microstrain_inertial_rqt
       - mocap4r2_control
       - mocap4r2_control_msgs
       - mocap4r2_dummy_driver
@@ -331,134 +117,28 @@ packages_select_by_deps:
       - mocap4r2_robot_gt
       - mocap4r2_robot_gt_msgs
       - motion_capture_tracking
-      - moveit-hybrid-planning
+      - moveit_hybrid_planning
       - moveit_py
       - moveit_task_constructor_demo
-      - mujoco_ros2_control
-      - mujoco_ros2_control_demos
       - odom_to_tf_ros2
-      - openvdb_vendor
-      - ouster_ros  # conda-forge's Windows PCL package doesn't expose pcl_io.lib by the plain name ouster_ros's CMake links against (LNK1181)
+      - ouster_ros
       - pinocchio
+
+packages_select_by_deps:
+
+  # Not on win-64 elsewhere (MSVC C1083 in its _msgs), but humble's 0.15 builds there
+  - if: win
+    then:
+      - cartographer_ros
+      - rosbag2_performance_benchmarking
+      - rplidar_ros
+      - serial_driver  # humble's builds there (LNK1181 on rolling)
+      - udp_driver
+
+  # humble's popf has a macOS patch (patch/ros2-popf.patch); elsewhere plansys2 is Linux only
+  - if: osx
+    then:
       - plansys2_bringup
       - plansys2_bt_actions
-      - robot_localization  # win-64 LNK2019/LNK2001 unresolved symbols in rosidl fastrtps typesupport libs; root cause unclear, skip rather than guess blind
-      - smacc2  # needs cxxabi.h (Itanium ABI demangling) and poll.h, both POSIX-only; jazzy excludes it from win-64 the same way
-      - spacenav  # needs libspnav, which has no win-64 conda-forge build; jazzy excludes it from win-64 the same way
-      - swri_console  # MSVC compile error (numeric_limits<T>::max()/min() macro collision); jazzy excludes it from win-64 pending rosdistro sync, see ros/rosdistro#49750
-      - swri_serial_util  # needs sys/ioctl.h/termios.h (POSIX serial APIs); win-only here (macOS patch already covers it), unlike jazzy's broader linux-only exclusion
-      - velodyne  # needs netinet/in.h (POSIX/BSD sockets); win-only here (builds fine on macOS/Linux), unlike jazzy's broader linux-only exclusion
-      - vision-msgs-rviz-plugins  # fails to link on MSVC (LNK2001 unresolved rviz_default_plugins::displays::MarkerNamespace::staticMetaObject), a Qt/MOC export gap; jazzy excludes it from win-64 the same way
-      - web_video_server
-      - zed-msgs  # doesn't work on Windows
-
-  # These packages are only built on Linux as they depend on Linux-specific API.
-  - if: linux
-    then:
-      - aerostack2
-      - apex_containers
-      - apriltag_ros        # Christian Rauch
-      - avt_vimba_camera  # ships some Linux .so in the repo, so it only supports linux
-      - camera_ros  # Depends on libcamera, only available on linux
-      - event_camera_codecs  # uses endian.h, Linux-only; issue #228
-      - event_camera_renderer  # doesn't support Windows shared library
-      - foxglove_bridge  # win: backport jazzy's win.patch; osx: unsupported arm64-Darwin platform
-      - joy_linux  # Requires Linux-specific joystick interfaces
-      - libcamera
-      - livox_ros_driver2  # Linking problems on macOS, probably a missing link to draco library or similar
-      - moveit_ros_perception  # removed in jazzy, never supported windows or macos, no packages depend on it
-      - moveit_runtime  # CMake errors related to OpenCV on macos, probably fixable
-      - odom-to-tf-ros2
-      - orbbec_camera
-      - orbbec_camera_msgs
-      - orbbec_description
-      - plansys2_core
-      - plansys2_domain_expert
-      - plansys2_executor
-      - plansys2_lifecycle_manager
-      - plansys2_msgs
-      - plansys2_pddl_parser
-      - plansys2_planner
-      - plansys2_popf_plan_solver
-      - plansys2_problem_expert
-      - plansys2_terminal
-      - plansys2_tools
-      - plotjuggler
-      - plotjuggler_ros
-      - point_cloud_transport_plugins
-      - popf
-      - proto2ros
-      - py_binding_tools
-      - quaternion_operation
-      - random-numbers
-      - realsense2-camera   # IntelRealSense
-      - realsense2-description # IntelRealSense
-      - rmw_stats_shim
-      - robotiq_controllers
-      - robotiq_description
-      - ros2_medkit_beacon_common
-      - ros2_medkit_cmake
-      - ros2_medkit_diagnostic_bridge
-      - ros2_medkit_fault_manager
-      - ros2_medkit_fault_reporter
-      - ros2_medkit_gateway
-      - ros2_medkit_graph_provider
-      - ros2_medkit_integration_tests
-      - ros2_medkit_linux_introspection
-      - ros2_medkit_msgs
-      - ros2_medkit_param_beacon
-      - ros2_medkit_serialization
-      - ros2_medkit_topic_beacon
-      - ros2_socketcan  # Depends on socketcan
-      - ros_gz
-      - rosgraph_monitor
-      - rosgraph_monitor_msgs
-      - rot-conv
-      - rqt_image_overlay
-      - rqt_mocap4r2_control
-      - rqt_tf_tree
-      - rviz_2d_overlay_plugins
-      - rviz_satellite
-      - septentrio_gnss_driver
-      - sick_safetyscanners2
-      - sick_safetyscanners2_interfaces
-      - sick_safetyscanners_base
-      - slider-publisher
-      - spatio_temporal_voxel_layer  # Uses linux-specific flags (CMakeLists.txt#L124), should be easy to fix
-      - turtlebot4_base
-      - turtlebot4_bringup
-      - turtlebot4_cpp_tutorials
-      - turtlebot4_description
-      - turtlebot4_desktop
-      - turtlebot4_diagnostics
-      - turtlebot4_ignition_bringup
-      - turtlebot4_ignition_gui_plugins
-      - turtlebot4_ignition_toolbox
-      - turtlebot4_msgs
-      - turtlebot4_navigation
-      - turtlebot4_node
-      - turtlebot4_python_tutorials
-      - turtlebot4_robot
-      - turtlebot4_setup
-      - turtlebot4_simulator
-      - turtlebot4_tests
-      - turtlebot4_tutorials
-      - turtlebot4_viz
-      - twist-stamper
-      - ublox               # Kumar Robotics; compilation fails on Windows and osx
-      - ublox_dgnss         # Aussie Robots
-      - ublox_dgnss_node
-      - ur_simulation_gz
-      - usb_cam  # Depends on v4l
-      - v4l2_camera  # Depends on v4l, only available on linux
-      - velodyne_simulator  # Dataspeed Inc.
-
-  # linux-x86_64 only (excludes aarch64, unlike "if: linux" above). Keep this comment here -- vinca-sort-vinca-lists merges adjacent if/then blocks not separated by a top-level comment.
-  - if: linux and not aarch64
-    then:
-      - franka_ros2  # Franka robots support; see PR #338 for macOS/Windows errors
-      # conda-forge's libfranka is only published for linux-64, not linux-aarch64
-      - libfranka
-      - ublox_ubx_interfaces
-      - webots_ros2         # Cyberbotics
+      - smacc2
 

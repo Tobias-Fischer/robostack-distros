@@ -66,7 +66,7 @@ bash -x conda_build.sh 2>&1 | less
 - **gtest / test failures**: add the missing dependency in `dependencies.yaml`, or
   disable the tests when safe; no custom shims.
 - **Qt plugins (rviz, rtabmap)**: make sure CMake finds the intended Qt major version.
-- **Missing dependency**: `shared/dependencies.yaml` (all distributions) or
+- **Missing dependency**: `shared/patch/dependencies.yaml` (all distributions) or
   `distros/<d>/patch/dependencies.yaml` (one), keyed by ROS package name:
   ```yaml
   <ros_pkg>:
@@ -75,9 +75,10 @@ bash -x conda_build.sh 2>&1 | less
   ```
 - **A conda-forge package is shadowed**: when a rosdep key that is also a ROS package
   maps to a conda-forge package (e.g. `tl_expected` -> `cpp-expected`), vinca may build
-  the ROS package under the conda-forge name. Add it to `packages_skip_by_deps`
-  (`shared/vinca.yaml`), and evict the stale build from the PR cache
-  (`evict_cache` in `distros/<d>/ci.yaml`, plain names work).
+  the ROS package under the conda-forge name. vinca skips ROS packages mapped in
+  `shared/robostack.yaml` automatically; if it still happens, check the mapping, and
+  evict a stale build from the PR cache (`evict_cache` in `distros/<d>/ci.yaml`, plain
+  names work).
 - **CMake args for one package**: `additional_cmake_args` in `pkg_additional_info.yaml`.
 
 ## 5. Make it stick

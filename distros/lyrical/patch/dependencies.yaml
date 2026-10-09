@@ -1,6 +1,6 @@
 ament_cmake_ros:
   # Break the test-only runtime cycle so a new mutex migration can bootstrap.
-  remove_run: ["ros-lyrical-rmw-test-fixture-implementation"]
+  remove_run: ["ros2-rmw-test-fixture-implementation"]
 autoware_behavior_velocity_planner:
   add_host: ["cpp-expected"]
 autoware_behavior_velocity_planner_common:
@@ -14,7 +14,7 @@ autoware_utils_debug:
 autoware_utils_pcl:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
 backward_ros:
-  add_host: ["${{ 'binutils' if linux }}", "${{ 'elfutils' if linux }}", "ros-lyrical-ament-cmake-libraries"]
+  add_host: ["${{ 'binutils' if linux }}", "${{ 'elfutils' if linux }}", "ros2-ament-cmake-libraries"]
 cartographer_ros:
   add_host: ["cartographer 2.*", "libboost-devel", "ceres-solver"]
 console_bridge_vendor:
@@ -25,7 +25,7 @@ depth_image_proc:
 eigenpy:
   add_host: ["eigen-abi-devel"]
 foxglove_bridge:
-  add_host: ["ros-lyrical-ament-cmake"]
+  add_host: ["ros2-ament-cmake"]
 geometric_shapes:
   add_host: ["libboost-devel", "octomap"]
 grid_map_octomap:
@@ -75,7 +75,7 @@ gz_rendering_vendor:
   add_host: ["gz-rendering", "swig"]
   add_run: ["gz-rendering", "swig"]
 gz_ros2_control:
-  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "ros-lyrical-gz-sensors-vendor"]
+  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "ros2-gz-sensors-vendor"]
 gz_ros2_control_demos:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
 gz_sensors_vendor:
@@ -108,27 +108,28 @@ moveit_core:
 moveit_visual_tools:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
 mrpt2:
-  add_host: ["assimp", "octomap", "tinyxml2", "libboost-devel", "jsoncpp", "gtest", "libboost-python-devel", "libdc1394", "xorg-libxcomposite", "libftdi", "ros-lyrical-octomap"]
-  add_run: ["assimp", "octomap", "tinyxml2", "libboost-devel", "jsoncpp", "gtest", "libboost-python-devel", "libdc1394", "xorg-libxcomposite", "libftdi", "ros-lyrical-octomap"]
+  add_host: ["assimp", "octomap", "tinyxml2", "libboost-devel", "jsoncpp", "gtest", "libboost-python-devel", "libdc1394", "xorg-libxcomposite", "libftdi", "ros2-octomap"]
+  add_run: ["assimp", "octomap", "tinyxml2", "libboost-devel", "jsoncpp", "gtest", "libboost-python-devel", "libdc1394", "xorg-libxcomposite", "libftdi", "ros2-octomap"]
   add_build: ["${{ cdt('libxcomposite-devel') if linux }}"]
-mujoco_ros2_control_plugins:
-  add_host: ["libegl-devel"]  # CMake finds OpenGL COMPONENTS EGL
-mujoco_vendor:
-  add_host: ["libgl-devel"]  # MuJoCo's bundled GLFW simulation includes GL/gl.h
 nav2_constrained_smoother:
   add_host: ["${{ 'openblas' if win }}", "ceres-solver"]
+openvdb_vendor:
+  add_host: ["openvdb"]
 pcl_conversions:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "libboost-devel", "eigen-abi-devel"]
 pinocchio:
   add_host: ["eigen-abi-devel"]
 plotjuggler:
-  add_host: ["libxcb", "${{ 'elfutils' if linux }}", "ros-lyrical-ros-workspace"]
+  add_host: ["libxcb", "${{ 'elfutils' if linux }}", "ros2-ros-workspace"]
 py_trees:
   add_host: ["hatchling"]
 py_trees_js:
   add_host: ["hatchling"]
 py_trees_ros:
   add_host: ["poetry-core"]
+py_trees_ros_tutorials:
+  # the mock GUI is ported to PyQt6 (patch/ros2-py-trees-ros-tutorials.patch)
+  add_run: ["pyqt6"]
 py_trees_ros_viewer:
   add_host: ["poetry-core"]
 pybind11_json_vendor:
@@ -144,9 +145,9 @@ rclpy:
   add_host: ["typing_extensions"]
   add_run: ["typing_extensions"]
 rmf_building_map_tools:
-  add_host: ["ros-lyrical-rmf-site-map-msgs"]
+  add_host: ["ros2-rmf-site-map-msgs"]
   add_run: ["gz-fuel-tools"]
-  remove_run: ["ros-lyrical-gz-fuel-tools-vendor"]
+  remove_run: ["ros2-gz-fuel-tools-vendor"]
 rmf_fleet_adapter:
   add_host: ["eigen-abi-devel"]
   remove_host: ["eigen"]
@@ -161,19 +162,25 @@ rmf_traffic:
 rmf_visualization_schedule:
   add_host: ["asio"]
 ros_gz_sim:
-  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "ros-lyrical-gz-sensors-vendor"]
+  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "ros2-gz-sensors-vendor"]
 ros_ign_gazebo:
-  add_host: ["ros-lyrical-std-msgs", "ros-lyrical-rclcpp", "${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
+  add_host: ["ros2-std-msgs", "ros2-rclcpp", "${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
 ros_ign_interfaces:
-  add_host: ["ros-lyrical-rcl-interfaces"]
+  add_host: ["ros2-rcl-interfaces"]
 ros_image_to_qimage:
-  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
+  # Qt6, like rqt_gui_cpp (patch/ros2-ros-image-to-qimage.patch)
+  remove_host: ["qt-main"]
+  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "qt6-main"]
 rqt_gui_cpp:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
 rqt_image_overlay:
-  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
+  # Qt6, like rqt_gui_cpp (patch/ros2-rqt-image-overlay.patch)
+  remove_host: ["qt-main"]
+  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "qt6-main"]
 rqt_image_overlay_layer:
-  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]
+  # Qt6, like rqt_gui_cpp (patch/ros2-rqt-image-overlay-layer.patch)
+  remove_host: ["qt-main"]
+  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "qt6-main"]
 rqt_image_view:
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "qt6-main"]
   remove_host: ["qt-main"]
@@ -198,6 +205,8 @@ slam_toolbox:
   add_run: ["qt6-main"]
   remove_host: ["qt-main"]
   remove_run: ["qt-main"]
+spatio_temporal_voxel_layer:
+  add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}", "openvdb"]
 spdlog_vendor:
   add_host: ["spdlog"]
   add_run: ["spdlog"]
@@ -207,8 +216,8 @@ uncrustify_vendor:
   add_host: ["uncrustify"]
   add_run: ["uncrustify"]
 ur_moveit_config:
-  add_host: ["ros-lyrical-rclpy"]
-  add_run: ["ros-lyrical-rclpy"]
+  add_host: ["ros2-rclpy"]
+  add_run: ["ros2-rclpy"]
 vision_msgs_rviz_plugins:
   add_build: ["${{ 'qt6-main' if (build_platform != target_platform) }}"]
   add_host: ["${{ 'libgl-devel' if linux }}", "${{ 'libopengl-devel' if linux }}"]

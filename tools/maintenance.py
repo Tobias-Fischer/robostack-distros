@@ -1,4 +1,4 @@
-"""Maintenance commands (used by robostack-bot, .github/workflows/bot.yml).
+"""Maintenance commands (used by robostack-bot, .github/workflows/bot.yaml).
 
     pixi run rs check                                 # sanity checks of the whole repository
     pixi run rs <distro> update-snapshot              # snapshot the latest rosdistro sync, summarise bumps
@@ -91,7 +91,9 @@ def _ruamel():
 
 def sync_mutex_constraints(distro: str) -> list[str]:
     """Move `<pkg> <version>.*` run_constraints of the mutex to the rendered pin of
-    the same package in conda_build_config.yaml. Other constraints stay as they are."""
+    the same package in conda_build_config.yaml; a shared constraint that no longer
+    matches gets an override in the distribution's vinca.yaml. Other constraints stay
+    as they are."""
     path = rs.DISTROS / distro / "vinca.yaml"
     pins = yaml.safe_load((rs.DISTROS / distro / "conda_build_config.yaml").read_text()) or {}
     changes: list[str] = []
@@ -113,7 +115,28 @@ def sync_mutex_constraints(distro: str) -> list[str]:
     if sep:
         block = re.match(r"(?:[ \t]*(?:-.*|#.*)?\n)*", rest).group(0)
         block_new = re.sub(r"(?m)^([ \t]*-[ \t]+)([A-Za-z0-9_.-]+) ([0-9][0-9.]*)\.\*[ \t]*$", repl, block)
-        path.write_text(head + sep + block_new + rest[len(block):])
+        text = head + sep + block_new + rest[len(block):]
+
+    # constraints from shared/vinca.yaml that the distribution doesn't override:
+    # an outdated one gets an override in the distribution's file
+    own = (yaml.safe_load(text).get("mutex_package") or {}).get("run_constraints") or []
+    own_names = {rs._constraint_name(c) for c in own}
+    shared = (rs.load_yaml(rs.SHARED / "vinca.yaml").get("mutex_package") or {}).get("run_constraints") or []
+    overrides = []
+    for constraint in shared:
+        m = re.fullmatch(r"([A-Za-z0-9_.-]+) ([0-9][0-9.]*)\.\*", str(constraint).strip())
+        if not m or m.group(1) in own_names:
+            continue
+        line = repl(re.match(r"()(.*) (.*)", f"{m.group(1)} {m.group(2)}"))
+        if line != f"{m.group(1)} {m.group(2)}":
+            overrides.append(line)
+    if overrides:
+        lines = "".join(f"    - {o}\n" for o in overrides)
+        if sep:
+            text = re.sub(r"(?m)^(  run_constraints:\n)", lambda mm: mm.group(1) + lines, text, count=1)
+        else:
+            text = re.sub(r"(?m)^(mutex_package:\n(?:[ \t]+.*\n)*)", lambda mm: mm.group(1) + "  run_constraints:\n" + lines, text, count=1)
+    path.write_text(text)
     return changes
 
 
@@ -129,7 +152,7 @@ def released_build_number(distro: str) -> int | None:
     s = rs.settings(distro)
     name = s.get("channel_name", f"robostack-{distro}")
     base = f"https://repo.prefix.dev/{name}" if s.get("upload_target", "prefix") == "prefix" else rs.channel_url(distro)
-    mutex = (yaml.safe_load((rs.DISTROS / distro / "vinca.yaml").read_text()).get("mutex_package") or {}).get("name")
+    mutex = (rs.read_vinca(distro).get("mutex_package") or {}).get("name")
     prefixes = (f"ros-{distro}-", "ros2-")
     highest, read = None, False
     for subdir in REPODATA_SUBDIRS:
@@ -425,20 +448,14 @@ def _package_name(name: str) -> str:
     return name.replace("-", "_")
 
 
+PLATFORMS = ("linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64")
+
+
 def _selected(distro: str) -> set[str]:
-    """Packages the distribution selects (unconditionally or on some platforms)."""
-    vinca = yaml.safe_load((rs.prepare(distro) / "vinca.yaml").read_text())
+    """Packages the distribution selects (on at least one platform)."""
     names: set[str] = set()
-
-    def walk(items):
-        for item in items or []:
-            if isinstance(item, str):
-                names.add(item.replace("-", "_"))
-            elif isinstance(item, dict):
-                walk(item.get("then"))
-                walk(item.get("else"))
-
-    walk(vinca.get("packages_select_by_deps"))
+    for platform in PLATFORMS:
+        names |= {n.replace("-", "_") for n in rs.read_vinca(distro, platform)["packages_select_by_deps"]}
     return names
 
 
@@ -469,8 +486,8 @@ def _append_selection(path: Path, packages: list[str]) -> None:
 
 
 def add_package(packages: list[str], distros: list[str], preview: bool = False) -> Result:
-    """Select ROS packages for building, in the given (default: all) distributions
-    that have them, and list the recipes this adds on linux-64."""
+    """Select ROS packages for building in shared/vinca.yaml, and list for the given
+    (default: all) distributions the recipes this adds on linux-64."""
     wanted = list(dict.fromkeys(n for n in (_package_name(p) for p in packages if p.strip()) if PACKAGE_NAME.match(n)))
     wanted = wanted[:MAX_PACKAGES]
     if not wanted:
@@ -493,37 +510,37 @@ def add_package(packages: list[str], distros: list[str], preview: bool = False) 
     if not plan:
         return Result(f"add-package {' '.join(wanted)}: nothing to add", "\n".join(lines))
 
-    # every distribution gets the same packages -> shared/vinca.yaml, else per distribution
-    everywhere = set(plan) == set(rs.distros()) and len({tuple(v) for v in plan.values()}) == 1
-    backup = {p: p.read_bytes() for p in [rs.SHARED / "vinca.yaml"] + [rs.DISTROS / d / "vinca.yaml" for d in plan]}
-    if everywhere:
-        _append_selection(rs.SHARED / "vinca.yaml", next(iter(plan.values())))
-        subprocess.run(["vinca-sort-vinca-lists", "shared/vinca.yaml"], cwd=rs.ROOT, check=True)
-        where = "`shared/vinca.yaml`"
-    else:
-        for distro, add in plan.items():
-            _append_selection(rs.DISTROS / distro / "vinca.yaml", add)
-            rs.task(distro, "sort", [])
-        where = ", ".join(f"`distros/{d}/vinca.yaml`" for d in plan)
+    def recipes(distro: str) -> set[str] | None:
+        """Recipes to build on linux-64 (packages already on the channel are skipped)."""
+        if rs.task(distro, "generate-recipes", ["--platform", "linux-64"]):
+            return None
+        return {p.name for p in (rs.work_dir(distro) / "recipes").iterdir()}
 
-    # what would be built (linux-64; packages already on the channel are skipped)
+    before = {distro: recipes(distro) for distro in plan}
+
+    # the whole selection is shared; vinca skips packages a distribution doesn't have
+    backup = {p: p.read_bytes() for p in [rs.SHARED / "vinca.yaml"]}
+    _append_selection(rs.SHARED / "vinca.yaml", sorted({pkg for add in plan.values() for pkg in add}))
+    subprocess.run(["vinca-sort-vinca-lists", "shared/vinca.yaml"], cwd=rs.ROOT, check=True)
+    where = "`shared/vinca.yaml` (every distribution that has them builds them)"
+
+    # what the request adds to the build (linux-64)
     if lines:
         lines.append("")
     builds_ok = True
     for distro, add in plan.items():
-        rc = rs.task(distro, "generate-recipes", ["--platform", "linux-64"])
-        recipes = sorted(p.name for p in (rs.work_dir(distro) / "recipes").iterdir()) if not rc else []
-        new = [r for r in recipes if r.startswith("ros2-") or not r.startswith("ros-")]
-        if rc:
+        after = recipes(distro)
+        if after is None or before[distro] is None:
             builds_ok = False
             lines.append(f"- **{distro}**: adding {', '.join(f'`{p}`' for p in add)} — recipe generation **failed**, see the log")
-        else:
-            shown = ", ".join(f"`{r}`" for r in new[:25]) + (f" and {len(new) - 25} more" if len(new) > 25 else "")
-            published = [p for p in add if f"ros2-{p.replace('_', '-')}" not in new]
-            lines.append(f"- **{distro}**: adding {', '.join(f'`{p}`' for p in add)} → {len(new)} packages to build on linux-64"
-                         + (f": {shown}" if new else ""))
-            if published:
-                lines.append(f"  - already published (built as a dependency): {', '.join(f'`{p}`' for p in published)}")
+            continue
+        new = sorted(after - before[distro])
+        shown = ", ".join(f"`{r}`" for r in new[:25]) + (f" and {len(new) - 25} more" if len(new) > 25 else "")
+        published = [p for p in add if f"ros2-{p.replace('_', '-')}" not in after]
+        lines.append(f"- **{distro}**: adding {', '.join(f'`{p}`' for p in add)} → {len(new)} new package{'s' if len(new) != 1 else ''} to build on linux-64"
+                     + (f": {shown}" if new else ""))
+        if published:
+            lines.append(f"  - already published (built as a dependency): {', '.join(f'`{p}`' for p in published)}")
     if preview:
         for path, content in backup.items():
             path.write_bytes(content)
@@ -535,7 +552,7 @@ def add_package(packages: list[str], distros: list[str], preview: bool = False) 
 
 
 def _default_ci_yaml() -> str:
-    return (rs.TOOLS / "ci.default.yaml").read_text()
+    return (rs.TOOLS / "ci_default.yaml").read_text()
 
 
 def parse_command(body: str, association: str) -> list[dict]:
@@ -609,24 +626,28 @@ def check() -> Result:
             problems.append(f"{distro}: rosdistro_sync must be 'manual' or a sync tag like {distro}/2026-10-05")
         if bool(settings.get("conda_forge_pinning_version")) != bool(settings.get("conda_forge_migrations")):
             problems.append(f"{distro}: set conda_forge_pinning_version and conda_forge_migrations together")
-        w = rs.prepare(distro)
-        vinca = yaml.safe_load((w / "vinca.yaml").read_text())
+        try:
+            vinca = rs.read_vinca(distro, "linux-64")
+        except Exception as error:  # noqa: BLE001 - reported as a problem
+            problems.append(f"{distro}: vinca can't read its configuration: {error}")
+            continue
         if vinca.get("ros_distro") != distro:
             problems.append(f"{distro}: vinca.yaml has ros_distro {vinca.get('ros_distro')!r}")
         for key in ("build_number", "mutex_package", "packages_select_by_deps"):
             if not vinca.get(key):
                 problems.append(f"{distro}: vinca.yaml has no {key}")
         for patch in (d / "patch").glob("*.patch"):
-            if not re.match(rf"^(ros-{distro}-|ros2-)?[a-z0-9-]+(\.(osx|linux|win|unix|emscripten))?\.patch$", patch.name):
-                problems.append(f"{distro}: unexpected patch name {patch.name}")
-            elif patch.name.startswith("ros-") and not patch.name.startswith(f"ros-{distro}-"):
-                problems.append(f"{distro}: patch {patch.name} names another distribution")
+            if not re.match(r"^ros2-[a-z0-9-]+(\.(osx|linux|win|unix|emscripten))?\.patch$", patch.name):
+                problems.append(f"{distro}: patch {patch.name} should be named ros2-<package>[.<platform>].patch")
         rendered = d / "conda_build_config.yaml"
         before = rendered.read_text() if rendered.is_file() else ""
         if rs.task(distro, "render-pinning", []) or rendered.read_text() != before:
             problems.append(f"{distro}: conda_build_config.yaml is out of date (pixi run rs {distro} render-pinning)")
             rendered.write_text(before)
-    for wf in sorted((rs.ROOT / ".github" / "workflows").glob("*.yml")):
+    # file names: .yaml everywhere (GitHub requires FUNDING.yml by that name)
+    for yml in sorted(p for p in (rs.ROOT / ".github").rglob("*.yml") if p.name != "FUNDING.yml"):
+        problems.append(f"{yml.relative_to(rs.ROOT)}: use the .yaml extension")
+    for wf in sorted((rs.ROOT / ".github" / "workflows").glob("*.yaml")):
         text = wf.read_text()
         if "\non:" not in "\n" + text or "\ntrue:" in "\n" + text:
             problems.append(f"{wf.name}: no top-level `on:` trigger")

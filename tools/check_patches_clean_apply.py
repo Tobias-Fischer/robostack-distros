@@ -99,6 +99,12 @@ def parse_args() -> argparse.Namespace:
             "--recipe ros2-tf2"
         ),
     )
+    ap.add_argument(
+        "--patch-dir",
+        type=Path,
+        default=PATCH_DIR,
+        help="Directory with the patches (default: ./patch)",
+    )
     return ap.parse_args()
 
 
@@ -362,7 +368,8 @@ def main() -> None:
         print("recipes/ folder not found – abort.")
         sys.exit(1)
 
-    if not PATCH_DIR.is_dir():
+    patch_dir = args.patch_dir
+    if not patch_dir.is_dir():
         print("patch/ folder not found – abort.")
         sys.exit(1)
 
@@ -379,7 +386,7 @@ def main() -> None:
     if args.recipe:
         print(f"Selected {len(recipe_files)} recipe(s) via --recipe.")
 
-    all_patches = discover_all_patches(PATCH_DIR)
+    all_patches = discover_all_patches(patch_dir)
     recreated = prepare_patch_recipes(recipe_files, all_patches)
     if not recreated:
         print("No recipes with patches found – nothing to test.")
