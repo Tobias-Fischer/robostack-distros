@@ -7,9 +7,9 @@ rosdistro_additional_recipes: rosdistro_additional_recipes.yaml
 build_number: 20
 
 mutex_package:
+  # new build without run_constraints (same version as the published ones)
+  build_number: 21
   version: "0.10.0"
-  run_constraints:
-    - krb5 1.22.*
 
 packages_exclude:
 

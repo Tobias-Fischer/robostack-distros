@@ -114,10 +114,6 @@ def load_yaml(path: Path) -> dict:
     return (yaml.safe_load(path.read_text()) or {}) if path.is_file() else {}
 
 
-def _constraint_name(spec: str) -> str:
-    return re.split(r"[\s=<>!~]", str(spec).strip(), maxsplit=1)[0]
-
-
 # package lists of vinca.yaml (import_distro strips the shared entries)
 LIST_KEYS = ("packages_select_by_deps", "packages_exclude", "packages_skip")
 

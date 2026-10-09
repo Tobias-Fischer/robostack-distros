@@ -90,57 +90,6 @@ def _ruamel():
     return ry
 
 
-def sync_mutex_constraints(distro: str) -> list[str]:
-    """Move `<pkg> <version>.*` run_constraints of the mutex to the rendered pin of
-    the same package in conda_build_config.yaml; a shared constraint that no longer
-    matches gets an override in the distribution's vinca.yaml. Other constraints stay
-    as they are."""
-    path = rs.DISTROS / distro / "vinca.yaml"
-    pins = yaml.safe_load((rs.DISTROS / distro / "conda_build_config.yaml").read_text()) or {}
-    changes: list[str] = []
-
-    def repl(m: re.Match) -> str:
-        name, old = m.group(2), m.group(3)
-        pin = pins.get(name.replace("-", "_"))
-        if not (isinstance(pin, list) and pin):
-            return m.group(0)
-        # same precision as before (`libprotobuf 7.35.*` stays at major.minor)
-        new = ".".join(str(pin[0]).split(".")[: len(old.split("."))])
-        if new == old:
-            return m.group(0)
-        changes.append(f"`{name}` {old}.* → {new}.*")
-        return f"{m.group(1)}{name} {new}.*"
-
-    text = path.read_text()
-    head, sep, rest = text.partition("run_constraints:")
-    if sep:
-        block = re.match(r"(?:[ \t]*(?:-.*|#.*)?\n)*", rest).group(0)
-        block_new = re.sub(r"(?m)^([ \t]*-[ \t]+)([A-Za-z0-9_.-]+) ([0-9][0-9.]*)\.\*[ \t]*$", repl, block)
-        text = head + sep + block_new + rest[len(block):]
-
-    # constraints from shared/vinca.yaml that the distribution doesn't override:
-    # an outdated one gets an override in the distribution's file
-    own = (yaml.safe_load(text).get("mutex_package") or {}).get("run_constraints") or []
-    own_names = {rs._constraint_name(c) for c in own}
-    shared = (rs.load_yaml(rs.SHARED / "vinca.yaml").get("mutex_package") or {}).get("run_constraints") or []
-    overrides = []
-    for constraint in shared:
-        m = re.fullmatch(r"([A-Za-z0-9_.-]+) ([0-9][0-9.]*)\.\*", str(constraint).strip())
-        if not m or m.group(1) in own_names:
-            continue
-        line = repl(re.match(r"()(.*) (.*)", f"{m.group(1)} {m.group(2)}"))
-        if line != f"{m.group(1)} {m.group(2)}":
-            overrides.append(line)
-    if overrides:
-        lines = "".join(f"    - {o}\n" for o in overrides)
-        if sep:
-            text = re.sub(r"(?m)^(  run_constraints:\n)", lambda mm: mm.group(1) + lines, text, count=1)
-        else:
-            text = re.sub(r"(?m)^(mutex_package:\n(?:[ \t]+.*\n)*)", lambda mm: mm.group(1) + "  run_constraints:\n" + lines, text, count=1)
-    path.write_text(text)
-    return changes
-
-
 REPODATA_SUBDIRS = ("noarch", "linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64")
 
 
@@ -240,10 +189,9 @@ def plan_rebuild(distro: str, old_cbc: str) -> tuple[dict[str, str], int]:
     return rebuild.plan(requirements, changed, prefix), len(requirements)
 
 
-def bump_partial(distro: str, packages: dict[str, str], mutex_changed: bool) -> list[str]:
+def bump_partial(distro: str, packages: dict[str, str]) -> list[str]:
     """Rebuild just these packages: a per-package build number above everything the
-    channel has, and, when its run_constraints changed, a new build of the mutex (its
-    version stays, so every other published package keeps working with it)."""
+    channel has. The mutex has no run_constraints, so it never needs a new build here."""
     builds = released_builds(distro)
     current = int(re.search(r"(?m)^build_number:\s*(\d+)", (rs.DISTROS / distro / "vinca.yaml").read_text()).group(1))
     released = released_build_number(distro, builds)
@@ -260,29 +208,12 @@ def bump_partial(distro: str, packages: dict[str, str], mutex_changed: bool) -> 
             entry["build_number"] = number
     with info.open("w") as fh:
         ry.dump(data, fh)
-    lines = [f"{len(packages)} packages get `build_number: {number}` in `distros/{distro}/pkg_additional_info.yaml`"]
-
-    if mutex_changed:
-        path = rs.DISTROS / distro / "vinca.yaml"
-        text = path.read_text()
-        mutex = (rs.read_vinca(distro).get("mutex_package") or {}).get("name")
-        mutex_build = ((builds or {}).get(mutex, number - 1)) + 1
-        block = re.search(r"(?m)^mutex_package:\n((?:[ \t]+.*\n|\n)*)", text)
-        if not block:
-            raise SystemExit(f"{path}: no mutex_package")
-        body = block.group(1)
-        if re.search(r"(?m)^  build_number:", body):
-            body = re.sub(r"(?m)^(  build_number:\s*)\d+", rf"\g<1>{mutex_build}", body, count=1)
-        else:
-            body = f"  build_number: {mutex_build}\n" + body
-        path.write_text(text[: block.start(1)] + body + text[block.end(1):])
-        lines.append(f"mutex `{mutex}`: new build {mutex_build} with the updated run_constraints (same version)")
-    return lines
+    return [f"{len(packages)} packages get `build_number: {number}` in `distros/{distro}/pkg_additional_info.yaml`"]
 
 
 def dependency_conflicts(distro: str) -> set[str] | None:
     """Packages that can't be installed together with the rest of the distribution's
-    dependencies under its current pins and mutex constraints (check_dependency_compat.py,
+    dependencies under its current pins (check_dependency_compat.py,
     linux-64); None when the check itself failed."""
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "conflicts.json"
@@ -494,22 +425,19 @@ def update_pinning(distro: str) -> Result:
     if cbc.read_text() == before_cbc:
         lines.append("The rendered pins don't change: nothing to rebuild.")
     else:
-        constraints = sync_mutex_constraints(distro)
         print(f"Planning the rebuild of {distro}", flush=True)
         packages, total = plan_rebuild(distro, before_cbc)
-        if not packages and not constraints:
+        if not packages:
             lines.append("The pins change, but no package uses them: nothing to rebuild.")
         elif total and len(packages) > FULL_REBUILD_SHARE * total:
             lines.append(f"**Full rebuild**: {len(packages)} of {total} packages use a changed pin or depend "
                          "on one. " + "; ".join(bump_rebuild(distro)))
         else:
             lines.append(f"**Rebuild {len(packages)} of {total} packages** (they use a changed pin or depend "
-                         "on one): " + "; ".join(bump_partial(distro, packages, bool(constraints))))
+                         "on one): " + "; ".join(bump_partial(distro, packages)))
             if packages:
                 lines += ["", *_details(f"Packages to rebuild ({len(packages)})", [
                     f"- `{name}`: {reason}" for name, reason in sorted(packages.items())])]
-        if constraints:
-            lines += ["", "Mutex run_constraints: " + ", ".join(constraints)]
         conflicts_after = dependency_conflicts(distro)
         if conflicts_after is None or conflicts_before is None:
             conflicts = conflicts_after is None
@@ -754,6 +682,15 @@ def _form_fields(body: str) -> dict[str, str]:
     return fields
 
 
+def mutex_problems(vinca: dict) -> list[str]:
+    """The mutex only keeps one distribution per environment: library versions come
+    from the packages' own metadata (see shared/vinca.yaml), not from run_constraints."""
+    if (vinca.get("mutex_package") or {}).get("run_constraints"):
+        return ["mutex_package.run_constraints must stay empty; fix the dependencies of the affected "
+                "packages instead (see shared/vinca.yaml)"]
+    return []
+
+
 def check() -> Result:
     """Sanity checks: every distribution assembles and its generated files are consistent."""
     problems: list[str] = []
@@ -781,6 +718,7 @@ def check() -> Result:
         for key in ("build_number", "mutex_package", "packages_select_by_deps"):
             if not vinca.get(key):
                 problems.append(f"{distro}: vinca.yaml has no {key}")
+        problems += [f"{distro}: {p}" for p in mutex_problems(vinca)]
         for patch in (d / "patch").glob("*.patch"):
             if not re.match(r"^ros2-[a-z0-9-]+(\.(osx|linux|win|unix|emscripten))?\.patch$", patch.name):
                 problems.append(f"{distro}: patch {patch.name} should be named ros2-<package>[.<platform>].patch")
