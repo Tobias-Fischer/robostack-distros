@@ -476,7 +476,8 @@ def update_pinning(distro: str) -> Result:
     before_cbc = cbc.read_text() if cbc.is_file() else ""
     print(f"Checking the dependencies of {distro} with the current pins", flush=True)
     conflicts_before = dependency_conflicts(distro)
-    rs.task(distro, "render-pinning", [])
+    if rs.task(distro, "render-pinning", []):
+        return Result(f"{distro}: pinning update failed", "`render-pinning` failed, see the log.", ok=False)
     added = sorted(set(migrations) - set(before[1]))
     candidates = {name for name, _ in reports}
     finished = sorted(set(before[1]) - set(migrations) - candidates)
@@ -575,7 +576,7 @@ def new_distro(name: str, source: str) -> Result:
         "",
         "Next steps:",
         f"- [ ] review `distros/{name}/vinca.yaml` (mutex name/version, package selection)",
-        f"- [ ] create the `robostack-{name}` channel and its trusted publisher / upload token",
+        f"- [ ] create the `robostack-{name}` channel and its Repository Access (trusted publishing, see the README)",
         f"- [ ] port patches that still apply ({len(patches)} in `distros/{source}/patch/`), "
         f"check with `pixi run rs {name} check-patches`",
     ]
@@ -769,7 +770,8 @@ def check() -> Result:
         sync = settings.get("rosdistro_sync")
         if sync is not None and sync != "manual" and not ((m := SYNC_TAG.match(str(sync))) and m["distro"] == distro):
             problems.append(f"{distro}: rosdistro_sync must be 'manual' or a sync tag like {distro}/2026-10-05")
-        if bool(settings.get("conda_forge_pinning_version")) != bool(settings.get("conda_forge_migrations")):
+        # an empty migration list is valid
+        if ("conda_forge_pinning_version" in settings) != ("conda_forge_migrations" in settings):
             problems.append(f"{distro}: set conda_forge_pinning_version and conda_forge_migrations together")
         try:
             vinca = rs.read_vinca(distro, "linux-64")
@@ -778,7 +780,10 @@ def check() -> Result:
             continue
         if vinca.get("ros_distro") != distro:
             problems.append(f"{distro}: vinca.yaml has ros_distro {vinca.get('ros_distro')!r}")
-        for key in ("build_number", "mutex_package", "packages_select_by_deps"):
+        # build_number 0 is valid (new-distro starts there)
+        if not isinstance(vinca.get("build_number"), int) or vinca["build_number"] < 0:
+            problems.append(f"{distro}: vinca.yaml needs a build_number >= 0")
+        for key in ("mutex_package", "packages_select_by_deps"):
             if not vinca.get(key):
                 problems.append(f"{distro}: vinca.yaml has no {key}")
         for patch in (d / "patch").glob("*.patch"):

@@ -102,8 +102,10 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--patch-dir",
         type=Path,
-        default=PATCH_DIR,
-        help="Directory with the patches (default: ./patch)",
+        action="append",
+        help="Directory with the patches (default: ./patch); repeat it for layered "
+        "configurations, base first: like vinca, a later directory's patches for a "
+        "package replace the earlier ones",
     )
     return ap.parse_args()
 
@@ -368,8 +370,8 @@ def main() -> None:
         print("recipes/ folder not found – abort.")
         sys.exit(1)
 
-    patch_dir = args.patch_dir
-    if not patch_dir.is_dir():
+    patch_dirs = args.patch_dir or [PATCH_DIR]
+    if not any(d.is_dir() for d in patch_dirs):
         print("patch/ folder not found – abort.")
         sys.exit(1)
 
@@ -386,7 +388,10 @@ def main() -> None:
     if args.recipe:
         print(f"Selected {len(recipe_files)} recipe(s) via --recipe.")
 
-    all_patches = discover_all_patches(patch_dir)
+    all_patches = {}
+    for patch_dir in patch_dirs:
+        if patch_dir.is_dir():
+            all_patches.update(discover_all_patches(patch_dir))
     recreated = prepare_patch_recipes(recipe_files, all_patches)
     if not recreated:
         print("No recipes with patches found – nothing to test.")
