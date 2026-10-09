@@ -188,6 +188,10 @@ def upload(distro: str, files: list[str], cwd: Path) -> int:
         channel = override or s.get("channel_name", f"robostack-{distro}")
         cmd = ["rattler-build", "upload", "prefix", "-c", channel, "--skip-existing"]
         if not os.environ.get("PREFIX_API_KEY"):
+            # the build workflows pass the secret through; without it the variable is
+            # set but empty, and rattler-build would still take it for an API key
+            # ("--generate-attestation cannot be used with an API key")
+            os.environ.pop("PREFIX_API_KEY", None)
             cmd.append("--generate-attestation")
     else:
         token = os.environ.get("ANACONDA_API_TOKEN", "")
