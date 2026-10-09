@@ -60,7 +60,7 @@ jobs:
         run: git config --global maintenance.auto false && git config --global gc.auto 0 && git config --global core.longpaths true
       - uses: prefix-dev/setup-pixi@v0.11.0
         with:
-          frozen: true
+          locked: true  # the lock file must match pixi.toml
           pixi-version: v0.81.0
           cache-write: false  # the build jobs save the pixi environment cache
       - name: Sanity checks (every distribution assembles, generated files up to date, sorted)
@@ -98,7 +98,7 @@ jobs:
       run: git config --global maintenance.auto false && git config --global gc.auto 0 && git config --global core.longpaths true
     - uses: prefix-dev/setup-pixi@v0.11.0
       with:
-        frozen: true
+        locked: true  # the lock file must match pixi.toml
         pixi-version: v0.81.0
         # every distribution's job on a platform has the same cache key; let one
         # of them save it instead of all racing ("Unable to reserve cache")

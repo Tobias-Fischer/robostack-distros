@@ -127,7 +127,10 @@ class Source:
 def import_distro(src: Source, distro: str | None) -> str:
     ry = _ry()
     vinca = ry.load(src.text("vinca.yaml"))
-    distro = distro or vinca["ros_distro"]
+    # the old repository's names (ros-<source>-*) follow its distribution, also when
+    # --distro imports it under another name
+    source = vinca["ros_distro"]
+    distro = distro or source
     dest = rs.DISTROS / distro
     dest.mkdir(parents=True, exist_ok=True)
 
@@ -165,11 +168,14 @@ def import_distro(src: Source, distro: str | None) -> str:
     # as they are (patch/dependencies.yaml is filtered below)
     shutil.rmtree(dest / "patch", ignore_errors=True)
     src.copy_dir("patch", dest)
-    for patch in (dest / "patch").glob(f"ros-{distro}-*.patch"):
-        patch.rename(patch.with_name("ros2-" + patch.name.removeprefix(f"ros-{distro}-")))
+    for patch in (dest / "patch").glob(f"ros-{source}-*.patch"):
+        patch.rename(patch.with_name("ros2-" + patch.name.removeprefix(f"ros-{source}-")))
+    # a file the old repository no longer has goes too (re-imports mirror it)
     for name in ("rosdistro_snapshot.yaml", "rosdistro_additional_recipes.yaml"):
         if (text := src.text(name)) is not None:
             (dest / name).write_text(text)
+        else:
+            (dest / name).unlink(missing_ok=True)
 
     # per-package files: drop entries identical to shared/ (keeping build numbers)
     for name, shared_file, target in (
@@ -178,8 +184,9 @@ def import_distro(src: Source, distro: str | None) -> str:
     ):
         text = src.text(name)
         if text is None:
+            target.unlink(missing_ok=True)
             continue
-        text = re.sub(rf"\bros-{distro}-(?=[a-z0-9])", "ros2-", text)
+        text = re.sub(rf"\bros-{source}-(?=[a-z0-9])", "ros2-", text)
         data = ry.load(text) or {}
         common = yaml.safe_load((rs.SHARED / shared_file).read_text()) or {}
         for key in list(data):
@@ -218,7 +225,9 @@ def import_distro(src: Source, distro: str | None) -> str:
         "# (everything else is shared, see the README).\n"
         + yaml.safe_dump(settings, sort_keys=False, default_flow_style=None, width=100)
     )
-    (dest / "ci.yaml").write_text((rs.ROOT / "tools" / "ci_default.yaml").read_text())
+    # ci.yaml holds the distribution's current rebuild controls: keep them on re-imports
+    if not (dest / "ci.yaml").exists():
+        (dest / "ci.yaml").write_text((rs.ROOT / "tools" / "ci_default.yaml").read_text())
     return distro
 
 
