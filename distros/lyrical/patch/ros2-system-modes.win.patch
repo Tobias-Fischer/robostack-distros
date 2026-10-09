@@ -1,0 +1,15 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 3269d00..34aff5c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,6 +1,10 @@
+ cmake_minimum_required(VERSION 3.5)
+ project(system_modes)
+ 
++# No dllexport annotations: export everything so MSVC also writes mode.lib
++# (mode_monitor/mode_manager link against it; LNK1181 otherwise).
++set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
++
+ # Default to C99
+ if(NOT CMAKE_C_STANDARD)
+   set(CMAKE_C_STANDARD 99)
