@@ -1,0 +1,23 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 57e84cdd0..d7781cbb9 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -42,6 +42,8 @@ include(cmake/IceoryxPoshDeployment.cmake)
+ 
+ if(CMAKE_SYSTEM_NAME MATCHES Linux OR CMAKE_SYSTEM_NAME MATCHES Darwin)
+     option(BUILD_SHARED_LIBS "Create shared libraries by default" ON)
++else()
++    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+ endif()
+ 
+ set(PREFIX iceoryx/v${CMAKE_PROJECT_VERSION})
+diff --git a/cmake/cpptoml/0001-cpptoml-cmake-version.patch b/cmake/cpptoml/0001-cpptoml-cmake-version.patch
+--- a/cmake/cpptoml/0001-cpptoml-cmake-version.patch
++++ b/cmake/cpptoml/0001-cpptoml-cmake-version.patch
+@@ -4,5 +4,5 @@
+ -cmake_minimum_required(VERSION 3.1.0)
+ +cmake_minimum_required(VERSION 3.16)
+  project(cpptoml)
+-
++ 
+  set(cpptoml_VERSION 0.4.0)

@@ -1,0 +1,20 @@
+diff --git a/src/parse.c b/src/parse.c
+index 33f2995..5465e54 100644
+--- a/src/parse.c
++++ b/src/parse.c
+@@ -17,10 +17,15 @@
+ #include <stdlib.h>
+ #include <string.h>
+ 
+ #ifdef _WIN32
+ #include <windows.h>
++#elif defined(__APPLE__)
++#include <pthread.h>
++typedef pthread_once_t once_flag;
++#define ONCE_FLAG_INIT PTHREAD_ONCE_INIT
++#define call_once(flag, func) pthread_once((flag), (func))
+ #else
+ #include <threads.h>
+ #endif
+ 
+ #include <yaml.h>
