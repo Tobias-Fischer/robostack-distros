@@ -1,0 +1,119 @@
+# After a merge: regenerate the staged build workflows of every distribution the
+# merge touched, one build branch per distribution and platform
+# (buildbranch_<distro>_<platform>, each with its workflow in .github/workflows/build.yaml).
+# Pushing them starts the builds, which upload to each distribution's channel.
+#
+# Pushing workflow files needs the robostack-bot app (or secrets.GHA_PAT); without a
+# token, or with dry_run, the generated workflows are only uploaded as an artifact.
+name: Generate build branches
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      distros:
+        description: Space-separated distributions (default all)
+        required: false
+      dry_run:
+        description: Only upload the generated workflows as an artifact
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      distros: ${{ steps.plan.outputs.distros }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: plan
+        env:
+          BEFORE: ${{ github.event.before }}
+          SELECTED: ${{ inputs.distros }}
+        run: |
+          if [ -n "$SELECTED" ]; then
+            distros=$(python3 -c 'import json,os; print(json.dumps(os.environ["SELECTED"].split()))')
+          elif [ -n "$BEFORE" ] && git cat-file -e "$BEFORE" 2>/dev/null; then
+            distros=$(python3 tools/robostack.py changed-distros --base "$BEFORE")
+          else
+            distros=$(python3 tools/robostack.py changed-distros --base HEAD --all)
+          fi
+          echo "distros=$distros" | tee -a "$GITHUB_OUTPUT"
+
+  build-branches:
+    needs: plan
+    if: needs.plan.outputs.distros != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        distro: ${{ fromJSON(needs.plan.outputs.distros) }}
+    env:
+      DISTRO: ${{ matrix.distro }}
+      DRY_RUN: ${{ inputs.dry_run || 'false' }}
+    steps:
+      - name: Bot token (pushing workflow files needs more than GITHUB_TOKEN)
+        id: app
+        if: vars.ROBOSTACK_BOT_APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.ROBOSTACK_BOT_APP_ID }}
+          private-key: ${{ secrets.ROBOSTACK_BOT_PRIVATE_KEY }}
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # git auto-maintenance can leave a lock file in the git clones pixi caches
+      # (e.g. vinca's), which breaks every later run restoring that cache
+      - name: Disable git auto-maintenance
+        run: git config --global maintenance.auto false && git config --global gc.auto 0 && git config --global core.longpaths true
+      - uses: prefix-dev/setup-pixi@v0.11.0
+        with:
+          frozen: true
+          pixi-version: v0.81.0
+          # one job saves the shared pixi environment cache (same key for all)
+          cache-write: ${{ matrix.distro == fromJSON(needs.plan.outputs.distros)[0] }}
+      - name: Generate and push the build branches
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PUSH_TOKEN: ${{ steps.app.outputs.token || secrets.GHA_PAT }}
+        run: |
+          set -e
+          PUSH=true
+          if [ "$DRY_RUN" == "true" ]; then PUSH=false; fi
+          if [ -z "$PUSH_TOKEN" ]; then
+            echo "::warning::No robostack-bot app or GHA_PAT: build branches are not pushed, see the artifact."
+            PUSH=false
+          fi
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          mkdir -p "$RUNNER_TEMP/workflows"
+          # vinca fetches package.xml files from GitHub; retry on network errors
+          retry() { for attempt in 1 2 3; do "$@" && return 0; echo "attempt ${attempt} failed: $*" >&2; sleep 15; done; return 1; }
+          for platform in linux-64 osx-64 osx-arm64 win-64 linux-aarch64; do
+            git reset --hard "$GITHUB_SHA" && git clean -fdx -e .pixi
+            retry pixi run -v rs "$DISTRO" generate-recipes --platform "$platform"
+            retry pixi run -v rs "$DISTRO" gha --platform "$platform" --batch-size 25
+            if [ ! -f .github/workflows/build.yaml ]; then
+              echo "$DISTRO $platform: nothing to build"
+              continue
+            fi
+            cp .github/workflows/build.yaml "$RUNNER_TEMP/workflows/build_${DISTRO}_${platform}.yaml"
+            if [ "$PUSH" == "true" ]; then
+              branch="buildbranch_${DISTRO}_${platform//-/_}"
+              git add -f . ':!.pixi'
+              git commit -qm "Build files for $DISTRO $platform $(date '+%Y-%m-%d-%H%M')"
+              git push "https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:$branch" --force
+            fi
+          done
+      - uses: actions/upload-artifact@v6
+        with:
+          name: build-workflows-${{ matrix.distro }}
+          path: ${{ runner.temp }}/workflows
+          if-no-files-found: ignore
