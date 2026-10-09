@@ -1,0 +1,177 @@
+# robostack-bot: routine maintenance (see tools/maintenance.py).
+#
+# - daily: a snapshot PR for every distribution with a new rosdistro sync (the ROS
+#   release team tags each sync, e.g. jazzy/2026-10-05; `rosdistro_sync: manual` in
+#   distro.yaml opts out, like rolling), and a conda-forge pinning PR when there's a new
+#   pinning version or a migration became usable (only packages using a changed pin, and
+#   what depends on them, are rebuilt; the PR is labelled dependency-conflict when the
+#   new pins can't be installed together).
+# - on demand (owners, members and collaborators):
+#     Actions > robostack-bot > Run workflow, an issue from the "robostack-bot command"
+#     template, or a comment: @robostack-bot <command> [<distro>]
+#   commands: update-rosdistro-snapshot [<distro>...|all] | find-stale-packages [<distro>...|all] |
+#             update-conda-forge-pinning [<distro>...|all] | add-package <pkg>... [<distro>...]
+# - package requests (the "Package request" issue form or `@robostack-bot add-package`,
+#   from anyone): the bot opens a PR that adds the packages; maintainers review it.
+#   Every other command is for owners, members and collaborators.
+#
+# PRs are opened with the robostack-bot GitHub App (vars.ROBOSTACK_BOT_APP_ID +
+# secrets.ROBOSTACK_BOT_PRIVATE_KEY, falling back to secrets.GHA_PAT) so CI runs on them.
+name: robostack-bot
+
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      command:
+        type: choice
+        options: [add-package, update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning]
+      distro:
+        description: Distribution (for update-rosdistro-snapshot / find-stale-packages; empty = all)
+        required: false
+      packages:
+        description: For add-package, ROS packages and optionally distributions, e.g. "foxglove_bridge humble jazzy"
+        required: false
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    if: >-
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@robostack-bot')) ||
+      (github.event_name == 'issues' && (contains(github.event.issue.labels.*.name, 'robostack-bot') ||
+                                         contains(github.event.issue.labels.*.name, 'package-request')))
+    runs-on: ubuntu-latest
+    outputs:
+      jobs: ${{ steps.plan.outputs.jobs }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      # git auto-maintenance can leave a lock file in the git clones pixi caches
+      # (e.g. vinca's), which breaks every later run restoring that cache
+      - name: Disable git auto-maintenance
+        run: git config --global maintenance.auto false && git config --global gc.auto 0 && git config --global core.longpaths true
+      - uses: prefix-dev/setup-pixi@v0.11.0
+        with:
+          frozen: true
+          pixi-version: v0.81.0
+      - id: plan
+        env:
+          GITHUB_TOKEN: ${{ github.token }}  # GitHub API: ros/rosdistro sync tags
+          EVENT: ${{ github.event_name }}
+          COMMAND: ${{ inputs.command }}
+          DISTRO: ${{ inputs.distro }}
+          PACKAGES: ${{ inputs.packages }}
+          BODY: ${{ github.event.comment.body || github.event.issue.body }}
+          ASSOCIATION: ${{ github.event.comment.author_association || github.event.issue.author_association }}
+        run: |
+          case "$EVENT" in
+            schedule)
+              # rosdistro syncs, and the conda-forge pinning of every distribution
+              jobs=$(pixi run -q rs rosdistro-syncs | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin) + [{"command":"update-conda-forge-pinning","distro":d,"args":"","preview":False} for d in sys.argv[1:]]))' $(ls distros)) ;;
+            workflow_dispatch)  # only people with write access can dispatch
+              jobs=$(ROBOSTACK_BOT_BODY="@robostack-bot $COMMAND $PACKAGES $DISTRO" ROBOSTACK_BOT_ASSOCIATION=OWNER pixi run -q rs parse-command) ;;
+            *)
+              jobs=$(ROBOSTACK_BOT_BODY="$BODY" ROBOSTACK_BOT_ASSOCIATION="$ASSOCIATION" pixi run -q rs parse-command) ;;
+          esac
+          echo "jobs=$jobs" | tee -a "$GITHUB_OUTPUT"
+
+  run:
+    needs: plan
+    if: needs.plan.outputs.jobs != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.jobs) }}
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Bot token
+        id: app
+        if: vars.ROBOSTACK_BOT_APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.ROBOSTACK_BOT_APP_ID }}
+          private-key: ${{ secrets.ROBOSTACK_BOT_PRIVATE_KEY }}
+      - uses: actions/checkout@v6
+        with:
+          token: ${{ steps.app.outputs.token || secrets.GHA_PAT || github.token }}
+      # git auto-maintenance can leave a lock file in the git clones pixi caches
+      # (e.g. vinca's), which breaks every later run restoring that cache
+      - name: Disable git auto-maintenance
+        run: git config --global maintenance.auto false && git config --global gc.auto 0 && git config --global core.longpaths true
+      - uses: prefix-dev/setup-pixi@v0.11.0
+        with:
+          frozen: true
+          pixi-version: v0.81.0
+          cache-write: false  # the plan job saves the pixi environment cache
+      - name: robostack-bot ${{ matrix.command }} ${{ matrix.distro }}
+        id: bot
+        env:
+          COMMAND: ${{ matrix.command }}
+          DISTRO: ${{ matrix.distro }}
+          ARGS: ${{ matrix.args }}
+          PREVIEW: ${{ matrix.preview }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          case "$COMMAND" in
+            add-package)
+              extra=(); [ "$PREVIEW" == "true" ] && extra+=(--preview)
+              # shellcheck disable=SC2086  # ARGS is a list of names
+              pixi run rs add-package $ARGS "${extra[@]}" --summary "$RUNNER_TEMP/summary.md" ;;
+            update-rosdistro-snapshot) pixi run rs "$DISTRO" update-snapshot --summary "$RUNNER_TEMP/summary.md" ;;
+            find-stale-packages) pixi run rs "$DISTRO" find-stale --summary "$RUNNER_TEMP/summary.md" ;;
+            update-conda-forge-pinning) pixi run rs "$DISTRO" update-pinning --summary "$RUNNER_TEMP/summary.md" ;;
+          esac
+          status=$?
+          cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null
+          exit $status
+      - name: Link the request
+        if: steps.bot.outputs.changed == 'true' && github.event.issue.number
+        env:
+          NUMBER: ${{ github.event.issue.number }}
+        run: |
+          printf '\nCloses #%s\n' "$NUMBER" >> "$RUNNER_TEMP/summary.md"
+      - name: Open or update the pull request
+        if: steps.bot.outputs.changed == 'true' && !matrix.preview
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ steps.app.outputs.token || secrets.GHA_PAT || github.token }}
+          branch: bot/${{ matrix.command }}${{ matrix.distro && format('-{0}', matrix.distro) || '' }}${{ matrix.command == 'add-package' && format('-{0}', github.run_id) || '' }}
+          delete-branch: true
+          commit-message: ${{ steps.bot.outputs.title }}
+          title: ${{ steps.bot.outputs.title }}
+          body-path: ${{ runner.temp }}/summary.md
+          labels: |
+            robostack-bot
+            ${{ steps.bot.outputs.labels }}
+      - name: Reply on the issue / pull request
+        if: always() && (github.event_name == 'issue_comment' || github.event_name == 'issues')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+          TITLE: ${{ steps.bot.outputs.title || 'failed' }}
+        run: |
+          {
+            echo "**robostack-bot ${{ matrix.command }} ${{ matrix.distro }}**: $TITLE"
+            echo
+            [ -f "$RUNNER_TEMP/summary.md" ] && cat "$RUNNER_TEMP/summary.md"
+            echo
+            echo "[Workflow run]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)"
+          } > "$RUNNER_TEMP/comment.md"
+          gh issue comment "$NUMBER" --repo "$GITHUB_REPOSITORY" --body-file "$RUNNER_TEMP/comment.md"
+          if [ "$GITHUB_EVENT_NAME" = issues ] && [ "${{ job.status }}" = success ] && [ "${{ matrix.command }}" != add-package ]; then
+            gh issue close "$NUMBER" --repo "$GITHUB_REPOSITORY"
+          fi
