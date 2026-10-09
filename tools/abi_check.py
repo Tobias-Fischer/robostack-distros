@@ -419,16 +419,18 @@ TABLE_HEADER = ["| package | released → PR | verdict | details |", "|---|---|-
 
 def pr_summary(results: dict, distro: str, platform: str, channel: str) -> list[str]:
     """Markdown for the pull-request comment: what needs attention as a table, the
-    rest collapsed, and the packages without a release in one line."""
+    rest collapsed. Packages without a release are left out; a distribution with
+    nothing to compare gets no section."""
     def worst_first(item):
         verdict = item[1]["verdict"]
         return (-RANK.index(verdict) if verdict in RANK else 1, item[0])
 
     ordered = sorted(results.items(), key=worst_first)
-    new = [name for name, res in ordered if res["verdict"] == "new package"]
     attention = [(n, r) for n, r in ordered if r["verdict"] != "new package" and _needs_attention(r)]
     rest = [(n, r) for n, r in ordered if r["verdict"] != "new package" and not _needs_attention(r)]
 
+    if not attention and not rest:
+        return []
     lines = [f"#### {distro} {platform}", ""]
     if attention:
         lines += TABLE_HEADER + [_row(n, r) for n, r in attention] + [""]
@@ -441,10 +443,6 @@ def pr_summary(results: dict, distro: str, platform: str, channel: str) -> list[
             lines += ["Nothing that needs a rebuild of other packages.", ""]
         lines += [f"<details><summary>{len(rest)} packages can be bumped on their own ({summary})</summary>", "",
                   *TABLE_HEADER, *[_row(n, r) for n, r in rest], "", "</details>", ""]
-    if new:
-        lines += [f"Not released yet, nothing to compare: {', '.join(new)}.", ""]
-    if not attention and not rest and not new:
-        lines += ["No package of this pull request has a released build to compare with.", ""]
     return lines + [f"Compared with the newest builds on {channel}/{platform}.", ""]
 
 
