@@ -184,10 +184,10 @@ def needed(prefix: Path) -> set[str]:
 _COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
 
 
-def header_changes(old: Path, new: Path) -> list[str]:
+def header_changes(old: Path, new: Path) -> list[str] | None:
     """Installed headers (include/) added, removed or changed beyond comments and
-    whitespace. Unchanged headers rule out layout and inline changes, which the
-    symbol comparison can't see."""
+    whitespace (None when neither build has headers). Unchanged headers rule out
+    layout and inline changes, which the symbol comparison can't see."""
     def headers(prefix):
         root = prefix / "include"
         out = {}
@@ -198,6 +198,8 @@ def header_changes(old: Path, new: Path) -> list[str]:
         return out
 
     a, b = headers(old), headers(new)
+    if not a and not b:
+        return None
     return sorted(
         [f"+{h}" for h in set(b) - set(a)] + [f"-{h}" for h in set(a) - set(b)]
         + [h for h in set(a) & set(b) if a[h] != b[h]],
@@ -342,7 +344,8 @@ def check_pr_builds(pr_dir: Path, channel: str, platform: str, distro: str, tmp:
     for pkg in sorted([*pr_dir.glob("*.conda"), *pr_dir.glob("*.tar.bz2")]):
         index = read_index(pkg)
         short = short_name(index["name"], distro)
-        if short is None or _is_compatibility_package(index):
+        # check_patches_clean_apply.py's patch-check packages can share the output directory
+        if short is None or _is_compatibility_package(index) or "-check-patches-" in short:
             continue
         if short not in by_name:
             results[short] = {"verdict": "new package", "new": index["version"], "libraries": {}, "removed_libraries": []}
@@ -376,42 +379,73 @@ VERDICT_NOTE = {
 }
 
 
+def _row(name: str, res: dict) -> str:
+    details = []
+    changed = [f"`{lib}` ({info['verdict']})" for lib, info in res["libraries"].items() if info["verdict"] != "compatible"]
+    if changed:
+        details.append("libraries: " + ", ".join(changed))
+    if res["removed_libraries"]:
+        details.append("removed: " + ", ".join(f"`{lib}`" for lib in res["removed_libraries"]))
+    if res.get("dependents") is not None:
+        deps = res["dependents"]
+        listed = ", ".join(deps["rebuild"]) if deps["rebuild"] else "none"
+        if deps["checked"]:
+            details.append(f"**rebuild {len(deps['rebuild'])} dependents** (of {deps['candidates']} released "
+                           f"dependents, these link to it): {listed}")
+        else:
+            details.append(f"**{len(deps['rebuild'])} released dependents** (too many to check which link to it; "
+                           f"rebuild those with compiled code): {listed}")
+    headers = res.get("headers")
+    if headers:
+        shown = ", ".join(f"`{h}`" for h in headers[:8]) + (f" and {len(headers) - 8} more" if len(headers) > 8 else "")
+        details.append(f"{len(headers)} headers changed (check for layout/inline changes): {shown}")
+    elif headers is not None:
+        details.append("headers unchanged")
+    if res.get("pins"):
+        details.append("changed pins (part of the comparison): " + ", ".join(res["pins"]))
+    verdict = f"**{res['verdict']}**: {VERDICT_NOTE.get(res['verdict'], '')}"
+    return f"| {name} | {res.get('old', '')} → {res.get('new', '')} | {verdict} | {'<br>'.join(details)} |"
+
+
+def _needs_attention(res: dict) -> bool:
+    """Breaks dependents, failed, or changed headers of a package with libraries."""
+    return res["verdict"] in ("soname", "incompatible", "error") or (
+        res["verdict"] in ("compatible", "additions") and bool(res.get("headers"))
+    )
+
+
+TABLE_HEADER = ["| package | released → PR | verdict | details |", "|---|---|---|---|"]
+
+
 def pr_summary(results: dict, distro: str, platform: str, channel: str) -> list[str]:
-    lines = [f"#### {distro} {platform}", ""]
-    if not results:
-        return lines + ["No package of this pull request has a released build to compare with.", ""]
-    lines += ["| package | released → PR | verdict | details |", "|---|---|---|---|"]
+    """Markdown for the pull-request comment: what needs attention as a table, the
+    rest collapsed, and the packages without a release in one line."""
     def worst_first(item):
         verdict = item[1]["verdict"]
         return (-RANK.index(verdict) if verdict in RANK else 1, item[0])
 
-    for name, res in sorted(results.items(), key=worst_first):
-        details = []
-        changed = [f"`{lib}` ({info['verdict']})" for lib, info in res["libraries"].items() if info["verdict"] != "compatible"]
-        if changed:
-            details.append("libraries: " + ", ".join(changed))
-        if res["removed_libraries"]:
-            details.append("removed: " + ", ".join(f"`{lib}`" for lib in res["removed_libraries"]))
-        if res.get("dependents") is not None:
-            deps = res["dependents"]
-            listed = ", ".join(deps["rebuild"]) if deps["rebuild"] else "none"
-            if deps["checked"]:
-                details.append(f"**rebuild {len(deps['rebuild'])} dependents** (of {deps['candidates']} released "
-                               f"dependents, these link to it): {listed}")
-            else:
-                details.append(f"**{len(deps['rebuild'])} released dependents** (too many to check which link to it; "
-                               f"rebuild those with compiled code): {listed}")
-        headers = res.get("headers") or []
-        if headers:
-            shown = ", ".join(f"`{h}`" for h in headers[:8]) + (f" and {len(headers) - 8} more" if len(headers) > 8 else "")
-            details.append(f"{len(headers)} headers changed (check for layout/inline changes): {shown}")
-        elif res["verdict"] not in ("new package",) and "headers" in res:
-            details.append("headers unchanged")
-        if res.get("pins"):
-            details.append("⚠️ changed pins (the comparison includes them): " + ", ".join(res["pins"]))
-        verdict = f"{res['verdict']}: {VERDICT_NOTE.get(res['verdict'], '')}"
-        lines.append(f"| {name} | {res.get('old', '')} → {res.get('new', '')} | {verdict} | {'<br>'.join(details)} |")
-    return lines + ["", f"Compared with the newest builds on {channel}/{platform}.", ""]
+    ordered = sorted(results.items(), key=worst_first)
+    new = [name for name, res in ordered if res["verdict"] == "new package"]
+    attention = [(n, r) for n, r in ordered if r["verdict"] != "new package" and _needs_attention(r)]
+    rest = [(n, r) for n, r in ordered if r["verdict"] != "new package" and not _needs_attention(r)]
+
+    lines = [f"#### {distro} {platform}", ""]
+    if attention:
+        lines += TABLE_HEADER + [_row(n, r) for n, r in attention] + [""]
+    if rest:
+        counts: dict[str, int] = {}
+        for _, res in rest:
+            counts[res["verdict"]] = counts.get(res["verdict"], 0) + 1
+        summary = ", ".join(f"{v}: {c}" for v, c in sorted(counts.items()))
+        if not attention:
+            lines += ["Nothing that needs a rebuild of other packages.", ""]
+        lines += [f"<details><summary>{len(rest)} packages can be bumped on their own ({summary})</summary>", "",
+                  *TABLE_HEADER, *[_row(n, r) for n, r in rest], "", "</details>", ""]
+    if new:
+        lines += [f"Not released yet, nothing to compare: {', '.join(new)}.", ""]
+    if not attention and not rest and not new:
+        lines += ["No package of this pull request has a released build to compare with.", ""]
+    return lines + [f"Compared with the newest builds on {channel}/{platform}.", ""]
 
 
 def main() -> int:
