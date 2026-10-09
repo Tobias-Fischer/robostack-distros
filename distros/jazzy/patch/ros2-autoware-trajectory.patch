@@ -1,0 +1,54 @@
+Use conda-forge's tl-expected (cpp-expected): tl_expected is mapped to it.
+
+diff --git a/include/autoware/trajectory/interpolator/result.hpp b/include/autoware/trajectory/interpolator/result.hpp
+index 5ea3257..38a4ba9 100644
+--- a/include/autoware/trajectory/interpolator/result.hpp
++++ b/include/autoware/trajectory/interpolator/result.hpp
+@@ -15,7 +15,7 @@
+ #ifndef AUTOWARE__TRAJECTORY__INTERPOLATOR__RESULT_HPP_
+ #define AUTOWARE__TRAJECTORY__INTERPOLATOR__RESULT_HPP_
+ 
+-#include <tl_expected/expected.hpp>
++#include <tl/expected.hpp>
+ 
+ #include <string>
+ 
+diff --git a/include/autoware/trajectory/temporal_trajectory.hpp b/include/autoware/trajectory/temporal_trajectory.hpp
+index 443d407..579e09c 100644
+--- a/include/autoware/trajectory/temporal_trajectory.hpp
++++ b/include/autoware/trajectory/temporal_trajectory.hpp
+@@ -18,7 +18,7 @@
+ #include "autoware/trajectory/detail/time_distance_mapping.hpp"
+ #include "autoware/trajectory/trajectory_point.hpp"
+ 
+-#include <tl_expected/expected.hpp>
++#include <tl/expected.hpp>
+ 
+ #include <memory>
+ #include <utility>
+diff --git a/include/autoware/trajectory/utils/reference_path.hpp b/include/autoware/trajectory/utils/reference_path.hpp
+index df92ef9..e5a4ca0 100644
+--- a/include/autoware/trajectory/utils/reference_path.hpp
++++ b/include/autoware/trajectory/utils/reference_path.hpp
+@@ -17,7 +17,7 @@
+ 
+ #include "autoware/trajectory/forward.hpp"
+ 
+-#include <tl_expected/expected.hpp>
++#include <tl/expected.hpp>
+ 
+ #include <autoware_internal_planning_msgs/msg/path_with_lane_id.hpp>
+ 
+diff --git a/include/autoware/trajectory/utils/shift.hpp b/include/autoware/trajectory/utils/shift.hpp
+index 552cbed..2ae854b 100644
+--- a/include/autoware/trajectory/utils/shift.hpp
++++ b/include/autoware/trajectory/utils/shift.hpp
+@@ -19,7 +19,7 @@
+ #include "autoware/trajectory/forward.hpp"
+ 
+ #include <range/v3/view/zip.hpp>
+-#include <tl_expected/expected.hpp>
++#include <tl/expected.hpp>
+ 
+ #include <string>
+ #include <utility>
