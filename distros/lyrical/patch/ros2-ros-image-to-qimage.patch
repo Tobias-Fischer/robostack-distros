@@ -1,0 +1,37 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 73439fc..84e854f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -9,7 +9,7 @@ endif()
+ find_package(ament_cmake REQUIRED)
+ find_package(ament_cmake_python REQUIRED)
+ find_package(sensor_msgs REQUIRED)
+-find_package(Qt5Widgets REQUIRED)
++find_package(Qt6Widgets REQUIRED)
+ find_package(cv_bridge REQUIRED)
+ find_package(python_qt_binding REQUIRED)
+ find_package(ament_cmake_pytest REQUIRED)
+@@ -18,10 +18,10 @@ add_library(ros_image_to_qimage src/ros_image_to_qimage.cpp)
+ target_include_directories(ros_image_to_qimage PUBLIC
+   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+   $<INSTALL_INTERFACE:include>)
+-ament_target_dependencies(ros_image_to_qimage
+-  sensor_msgs
+-  Qt5Widgets
+-  cv_bridge)
++target_link_libraries(ros_image_to_qimage PUBLIC
++  ${sensor_msgs_TARGETS}
++  Qt6::Widgets
++  cv_bridge::cv_bridge)
+ 
+ install(
+   DIRECTORY include/
+@@ -42,7 +42,7 @@ ament_export_include_directories(
+ ament_export_libraries(
+   ros_image_to_qimage
+ )
+-ament_export_dependencies(Qt5Widgets)
++ament_export_dependencies(Qt6Widgets)
+ ament_export_dependencies(sensor_msgs)
+ ament_export_dependencies(cv_bridge)
+ ament_export_dependencies(python_qt_binding)

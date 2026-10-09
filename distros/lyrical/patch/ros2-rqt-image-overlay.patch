@@ -1,0 +1,80 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9ca7c70..fb7d276 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -14,7 +14,7 @@ find_package(rclcpp REQUIRED)
+ find_package(pluginlib REQUIRED)
+ find_package(rqt_gui_cpp REQUIRED)
+ find_package(image_transport REQUIRED)
+-find_package(Qt5Widgets REQUIRED)
++find_package(Qt6Widgets REQUIRED)
+ find_package(ros_image_to_qimage REQUIRED)
+ find_package(rqt_image_overlay_layer REQUIRED)
+ 
+@@ -29,27 +29,31 @@ set(SOURCES
+   src/list_image_topics.cpp
+   src/color_dialog_delegate.cpp
+   src/overlay_manager_view.cpp)
+-qt5_wrap_cpp(SOURCES    # Must do this for qt's Meta-Object Compiler.
++qt6_wrap_cpp(SOURCES    # Must do this for qt's Meta-Object Compiler.
+   src/image_overlay.hpp
+   src/composition_frame.hpp
+   src/compositor.hpp
+   src/image_manager.hpp
+   src/color_dialog_delegate.hpp
+   src/overlay_manager_view.hpp)
+-qt5_wrap_ui(UIS resource/image_overlay.ui resource/configuration_dialog.ui)
++qt6_wrap_ui(UIS resource/image_overlay.ui resource/configuration_dialog.ui)
+ add_library(rqt_image_overlay SHARED
+   ${SOURCES}
+   ${UIS})
+ target_include_directories(rqt_image_overlay PUBLIC
+   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+   $<INSTALL_INTERFACE:include>)
+-ament_target_dependencies(rqt_image_overlay
+-  rclcpp
+-  rqt_gui_cpp
+-  image_transport
+-  Qt5Widgets
+-  ros_image_to_qimage
+-  rqt_image_overlay_layer)
++# ament_target_dependencies() is gone in this distribution's ament_cmake
++target_link_libraries(rqt_image_overlay PUBLIC
++  rclcpp::rclcpp
++  rqt_gui_cpp::rqt_gui_cpp
++  image_transport::image_transport
++  Qt6::Widgets)
++# these two export include directories and libraries, but no CMake targets
++foreach(_dep ros_image_to_qimage rqt_image_overlay_layer)
++  target_include_directories(rqt_image_overlay PUBLIC ${${_dep}_INCLUDE_DIRS})
++  target_link_libraries(rqt_image_overlay PUBLIC ${${_dep}_LIBRARIES})
++endforeach()
+ 
+ pluginlib_export_plugin_description_file(rqt_gui plugin.xml)  # This must be rqt_gui and not rqt_gui_cpp
+ 
+diff --git a/src/image_manager.cpp b/src/image_manager.cpp
+index 2ea3935..3ad24e1 100644
+--- a/src/image_manager.cpp
++++ b/src/image_manager.cpp
+@@ -18,7 +18,7 @@
+ #include "image_manager.hpp"
+ #include "list_image_topics.hpp"
+ #include "image_transport/image_transport.hpp"
+-#include "qt_gui_cpp/settings.h"
++#include "qt_gui_cpp/settings.hpp"
+ #include "ros_image_to_qimage/ros_image_to_qimage.hpp"
+ 
+ namespace rqt_image_overlay
+diff --git a/src/overlay_manager.cpp b/src/overlay_manager.cpp
+index a85f9b5..49684cc 100644
+--- a/src/overlay_manager.cpp
++++ b/src/overlay_manager.cpp
+@@ -18,7 +18,7 @@
+ #include <vector>
+ #include "overlay_manager.hpp"
+ #include "overlay.hpp"
+-#include "qt_gui_cpp/settings.h"
++#include "qt_gui_cpp/settings.hpp"
+ #include "user_roles.hpp"
+ 
+ #define STATUS_UPDATE_MS 200
