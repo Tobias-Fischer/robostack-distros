@@ -70,6 +70,7 @@ combines the two, and the files next to each:
 
 - **`vinca.yaml`:**
   - The package selection (`packages_select_by_deps`) lives in `shared/` for every distribution; vinca skips packages a distribution's rosdistro doesn't have.
+  - `package_name_mode: new`: recipes and dependencies use `ros2-<pkg>` names only; no legacy alias packages are generated.
   - Exceptions, in `shared/` or a distribution: `packages_exclude` (not built, dropped from other packages' dependencies) and `packages_skip` (not built, dependents keep the dependency), each as plain names or under `- if: <condition>`. ROS packages mapped to conda-forge in `robostack.yaml` are skipped automatically.
   - `mutex_package`: name, `upper_bound` and the common `run_constraints` are shared. Each distribution sets its own `version`, and its `run_constraints` replace the shared constraint on the same package (e.g. jazzy's `libprotobuf 7.35.*`) or add new ones.
   - Other keys come from the distribution if it sets them, else from `shared/`. A distribution that differs from a shared setting just sets it.
@@ -152,5 +153,13 @@ pixi run rs <distro> render-pinning && pixi run sort && pixi run rs check
 ```
 
 The import leaves out what `shared/` already provides (shared package selections and entries, derived keys) and keeps comments. It writes `distro.yaml` from the old repository's `pixi.toml` and `vinca_pinning.yaml`. Run it again to pick up changes made in the old repository until that is archived.
+Imports validate and stage inputs before replacing the destination, and roll back
+if replacement fails. The importer owns `vinca.yaml`, `distro.yaml`, `ci.yaml`,
+`pkg_additional_info.yaml`, both rosdistro snapshot/additional-recipe files, and
+the whole `patch/` directory. Optional files removed upstream are removed on
+re-import. Unrelated local entries, including `work/`, `tests/`, and rendered pins,
+are preserved. `--distro` changes the destination identity; legacy package names
+are still converted using the source distribution's name.
+Modern package lists retain scalar and nested `if`/`then`/`else` branches, including
+empty branches; importing does not resolve away platform-specific selections.
 
-**Check:** re-importing lyrical from its repository reproduces `distros/lyrical/` exactly. The full linux-64 recipe sets of rolling, humble and lyrical generated here are byte-identical to those of their own repositories.

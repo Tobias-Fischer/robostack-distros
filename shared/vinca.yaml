@@ -1,6 +1,6 @@
 # vinca settings shared by every distribution; distros/<d>/vinca.yaml adds its own
 # (lists are combined, other keys from the distribution win). See tools/robostack.py.
-package_name_mode: both
+package_name_mode: new
 # relative to this file; each distribution adds its own (see distros/<d>/vinca.yaml)
 conda_index:
   - robostack.yaml
