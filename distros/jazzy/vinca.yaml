@@ -53,14 +53,15 @@ packages_exclude:
       - microstrain_inertial_rqt
       # std::tr1 / OpenCV link errors with MSVC; rolling's fix needs a newer tf2_ros,
       # and ros-jazzy never built it on Windows
-      - moveit_py
+      - moveit2_tutorials  # find_package(moveit_task_constructor_core)
       # 0.1.8 uses POSIX uint and more (C2061 on win-64); lyrical's/rolling's Windows-ready
       # patches are for 0.2.0/0.1.6, and ros-jazzy never built these on Windows
+      - moveit_py
       - moveit_ros_perception
       - moveit_task_constructor_capabilities
       - moveit_task_constructor_core
-      - moveit_task_constructor_demo
       # 2.12.4 links python312.lib explicitly (LNK1104); ros-jazzy never built it on Windows
+      - moveit_task_constructor_demo
       - moveit_task_constructor_visualization
 
 packages_select_by_deps:
