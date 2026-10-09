@@ -1,0 +1,80 @@
+extends: ../../shared/vinca.yaml
+ros_distro: jazzy
+patch_dir: patch
+rosdistro_snapshot: rosdistro_snapshot.yaml
+rosdistro_additional_recipes: rosdistro_additional_recipes.yaml
+
+
+# mapping for package keys
+build_number: 25
+
+mutex_package:
+  version: "0.19.0"
+  run_constraints:
+    - libprotobuf 7.35.*
+    # ffmpeg (pulled in transitively by libopencv, needed by the whole image/gz
+    # stack) only supports libprotobuf 7.35 via libopenvino-tensorflow-frontend
+    # >=2026.3.0; older libopenvino/libopencv/ffmpeg builds still coexist in the
+    # channel needing libprotobuf 6.x, so pin this directly rather than relying
+    # on resolvo to find the compatible combination on its own. libopencv/
+    # py-opencv are pinned too, since resolvo has shown trouble propagating the
+    # openvino constraint transitively through ffmpeg on its own.
+    - libopenvino-tensorflow-frontend >=2026.3.0
+    - libopencv >=5.0.0
+    - py-opencv >=5.0.0
+    # Belt-and-suspenders for the same conflict: ffmpeg 8.1.2 builds that pull
+    # in the protobuf-6-only openvino also coexist in the channel. Pinning
+    # ffmpeg directly to major version 9 removes the ambiguity outright.
+    - ffmpeg 9.*
+    # libopencv 5.0.0 also depends on a *second*, separate openvino frontend
+    # package (tensorflow-LITE-frontend, distinct from tensorflow-frontend
+    # above) and every 5.0.0 build hardcodes it to the 2026.3.0.x line. Some
+    # ffmpeg 9.0.1/9.0.2 builds instead need 2026.3.1, which conflicts --
+    # constrain lite-frontend to the same range libopencv needs so resolvo
+    # picks an ffmpeg 9.x build compatible with it.
+    - libopenvino-tensorflow-lite-frontend >=2026.3.0,<2026.3.1.0a0
+
+
+packages_exclude:
+
+  # rosidlcpp 0.5.0 formats nlohmann::json ranges with fmt::join, which fmt 12 rejects;
+  # jazzy never built it
+  - rosidlcpp
+  # its published sick_safetyscanners_base 1.0.4 still requires Boost's system component,
+  # gone in Boost 1.89+ (patch/ros2-sick-safetyscanners-base.patch is for 1.0.3); jazzy
+  # never built it
+  - sick_safetyscanners2
+  # localtime_r etc. on MSVC; lyrical's/rolling's patch is for 4.8/4.9, ros-jazzy never
+  # built these on Windows
+  - if: win
+    then:
+      - draco_point_cloud_transport
+      - microstrain_inertial_driver
+      - microstrain_inertial_examples
+      # std::tr1 / OpenCV link errors with MSVC; rolling's fix needs a newer tf2_ros,
+      # and ros-jazzy never built it on Windows
+      - microstrain_inertial_rqt
+      # 4.0.4 can't find zstd.lib with MSVC (LNK1181), fixed upstream by lyrical's 6.x;
+      # ros-jazzy never built the plugins on Windows
+      - moveit2_tutorials  # find_package(moveit_task_constructor_core)
+      - moveit_py
+      - moveit_ros_perception
+      - moveit_task_constructor_capabilities
+      # 0.1.8 uses POSIX uint and more (C2061 on win-64); lyrical's/rolling's Windows-ready
+      # patches are for 0.2.0/0.1.6, and ros-jazzy never built these on Windows
+      - moveit_task_constructor_core
+      - moveit_task_constructor_demo
+      - moveit_task_constructor_visualization
+      - point_cloud_transport_plugins
+      # 2.12.4 links python312.lib explicitly (LNK1104); ros-jazzy never built it on Windows
+      - zlib_point_cloud_transport
+      - zstd_point_cloud_transport
+
+packages_select_by_deps:
+
+  # not on win-64 elsewhere (GCC-only compile flags), but jazzy's 1.0.4 builds there
+  - if: win
+    then:
+      - cartographer_ros
+      - sick_safetyscanners_base
+
