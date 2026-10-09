@@ -1,0 +1,26 @@
+# Temporary controls for the pull-request build (.github/workflows/testpr.yaml).
+#
+# testpr.yaml caches the packages it builds per pull request, and rattler-build
+# skips everything that is already in that cache. This file tells it what to
+# throw away before building. Set it in your PR, and reset it to the defaults
+# below before or right after merging.
+
+# Ignore the PR build cache and rebuild everything, e.g. for a full rebuild PR
+# that bumps the build number of all packages.
+full_rebuild: false
+
+# Packages to drop from the PR build cache. Needed when a package changes without
+# a new build number, e.g. you fixed one of its patches in patch/: the cache
+# still holds the old build, so the fix would never be built in this PR.
+#
+# Entries are ROS package names (underscores or dashes) or globs; both package
+# name prefixes (ros2-<pkg>, and ros-<distro>-<pkg> of older builds) are matched, e.g.
+#
+# evict_cache:
+#   - rosidl_generator_py     # one package: ros2-rosidl-generator-py-*.conda
+#   - std-msgs                # dashes work too
+#   - "roboplan*"             # a family of packages (quote globs)
+#
+# Remember that dependents are not rebuilt automatically: evict them as well if
+# they must pick up the change.
+evict_cache: []
