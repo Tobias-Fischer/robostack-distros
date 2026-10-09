@@ -260,8 +260,9 @@ def task(distro: str, name: str, args: list[str]) -> int:
 
 
 def generate_gha(distro: str, args: list[str]) -> int:
-    """vinca-gha for one distribution; the workflow gets a distro-specific name,
-    trigger branch and file name, and tells the build scripts which distro to build."""
+    """vinca-gha for one distribution; the workflow gets a distro-specific name and
+    trigger branch, the file name .github/workflows/build.yaml, and tells the build
+    scripts which distro to build."""
     parser = argparse.ArgumentParser(prog="rs <distro> gha")
     parser.add_argument("--platform", required=True)
     parser.add_argument("--batch-size", default="25")
@@ -287,10 +288,12 @@ def generate_gha(distro: str, args: list[str]) -> int:
             "  # optional repository variable: upload to this prefix.dev channel instead",
             "  # (e.g. a test channel), or 'none' to only build",
             "  ROBOSTACK_UPLOAD_CHANNEL: ${{ vars.ROBOSTACK_UPLOAD_CHANNEL }}",
-            "  # optional secret: prefix.dev API key, for channels without trusted publishing",
+            "  # optional secret: prefix.dev API key, for channels without Repository Access (OIDC)",
             "  PREFIX_API_KEY: ${{ secrets.PREFIX_API_KEY }}",
         ]
-        dest = ROOT / ".github" / "workflows" / f"build_{distro}_{wf.stem}.yaml"
+        # one file name on every build branch (each branch carries only its own
+        # workflow), so a single prefix.dev Repository Access source matches them all
+        dest = ROOT / ".github" / "workflows" / "build.yaml"
         dest.write_text("\n".join(lines) + "\n")
         wf.unlink()
         print(f"wrote {dest.relative_to(ROOT)} (trigger branch {branch})")

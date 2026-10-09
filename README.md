@@ -109,11 +109,11 @@ of a distribution uses `full_rebuild: true` there. A new build number goes into 
   - A PR that only touches `distros/<distro>/` builds that distribution. Changes anywhere else (except documentation) build every distribution.
   - Each selected distribution is built on all five platforms, with its own build cache. The `check` job runs `pixi run rs check`.
 - **After a merge** (`main.yaml`): for every changed distribution and platform, the job regenerates the recipes and the staged build workflow, and pushes them to `buildbranch_<distro>_<platform>`.
-  - The workflow is named `build_<distro>_<platform>.yml` and runs `.scripts/build_*.sh` in `distros/<distro>/work`.
+  - Each build branch carries its workflow as `.github/workflows/build.yaml`, which runs `.scripts/build_*.sh` in `distros/<distro>/work`.
   - Those workflows build the packages and upload them to the distribution's channel.
 - **Repository variables:**
-  - `ROBOSTACK_UPLOAD_CHANNEL`: upload to this prefix.dev channel instead (for example a test channel), or `none` to build without uploading.
-  - Upload credentials (secrets): prefix.dev channels use trusted publishing (configure this repository on the channel), or the secret `PREFIX_API_KEY` if it is set. anaconda.org channels use `ANACONDA_API_TOKEN`.
+  - `ROBOSTACK_UPLOAD_CHANNEL`: upload to this prefix.dev channel instead (for example a test channel), or `none` to build without uploading. Use the canonical reference: `<namespace>/<channel>` for a channel that isn't the namespace's primary one (e.g. `tobias-fischer/robostack-distro-test`).
+  - Upload credentials: prefix.dev channels use Repository Access (OIDC, no stored key). In the channel's *Settings > Repository Access*, authorize GitHub, this repository, workflow filename `build.yaml`, mode *Read/write*. The secret `PREFIX_API_KEY` is only needed for channels without Repository Access; while it is set, it is used instead. anaconda.org channels use `ANACONDA_API_TOKEN`.
   - `ROBOSTACK_BOT_APP_ID` with the secret `ROBOSTACK_BOT_PRIVATE_KEY`: the robostack-bot GitHub App. It pushes the build branches (which contain workflow files) and opens bot PRs so that CI runs on them. `GHA_PAT` works as a fallback.
 
   The app needs repository permissions Contents, Pull requests, Issues and Workflows (read and write), with its webhook inactive.
