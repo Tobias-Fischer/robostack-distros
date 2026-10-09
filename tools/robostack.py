@@ -281,7 +281,9 @@ def generate_gha(distro: str, args: list[str]) -> int:
     # Edit the text: a YAML round trip would turn the `on:` key into `true:` (YAML 1.1).
     for wf in sorted(set(d.glob("*.yml")) - before):
         lines = wf.read_text().splitlines()
-        lines = [f"name: {distro} {l[6:]}" if l.startswith("name: ") else l for l in lines]
+        # all build branches share .github/workflows/build.yaml, which GitHub lists as one
+        # workflow: run-name tells the runs apart
+        lines = [f"name: build\nrun-name: {distro} {ns.platform}" if l.startswith("name: ") else l for l in lines]
         if ns.platform == "win-64" and not any("build-ci" in l for l in lines):
             raise SystemExit(f"{wf}: the Windows workflow doesn't use .scripts/build_win.bat")
         if any(l.startswith("env:") for l in lines):
