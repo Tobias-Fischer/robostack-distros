@@ -118,21 +118,30 @@ In the PR, CI uses its cache unless told otherwise. A full rebuild PR sets
   `shared/pkg_additional_info.yaml`; the distribution's keys win.
 - Only in the current PR: `evict_cache` in `distros/<d>/ci.yaml`.
 
-## ABI compatibility of ROS package updates (prototype)
+## ABI compatibility of ROS package updates
 
-`tools/abi_check.py` compares two builds of packages with libabigail's `abidiff`
+`tools/abi_check.py` compares builds of packages with libabigail's `abidiff`
 (Linux only; run it in a Linux VM or CI):
 
 ```bash
-pixi run abi-check --channel https://conda.anaconda.org/robostack-jazzy --platform linux-64 --distro jazzy --latest-pairs 30
+pixi run abi-check --distro jazzy --platform linux-64 --latest-pairs 30   # pairs on the release channel
 pixi run abi-check --old old.conda --new new.conda
+pixi run abi-check --distro jazzy --pr-builds distros/jazzy/work/output/linux-64
 ```
 
 Per package: `compatible`, `additions` (only added symbols), `soname` (SONAME
 changed, symbols unchanged; dependents must be relinked, e.g. MoveIt's versioned
 SONAMEs), `incompatible` (removed or changed symbols, or a removed library), or
 `no libraries`. Published packages are stripped, so only exported symbols are
-compared: struct layout changes need builds with debug information.
+compared: struct layout and inline/header-only changes don't show up.
+
+Every pull request runs `--pr-builds` in its linux-64 builds (non-blocking) and
+posts one "ABI check" comment, updated on each push. Use it to accept pull requests
+that bump single packages: `compatible`/`additions` can be bumped alone; for
+`soname`/`incompatible` the comment lists the released packages that depend on it,
+whose build numbers (`pkg_additional_info.yaml`) must be bumped in the same pull
+request (those with compiled code; metapackages and configs don't link). A changed
+non-ROS pin listed in the comment is part of the comparison.
 
 ## Packages built against outdated pins
 
