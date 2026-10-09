@@ -1,0 +1,21 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a08c67a..f4b60c0 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -18,6 +18,16 @@ if(WIN32)
+   set_target_properties(rmf_utils PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+ endif()
+ 
++if(WIN32)
++  # rmf_utils has no dllexport annotations at all. As a shared library on
++  # Windows with nothing explicitly exported, link.exe does not produce
++  # an import .lib, so every consumer (rmf-traffic here) fails with
++  # LNK1181 "cannot open input file 'rmf_utils.lib'" even though
++  # rmf_utils.dll itself builds fine. Auto-export everything, same fix
++  # used for every other Windows shared-library target this session.
++  set_target_properties(rmf_utils PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
++endif()
++
+ target_include_directories(rmf_utils
+   PUBLIC
+     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
