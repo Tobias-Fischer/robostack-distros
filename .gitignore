@@ -1,0 +1,6 @@
+.pixi
+__pycache__
+*.egg-info
+.DS_Store
+# assembled per distribution by tools/robostack.py (prepare)
+distros/*/work/

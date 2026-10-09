@@ -1,0 +1,34 @@
+name: Package request
+description: Request a ROS package to be built by RoboStack
+labels: ["package-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        robostack-bot opens a pull request that adds the package to the build of every
+        distribution that has it, and replies here with what will be built (per
+        distribution, including new dependencies). A maintainer reviews and merges it;
+        the issue closes with it.
+  - type: input
+    id: package_name
+    attributes:
+      label: Package names
+      description: ROS package names (as in rosdistro), comma separated, e.g. `foxglove_bridge, rqt_gauges`
+      placeholder: foxglove_bridge, rqt_gauges
+    validations:
+      required: true
+  - type: checkboxes
+    id: operating_systems
+    attributes:
+      label: Operating System(s)
+      options:
+        - label: linux-64
+        - label: linux-aarch64
+        - label: osx-64
+        - label: osx-arm64
+        - label: win-64
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context (optional)
+      description: Why you need the package, links to its repository, ...

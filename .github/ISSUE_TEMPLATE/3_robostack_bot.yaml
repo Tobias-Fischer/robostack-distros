@@ -1,0 +1,40 @@
+name: robostack-bot command
+description: Ask robostack-bot to add packages or run a maintenance task
+labels: ["robostack-bot"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        robostack-bot runs the command and replies here. Commands that change files open
+        (or update) a pull request. You can also comment
+        `@robostack-bot <command> [<distro>... | all]` on any issue or pull request.
+
+        | command | who | what it does |
+        |---|---|---|
+        | `add-package` | anyone | Add ROS packages to the shared package selection (built by every distribution that has them); the PR lists what will be built. A maintainer reviews and merges it. |
+        | `update-rosdistro-snapshot` | maintainers | Refresh `rosdistro_snapshot.yaml` to the latest rosdistro sync (master for rolling) and bump the build number (highest released + 1, per-package build numbers removed) and mutex: a full rebuild. The PR lists the version bumps. Runs daily when a new sync is tagged. |
+        | `find-stale-packages` | maintainers | List published packages built against pins that no longer match, with the build-number snippet to rebuild them. Replies only. |
+        | `update-conda-forge-pinning` | maintainers | Move the distribution's conda-forge pinning to the latest version, with the migrations that are done for its dependencies; rebuilds only the packages that use a changed pin and what depends on them (a full rebuild when that is most of them). The PR lists the packages, the migrations and a dependency check. Runs daily. |
+  - type: dropdown
+    id: command
+    attributes:
+      label: Command
+      options: [add-package, update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning]
+    validations:
+      required: true
+  - type: input
+    id: packages
+    attributes:
+      label: Packages
+      description: For add-package, ROS package names (as in rosdistro), comma separated
+      placeholder: foxglove_bridge, rqt_gauges
+  - type: dropdown
+    id: distributions
+    attributes:
+      label: Distributions
+      description: "`all`: every distribution (for add-package: every one that has the package)."
+      multiple: true
+      options: [all, rolling, lyrical, jazzy, humble]
+      default: 0
+    validations:
+      required: true
