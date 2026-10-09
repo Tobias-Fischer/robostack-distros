@@ -165,8 +165,21 @@ def read_vinca(distro: str, platform: str | None = None) -> dict:
 # --------------------------------------------------------------------------- #
 # tasks
 # --------------------------------------------------------------------------- #
+def upload_channel_url() -> str | None:
+    """The prefix.dev channel ROBOSTACK_UPLOAD_CHANNEL redirects uploads to, if any."""
+    override = os.environ.get("ROBOSTACK_UPLOAD_CHANNEL", "").strip()
+    if not override or override == "none":
+        return None
+    # repo.prefix.dev serves namespaced channels (owner/channel) directly
+    return f"https://repo.prefix.dev/{override}"
+
+
 def rattler_build(distro: str, args: list[str], skip_existing: bool = True) -> list[str]:
+    # With uploads redirected (e.g. to a test channel), later stages of the staged
+    # build need the packages earlier stages uploaded there, and reruns skip them.
+    extra = upload_channel_url()
     cmd = ["rattler-build", "build", "-m", "./conda_build_config.yaml",
+           *(["-c", extra] if extra else []),
            "-c", channel_url(distro), "-c", CONDA_FORGE, "--channel-priority", "disabled"]
     return cmd + (["--skip-existing"] if skip_existing else []) + args
 
@@ -176,7 +189,8 @@ def upload(distro: str, files: list[str], cwd: Path) -> int:
 
     ROBOSTACK_UPLOAD_CHANNEL (set by the staged build workflows from the repository
     variable of the same name) redirects uploads to another prefix.dev channel, e.g.
-    a test channel; "none" skips uploading. prefix.dev uploads use trusted publishing
+    a test channel (the builds then also read from it, see rattler_build); "none"
+    skips uploading. prefix.dev uploads use trusted publishing
     (with an attestation), or the PREFIX_API_KEY secret if it is set.
     """
     override = os.environ.get("ROBOSTACK_UPLOAD_CHANNEL", "").strip()
