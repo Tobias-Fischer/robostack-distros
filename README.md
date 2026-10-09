@@ -75,7 +75,7 @@ combines the two, and the files next to each:
   - Other keys come from the distribution if it sets them, else from `shared/`. A distribution that differs from a shared setting just sets it.
   - Paths are relative to the file that sets them. `distros/<distro>/work/vinca.yaml` (generated) extends the distribution's file and adds `skip_existing` (its channel).
 - **`pkg_additional_info.yaml` and `patch/dependencies.yaml`:** merged per package. The distribution's keys win, for example its own `build_number` on top of a shared `additional_cmake_args`.
-- **`patch/*.patch` and `tests/`:** per package, the distribution's file replaces the shared one. In tests, `- if: ros_distro in ["humble", "jazzy"]` blocks select distribution-specific parts.
+- **`patch/*.patch` and `tests/`:** overrides are per package. A distribution's patch set replaces that package's whole shared patch set, including platform variants. Patch checks resolve the same inheritance and selectors as recipe generation. In tests, `- if: ros_distro in ["humble", "jazzy"]` blocks select distribution-specific parts.
 - **`vinca_pinning.yaml`:** the shared pinning, adjusted by `distro.yaml`:
   - `conda_forge_pinning_version` and `conda_forge_migrations` keep a distribution on its own conda-forge pinning, for example until its next full rebuild;
   - `pinning_overrides` replace shared pins by name, for example jazzy's Python 3.12.
@@ -94,27 +94,45 @@ pixi run rs jazzy check-deps                  # pin conflicts, before building a
 pixi run rs jazzy create-snapshot             # refresh rosdistro_snapshot.yaml
 pixi run rs jazzy render-pinning              # after editing shared/pinning or distro.yaml
 pixi run rs add-package foxglove_bridge humble jazzy
-pixi run sort                                 # all YAML files
-pixi run rs check                             # sanity checks (also run in CI)
+pixi run sort                                # all YAML files, on every supported platform
+pixi run render-pinning                      # render pinning for every distribution
+pixi run rs check                            # sanity checks (also run in CI)
+pixi run --locked python -m unittest discover -s tools/tests
 ```
+
+Generate recipes before `build`, `build-one`, or `gha`. These commands reject
+missing recipes, changed inputs, and a different target platform with the command
+needed to regenerate them. Existing build outputs are kept. `prepare` refreshes
+the copied build scripts and pins; it does not regenerate recipes.
 
 **Rebuilding a package without bumping its build number:** add it to `evict_cache` in
 `distros/<distro>/ci.yaml` for the PR, and reset the file after merging. A full rebuild
 of a distribution uses `full_rebuild: true` there. A new build number goes into its
 `pkg_additional_info.yaml` (one package) or `vinca.yaml` (everything).
 
+PR caches are keyed by the distribution, platform, recipes, lockfile, patches,
+pins, and CI controls. Changing inputs starts a new cache epoch; retries of the
+same inputs keep successfully built replacements. For now, changing `evict_cache`
+invalidates the whole distribution/platform cache, including dependents, rather
+than trying to reuse potentially incompatible packages. Resetting the controls
+also starts a new epoch.
+
 ### CI
 
 - **Pull requests** (`testpr.yaml`):
   - A PR that only touches `distros/<distro>/` builds that distribution. Changes anywhere else (except documentation) build every distribution.
-  - Each selected distribution is built on all five platforms, with its own build cache. The `check` job runs `pixi run rs check`.
+  - Each selected distribution is built on all five platforms, with its own build cache. Tooling regression tests and `pixi run rs check` must pass before the build matrix starts.
 - **After a merge** (`main.yaml`): for every changed distribution and platform, the job regenerates the recipes and the staged build workflow, and pushes them to `buildbranch_<distro>_<platform>`.
+  - Generation is serialized per distribution. Once it gets the lock, it uses the latest `main`, including for manual runs. Branch pushes check source freshness and use a lease so a delayed run cannot replace a newer branch.
   - Each build branch carries its workflow as `.github/workflows/build.yaml`, which runs `.scripts/build_*.sh` in `distros/<distro>/work`.
   - Those workflows build the packages and upload them to the distribution's channel.
+  - Builds and uploads are serialized per distribution/platform without cancelling an active publisher. Each workflow checks freshness at startup and before each upload, including retries; stale build branches cannot publish.
+  - Publication uses `queue: max`: an old rerun cannot replace a newer pending build. GitHub allows 100 pending runs per group; if that queue fills, rerun the current build-branch head after it drains.
+  - CI installation and task execution use the committed Pixi lockfile. Build jobs explicitly grant checkout read access alongside the permissions needed for trusted publishing.
 - **Repository variables:**
   - `ROBOSTACK_UPLOAD_CHANNEL`: upload to this prefix.dev channel instead (for example a test channel), or `none` to build without uploading. Use the canonical reference: `<namespace>/<channel>` for a channel that isn't the namespace's primary one (e.g. `tobias-fischer/robostack-distro-test`).
   - Upload credentials: prefix.dev channels use Repository Access (OIDC, no stored key). In the channel's *Settings > Repository Access*, authorize GitHub, this repository, workflow filename `build.yaml`, mode *Read/write*. The secret `PREFIX_API_KEY` is only needed for channels without Repository Access; while it is set, it is used instead. anaconda.org channels use `ANACONDA_API_TOKEN`.
-  - `ROBOSTACK_BOT_APP_ID` with the secret `ROBOSTACK_BOT_PRIVATE_KEY`: the robostack-bot GitHub App. It pushes the build branches (which contain workflow files) and opens bot PRs so that CI runs on them. `GHA_PAT` works as a fallback.
+  - `ROBOSTACK_BOT_APP_ID` with the secret `ROBOSTACK_BOT_PRIVATE_KEY`: the robostack-bot GitHub App. It pushes build branches (which contain workflow files), opens bot PRs, and enables auto-merge. `GHA_PAT` works as a fallback. Creating bot PRs or enabling auto-merge requires one of these credentials; there is no silent `GITHUB_TOKEN` fallback. Auto-merge decisions use the PR's current labels, not the event's old label. Only `automerge` label events enter its per-PR job queue, so unrelated label changes cannot discard a pending disable run.
 
   The app needs repository permissions Contents, Pull requests, Issues and Workflows (read and write), with its webhook inactive.
 

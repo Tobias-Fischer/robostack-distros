@@ -1,26 +1,23 @@
 # Temporary controls for the pull-request build (.github/workflows/testpr.yaml).
 #
-# testpr.yaml caches the packages it builds per pull request, and rattler-build
-# skips everything that is already in that cache. This file tells it what to
-# throw away before building. Set it in your PR, and reset it to the defaults
-# below before or right after merging.
-
-# Ignore the PR build cache and rebuild everything, e.g. for a full rebuild PR
-# that bumps the build number of all packages.
+# PR progress is cached by distribution, platform and a hash of its build inputs:
+# recipes, patches, pins, shared tooling, and these controls. Changing any input
+# starts a fresh cache; retries keep all successful outputs from that same epoch.
+# No cache is restored across epochs. This deliberately invalidates all packages
+# when an eviction list changes, including any dependents.
+#
+# Set this for a full rebuild PR; resetting it also starts a new cache epoch.
 full_rebuild: false
 
-# Packages to drop from the PR build cache. Needed when a package changes without
-# a new build number, e.g. you fixed one of its patches in patch/: the cache
-# still holds the old build, so the fix would never be built in this PR.
-#
-# Entries are ROS package names (underscores or dashes) or globs; both package
-# name prefixes (ros2-<pkg>, and ros-<distro>-<pkg> of older builds) are matched, e.g.
+# A temporary rebuild request. Changing this list starts a fresh cache epoch,
+# without repeatedly deleting the newly rebuilt packages on subsequent attempts.
+# Recipe and patch changes already invalidate the cache automatically.
+# Entries document the ROS packages requested for rebuilding (names or globs).
 #
 # evict_cache:
 #   - rosidl_generator_py     # one package: ros2-rosidl-generator-py-*.conda
 #   - std-msgs                # dashes work too
 #   - "roboplan*"             # a family of packages (quote globs)
 #
-# Remember that dependents are not rebuilt automatically: evict them as well if
-# they must pick up the change.
+# Reset temporary controls after merging.
 evict_cache: []

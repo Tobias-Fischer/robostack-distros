@@ -41,6 +41,9 @@ on:
 permissions:
   contents: read
 
+env:
+  PIXI_LOCKED: 'true'
+
 jobs:
   plan:
     if: >-
@@ -61,7 +64,7 @@ jobs:
         run: git config --global maintenance.auto false && git config --global gc.auto 0 && git config --global core.longpaths true
       - uses: prefix-dev/setup-pixi@v0.11.0
         with:
-          frozen: true
+          locked: true
           pixi-version: v0.81.0
       - id: plan
         env:
@@ -113,7 +116,7 @@ jobs:
         run: git config --global maintenance.auto false && git config --global gc.auto 0 && git config --global core.longpaths true
       - uses: prefix-dev/setup-pixi@v0.11.0
         with:
-          frozen: true
+          locked: true
           pixi-version: v0.81.0
           cache-write: false  # the plan job saves the pixi environment cache
       - name: robostack-bot ${{ matrix.command }} ${{ matrix.distro }}
@@ -144,11 +147,20 @@ jobs:
           NUMBER: ${{ github.event.issue.number }}
         run: |
           printf '\nCloses #%s\n' "$NUMBER" >> "$RUNNER_TEMP/summary.md"
+      - name: Require credentials that trigger unattended PR checks
+        if: steps.bot.outputs.changed == 'true' && !matrix.preview
+        env:
+          BOT_TOKEN: ${{ steps.app.outputs.token || secrets.GHA_PAT }}
+        run: |
+          if [ -z "$BOT_TOKEN" ]; then
+            echo "::error::Configure ROBOSTACK_BOT_APP_ID + ROBOSTACK_BOT_PRIVATE_KEY or GHA_PAT to open a PR with unattended CI. GITHUB_TOKEN PR runs require approval and are not used as a fallback."
+            exit 1
+          fi
       - name: Open or update the pull request
         if: steps.bot.outputs.changed == 'true' && !matrix.preview
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ steps.app.outputs.token || secrets.GHA_PAT || github.token }}
+          token: ${{ steps.app.outputs.token || secrets.GHA_PAT }}
           branch: bot/${{ matrix.command }}${{ matrix.distro && format('-{0}', matrix.distro) || '' }}${{ matrix.command == 'add-package' && format('-{0}', github.run_id) || '' }}
           delete-branch: true
           commit-message: ${{ steps.bot.outputs.title }}

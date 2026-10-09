@@ -108,15 +108,18 @@ rebuilt:
 The bot does 1–4. It only moves constraints of the form `<pkg> <version>.*`; ranges
 and other constraints are left for you to check.
 
-In the PR, CI uses its cache unless told otherwise. A full rebuild PR sets
-`full_rebuild: true` in `distros/<d>/ci.yaml` (reset after merging).
+CI cache epochs include recipes, patches, pins, the lockfile, and CI controls.
+A full rebuild PR sets `full_rebuild: true` in `distros/<d>/ci.yaml` (reset after
+merging). Retries with unchanged inputs keep replacement artifacts; resetting
+the controls starts a new epoch rather than restoring pre-rebuild packages.
 
 ## Rebuild a few packages
 
 - Published already: `<ros_pkg>: {build_number: <global + 1>}` in
   `distros/<d>/pkg_additional_info.yaml`. Shared settings stay in
   `shared/pkg_additional_info.yaml`; the distribution's keys win.
-- Only in the current PR: `evict_cache` in `distros/<d>/ci.yaml`.
+- Only in the current PR: `evict_cache` in `distros/<d>/ci.yaml`. Changing this
+  starts a new cache epoch for the whole distribution/platform, including dependents.
 
 ## Packages built against outdated pins
 

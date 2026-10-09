@@ -16,9 +16,15 @@ permissions:
   contents: write
   pull-requests: write
 
+env:
+  PIXI_LOCKED: 'true'
+
 jobs:
   automerge:
     if: github.event.label.name == 'automerge'
+    concurrency:
+      group: automerge-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       # The merge has to come from the bot (or a PAT): a merge made with the
@@ -33,11 +39,17 @@ jobs:
       - name: Turn auto-merge on or off
         env:
           GH_TOKEN: ${{ steps.app.outputs.token || secrets.GHA_PAT || github.token }}
+          BOT_TOKEN: ${{ steps.app.outputs.token || secrets.GHA_PAT }}
           PR: ${{ github.event.pull_request.html_url }}
-          ACTION: ${{ github.event.action }}
         run: |
-          if [ "$ACTION" = labeled ]; then
-            gh pr merge "$PR" --auto --merge
+          # Events may arrive out of order; decide from the live PR, not the event.
+          enabled=$(gh pr view "$PR" --json labels --jq 'any(.labels[]; .name == "automerge")')
+          if [ "$enabled" = true ]; then
+            if [ -z "$BOT_TOKEN" ]; then
+              echo "::error::Configure ROBOSTACK_BOT_APP_ID + ROBOSTACK_BOT_PRIVATE_KEY or GHA_PAT before enabling auto-merge; GITHUB_TOKEN merges do not trigger the release workflow."
+              exit 1
+            fi
+            GH_TOKEN="$BOT_TOKEN" gh pr merge "$PR" --auto --merge
           else
             gh pr merge "$PR" --disable-auto
           fi

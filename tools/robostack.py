@@ -20,6 +20,7 @@ vinca_pinning.yaml, conda_build_config.yaml (rendered back into distros/<d>/ by
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -57,9 +58,9 @@ def channel_url(distro: str) -> str:
     return f"https://conda.anaconda.org/{name}"
 
 
-def run(cmd: list[str], cwd: Path) -> int:
+def run(cmd: list[str], cwd: Path, *, env: dict[str, str] | None = None) -> int:
     print("+", " ".join(cmd), f"  (in {cwd.relative_to(ROOT)})", flush=True)
-    return subprocess.run(cmd, cwd=cwd).returncode
+    return subprocess.run(cmd, cwd=cwd, env=env).returncode
 
 
 # prefix.dev's sharded repodata (what rattler reads) lists a new upload a few minutes
@@ -177,7 +178,84 @@ def prepare(distro: str) -> Path:
     (w / "vinca_pinning.yaml").write_text(vinca_pinning(distro))
     if (d / "conda_build_config.yaml").is_file():
         shutil.copy2(d / "conda_build_config.yaml", w / "conda_build_config.yaml")
+    else:
+        (w / "conda_build_config.yaml").unlink(missing_ok=True)
     return w
+
+
+def recipe_fingerprint(distro: str) -> str:
+    """Identify the repository inputs used to generate this distro's recipes."""
+    files = [ROOT / "pixi.toml", ROOT / "pixi.lock", TOOLS / "robostack.py"]
+    for directory in (SHARED, ROOT / ".scripts"):
+        files.extend(p for p in directory.rglob("*") if p.is_file())
+    for path in (DISTROS / distro).iterdir():
+        if path.name in ("work", "ci.yaml"):
+            continue
+        if path.is_file():
+            files.append(path)
+        elif path.is_dir():
+            files.extend(p for p in path.rglob("*") if p.is_file())
+    digest = hashlib.sha256()
+    for path in sorted(files):
+        if path.is_file():
+            digest.update(path.relative_to(ROOT).as_posix().encode())
+            digest.update(b"\0")
+            digest.update(path.read_bytes())
+            digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def recipe_platform(args: list[str], option: str) -> str:
+    from vinca.platforms import get_conda_subdir
+
+    for index, arg in enumerate(args):
+        if arg == option and index + 1 < len(args):
+            return args[index + 1]
+        if arg.startswith(option + "="):
+            return arg.split("=", 1)[1]
+    return get_conda_subdir()
+
+
+def require_recipes(distro: str, platform: str, package: str | None = None) -> None:
+    w = work_dir(distro)
+    command = f"pixi run rs {distro} generate-recipes --platform {platform}"
+    state_file = w / "recipes-state.json"
+    if not (w / "recipes").is_dir() or not state_file.is_file():
+        raise SystemExit(f"Recipes have not been generated for {distro}. Run: {command}")
+    try:
+        state = json.loads(state_file.read_text())
+    except (ValueError, OSError):
+        state = {}
+    if not isinstance(state, dict) or state.get("fingerprint") != recipe_fingerprint(distro) or state.get("platform") != platform:
+        raise SystemExit(f"Generated recipes for {distro} are out of date or target another platform. Run: {command}")
+    if package and not (w / "recipes" / package / "recipe.yaml").is_file():
+        raise SystemExit(f"No generated recipe for {package}. It may be excluded or already published. Run: {command}")
+
+
+def sort_all(args: list[str]) -> int:
+    rc = run(["vinca-sort-vinca-lists", *args, str(SHARED / "vinca.yaml")], ROOT)
+    if rc:
+        return rc
+    rc = run(["vinca-sort-yaml-keys", *args, *[
+        str(SHARED / name) for name in ("robostack.yaml", "pkg_additional_info.yaml", "patch/dependencies.yaml")
+    ]], ROOT)
+    if rc:
+        return rc
+    for distro in distros():
+        rc = task(distro, "sort", args)
+        if rc:
+            return rc
+    return 0
+
+
+def render_all(args: list[str]) -> int:
+    if args:
+        raise SystemExit("rs render-pinning does not accept arguments")
+    for distro in distros():
+        rc = task(distro, "render-pinning", [])
+        if rc:
+            return rc
+    return 0
 
 
 def read_vinca(distro: str, platform: str | None = None) -> dict:
@@ -202,13 +280,12 @@ def upload_channel_url() -> str | None:
 
 
 def rattler_build(distro: str, args: list[str], skip_existing: bool = True) -> list[str]:
-    # With uploads redirected (e.g. to a test channel), later stages of the staged
-    # build need the packages earlier stages uploaded there, and reruns skip them.
+    # Redirected uploads are also dependency sources for later staged jobs.
     extra = upload_channel_url()
     cmd = ["rattler-build", "build", "-m", "./conda_build_config.yaml",
            *(["-c", extra] if extra else []),
            "-c", channel_url(distro), "-c", CONDA_FORGE, "--channel-priority", "disabled"]
-    return cmd + (["--skip-existing"] if skip_existing else []) + args
+    return cmd + (["--skip-existing", "local"] if skip_existing else []) + args
 
 
 def upload(distro: str, files: list[str], cwd: Path) -> int:
@@ -224,6 +301,9 @@ def upload(distro: str, files: list[str], cwd: Path) -> int:
     if override == "none":
         print(f"ROBOSTACK_UPLOAD_CHANNEL=none: not uploading {' '.join(files)}")
         return 0
+    from release import assert_publishable
+
+    env = os.environ.copy()
     s = settings(distro)
     if override or s.get("upload_target", "prefix") == "prefix":
         channel = override or s.get("channel_name", f"robostack-{distro}")
@@ -232,15 +312,19 @@ def upload(distro: str, files: list[str], cwd: Path) -> int:
             # the build workflows pass the secret through; without it the variable is
             # set but empty, and rattler-build would still take it for an API key
             # ("--generate-attestation cannot be used with an API key")
-            os.environ.pop("PREFIX_API_KEY", None)
+            env.pop("PREFIX_API_KEY", None)
             cmd.append("--generate-attestation")
     else:
-        token = os.environ.get("ANACONDA_API_TOKEN", "")
-        cmd = ["rattler-build", "upload", "anaconda", "-o", s.get("channel_name", f"robostack-{distro}"), "-a", token, "--force"]
+        token = os.environ.get("ANACONDA_API_TOKEN")
+        if token:
+            env["ANACONDA_API_KEY"] = token
+        env.pop("ANACONDA_API_TOKEN", None)
+        cmd = ["rattler-build", "upload", "anaconda", "-o", s.get("channel_name", f"robostack-{distro}"), "--force"]
     # Sigstore (attestations) and the channels fail now and then; uploads are
     # idempotent (--skip-existing / --force), so retry.
     for attempt in range(1, 4):
-        rc = run(cmd + files, cwd)
+        assert_publishable(distro, ROOT)
+        rc = run(cmd + files, cwd, env=env)
         if rc == 0 or attempt == 3:
             return rc
         print(f"upload attempt {attempt} failed, retrying in {30 * attempt} s", file=sys.stderr)
@@ -263,7 +347,7 @@ def task(distro: str, name: str, args: list[str]) -> int:
     if name == "create-snapshot":
         return run(["vinca-snapshot", "-d", distro, "-o", "rosdistro_snapshot.yaml", *args], d)
     if name == "sort":
-        files = [f for f in ("pkg_additional_info.yaml", "rosdistro_additional_recipes.yaml") if (d / f).is_file()]
+        files = [f for f in ("pkg_additional_info.yaml", "rosdistro_additional_recipes.yaml", "patch/dependencies.yaml") if (d / f).is_file()]
         rc = run(["vinca-sort-vinca-lists", *args, "vinca.yaml"], d)
         return rc or run(["vinca-sort-yaml-keys", *args, *files], d)
     if name == "upload":
@@ -276,30 +360,44 @@ def task(distro: str, name: str, args: list[str]) -> int:
     # everything else runs in the assembled work directory
     if name == "generate-recipes":
         prepare(distro)
+        state_file = w / "recipes-state.json"
+        state_file.unlink(missing_ok=True)
         shutil.rmtree(w / "recipes", ignore_errors=True)
         shutil.rmtree(w / "recipes_only_patch", ignore_errors=True)
         (w / "recipes").mkdir()
-        return run(["vinca", "-m", *args], w)
-    if not (w / "vinca.yaml").is_file():
+        fingerprint = recipe_fingerprint(distro)
+        rc = run(["vinca", "-m", *args], w)
+        if not rc and fingerprint == recipe_fingerprint(distro):
+            state_file.write_text(json.dumps({
+                "fingerprint": fingerprint, "platform": recipe_platform(args, "--platform"),
+            }) + "\n")
+        return rc
+    if name != "build-ci" or not (w / "vinca.yaml").is_file():
         prepare(distro)
     if name == "check-orphaned-patches":
-        return run(py + [str(TOOLS / "check_orphaned_platform_patches.py"), "--patch-dir", str(d / "patch"), *args], w)
+        return run(py + [str(TOOLS / "check_orphaned_platform_patches.py"), "--vinca", str(w / "vinca.yaml"), *args], w)
     if name == "check-patches":
-        return run(py + [str(TOOLS / "check_patches_clean_apply.py"), "--patch-dir", str(d / "patch"), *args], w)
+        return run(py + [str(TOOLS / "check_patches_clean_apply.py"), "--vinca", str(w / "vinca.yaml"), *args], w)
     if name == "check-deps":
         return run(py + [str(TOOLS / "check_dependency_compat.py"), *args], w)
     if name == "gap-report":
         return run(py + [str(TOOLS / "build_gap_report.py"), *args], w)
     if name == "build":
+        require_recipes(distro, recipe_platform(args, "--target-platform"))
+        if not any((w / "recipes").rglob("recipe.yaml")):
+            print(f"No generated recipes to build for {distro}.")
+            return 0
         return run(rattler_build(distro, ["--recipe-dir", "./recipes", *args]), w)
     if name == "build-ci":  # used by .scripts/build_unix.sh / build_win.bat
         return run_build(rattler_build(distro, args, skip_existing=False), w)
     if name == "build-one":
         pkg = args[0] if args else "ros2-ros-workspace"
-        for patch in (d / "patch").glob(f"{pkg}.*patch"):
-            shutil.copy(patch, w / "recipes" / pkg / "patch" / patch.name)
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_.-]*", pkg):
+            raise SystemExit(f"Invalid package name: {pkg!r}")
+        require_recipes(distro, recipe_platform(args[1:], "--target-platform"), pkg)
         return run(rattler_build(distro, ["--recipe", f"./recipes/{pkg}/recipe.yaml", *args[1:]], False), w)
     if name == "gha":  # staged build workflows for one platform, see .github/workflows/main.yaml
+        require_recipes(distro, recipe_platform(args, "--platform"))
         return generate_gha(distro, args)
     raise SystemExit(f"unknown task {name!r}")
 
@@ -319,29 +417,14 @@ def generate_gha(distro: str, args: list[str]) -> int:
               "--batch_size", ns.batch_size], d)
     if rc:
         return rc
-    # Edit the text: a YAML round trip would turn the `on:` key into `true:` (YAML 1.1).
+    from release import configure_workflow
+
     for wf in sorted(set(d.glob("*.yml")) - before):
-        lines = wf.read_text().splitlines()
-        # all build branches share .github/workflows/build.yaml, which GitHub lists as one
-        # workflow: run-name tells the runs apart
-        lines = [f"name: build\nrun-name: {distro} {ns.platform}" if l.startswith("name: ") else l for l in lines]
-        if ns.platform == "win-64" and not any("build-ci" in l for l in lines):
-            raise SystemExit(f"{wf}: the Windows workflow doesn't use .scripts/build_win.bat")
-        if any(l.startswith("env:") for l in lines):
-            raise SystemExit(f"{wf}: unexpected top-level env in the vinca-gha output")
-        lines += [
-            "env:",
-            f"  ROBOSTACK_DISTRO: {distro}",
-            "  # optional repository variable: upload to this prefix.dev channel instead",
-            "  # (e.g. a test channel), or 'none' to only build",
-            "  ROBOSTACK_UPLOAD_CHANNEL: ${{ vars.ROBOSTACK_UPLOAD_CHANNEL }}",
-            "  # optional secret: prefix.dev API key, for channels without Repository Access (OIDC)",
-            "  PREFIX_API_KEY: ${{ secrets.PREFIX_API_KEY }}",
-        ]
+        text = configure_workflow(wf.read_text(), distro, ns.platform)
         # one file name on every build branch (each branch carries only its own
         # workflow), so a single prefix.dev Repository Access source matches them all
         dest = ROOT / ".github" / "workflows" / "build.yaml"
-        dest.write_text("\n".join(lines) + "\n")
+        dest.write_text(text)
         wf.unlink()
         print(f"wrote {dest.relative_to(ROOT)} (trigger branch {branch})")
     return 0
@@ -360,6 +443,10 @@ REPO_COMMANDS = ("check", "update-pinning", "new-distro", "parse-command", "add-
 
 
 def main() -> int:
+    if len(sys.argv) >= 2 and sys.argv[1] == "sort":
+        return sort_all(sys.argv[2:])
+    if len(sys.argv) >= 2 and sys.argv[1] == "render-pinning":
+        return render_all(sys.argv[2:])
     if len(sys.argv) >= 2 and sys.argv[1] in REPO_COMMANDS:
         import maintenance
 

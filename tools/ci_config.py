@@ -1,63 +1,85 @@
-"""Apply the PR-build cache controls from the distribution-owned ci.yaml.
+"""Namespace PR build progress by its inputs, including ci.yaml rebuild controls.
 
-testpr.yaml restores the build cache of the pull request and then runs this
-script, so temporary rebuild controls live in ci.yaml instead of in the
-(template-owned) workflow file:
-
-    full_rebuild: true          # ignore the cache and rebuild everything
-    evict_cache:                # drop these packages from the cache
-      - rosidl_generator_py     # ROS name (dashes or underscores)
-      - roboplan*               # or a glob
-
-Each evict_cache entry matches both package name prefixes (``ros2-`` and
-``ros-<distro>-``, for builds made before ``package_name_mode: new``) and the plain
-name (packages that vinca built under a conda-forge name).
+An epoch includes shared inputs, the selected distribution, generated recipes and
+pins. A retry restores only that epoch; changing full_rebuild/evict_cache, patches,
+recipes, pins or tooling starts a fresh cache. Replacements are never evicted on
+subsequent attempts with the same inputs.
 """
 
 import argparse
+import hashlib
 import shutil
-import sys
+import subprocess
 from pathlib import Path
 
-import yaml
+from release import relevant_path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+MARKER = ".robostack-cache-epoch"
+
+
+def cache_epoch(root: Path, distro: str, platform: str) -> str:
+    tracked = subprocess.run(["git", "ls-files", "-z"], cwd=root, check=True,
+                             stdout=subprocess.PIPE).stdout.decode().split("\0")
+    inputs = {name for name in tracked if name and relevant_path(name, distro)}
+    work = root / "distros" / distro / "work"
+    # The generator's result is also an input: do not reuse output if upstream
+    # recipe generation changes even while the checked-in inputs stay identical.
+    for directory in (work / "recipes", work / "recipes_only_patch"):
+        if directory.is_dir():
+            inputs.update(path.relative_to(root).as_posix() for path in directory.rglob("*")
+                          if path.is_file())
+    for name in ("vinca.yaml", "vinca_pinning.yaml", "conda_build_config.yaml"):
+        path = work / name
+        if path.is_file():
+            inputs.add(path.relative_to(root).as_posix())
+    digest = hashlib.sha256(f"robostack-cache-v2\0{distro}\0{platform}\0".encode())
+    # Resetting and later re-enabling the same controls must not resurrect a
+    # previous rebuild's cache. Retries of this control revision stay identical.
+    control_revision = subprocess.run(
+        ["git", "log", "-1", "--format=%H", "--", f"distros/{distro}/ci.yaml"],
+        cwd=root, check=True, stdout=subprocess.PIPE,
+    ).stdout.strip()
+    digest.update(control_revision + b"\0")
+    for name in sorted(inputs):
+        path = root / name
+        digest.update(name.encode() + b"\0")
+        if path.is_file():
+            digest.update(b"file\0" + hashlib.sha256(path.read_bytes()).digest())
+        else:
+            digest.update(b"deleted\0")
+    return digest.hexdigest()
+
+
+def prepare_cache(cache: Path, epoch: str) -> None:
+    """Reject foreign/unmarked progress once, then preserve this epoch's outputs."""
+    marker = cache / MARKER
+    if marker.is_file() and marker.read_text().strip() == epoch:
+        return
+    if cache.exists():
+        for child in cache.iterdir():
+            if child.is_dir() and not child.is_symlink():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+    cache.mkdir(parents=True, exist_ok=True)
+    marker.write_text(epoch + "\n")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--cache-dir", required=True, type=Path)
-    parser.add_argument("--config", default="ci.yaml", type=Path)
-    parser.add_argument("--vinca", default="vinca.yaml", type=Path)
+    parser.add_argument("--distro", required=True)
+    parser.add_argument("--platform", required=True)
+    parser.add_argument("--cache-dir", type=Path)
     args = parser.parse_args()
-
-    config = {}
-    if args.config.exists():
-        config = yaml.safe_load(args.config.read_text()) or {}
-    distro = yaml.safe_load(args.vinca.read_text())["ros_distro"]
-    cache = args.cache_dir
-    if not cache.is_dir():
-        print(f"No cache directory {cache}; nothing to do.")
-        return 0
-
-    if config.get("full_rebuild", False):
-        print("ci.yaml: full_rebuild is set, ignoring the restored cache.")
-        for child in cache.iterdir():
-            if child.is_dir():
-                shutil.rmtree(child)
-            else:
-                child.unlink()
-        return 0
-
-    for entry in config.get("evict_cache") or []:
-        name = str(entry).replace("_", "-")
-        # A plain name only matches that package (name-version-build.conda);
-        # a glob is used as given.
-        suffix = name if "*" in name else f"{name}-[0-9]*"
-        for prefix in ("ros2-", f"ros-{distro}-", ""):
-            for path in sorted(cache.glob(prefix + suffix)):
-                print(f"ci.yaml: evicting {path.name}")
-                path.unlink()
+    epoch = cache_epoch(ROOT, args.distro, args.platform)
+    if args.cache_dir is not None:
+        prepare_cache(args.cache_dir, epoch)
+    else:
+        print(epoch)
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

@@ -15,6 +15,7 @@ done
 
 set -xeuo pipefail
 export PYTHONUNBUFFERED=1
+export PIXI_LOCKED=true
 
 # ROBOSTACK_DISTRO is set by the generated build workflow (tools/robostack.py gha).
 : "${ROBOSTACK_DISTRO:?ROBOSTACK_DISTRO is not set}"

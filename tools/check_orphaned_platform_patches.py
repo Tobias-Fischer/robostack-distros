@@ -2,12 +2,12 @@
 """
 check_orphaned_platform_patches.py
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Detect patch files in ``patch/`` that vinca will silently never wire
-into any recipe's ``patches:`` list.
+Detect effective patch files that Vinca will silently never wire into a
+recipe because the same package uses conflicting filename prefixes.
 
 Background
 ----------
-vinca (see ``vinca/main.py`` around the ``patch_dir`` glob, and
+Vinca (``vinca/configuration.py::_discover_patches`` and
 ``vinca/utils.py::add_package_name_variants``) builds a dict keyed by
 the patch filename's prefix (everything before an optional
 ``.osx``/``.win``/``.linux``/``.unix``/``.emscripten`` suffix), then
@@ -27,108 +27,66 @@ exact bug orphaned ``ros-jazzy-sick-scan-xd.osx.patch`` for months
 before it was renamed to ``ros2-sick-scan-xd.osx.patch`` (matching the
 prefix jazzy actually resolves sick_scan_xd's own patch under).
 
-``check_patches_clean_apply.py`` does not catch this: it verifies that
-every patch file on disk applies cleanly to source, but never checks
-whether vinca's real name-resolution would actually attach that file
-to any package's generated recipe at all.
+``check_patches_clean_apply.py`` checks effective patch sets for generated
+recipes, but cannot detect patches hidden behind a different name prefix.
 
 What this script does
 ----------------------
-Replicates vinca's exact patch-dict-construction and
-``add_package_name_variants`` shortname-stripping logic (kept in sync
-with whatever revision this repo's ``pixi.toml`` pins vinca to -- if
-that mechanism ever changes upstream, re-check this script). It groups
-patch-file prefixes by their computed "shortname" and flags any group
-where more than one *distinct* literal prefix was actually used by a
-file on disk: only one of those prefixes can ever be the resolved
-package name for a given recipe, so content under the others is dead.
-
-Exit code is non-zero (and the offending groups are printed) if any
-such collision is found.
+Resolve the source configuration with Vinca for every supported target,
+including inherited directories and distro overrides. Inspect the literal
+filename prefixes of effective patches, not Vinca's synthetic alias keys.
+Flag packages with multiple prefixes on the same target; shadowed shared
+patches and different target-specific configurations are not collisions.
 """
 
 from __future__ import annotations
 
-import glob
-import os
+import argparse
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path.cwd()  # the distribution directory (pixi run rs <distro> ...)
-PATCH_DIR = REPO_ROOT / "patch"
-
-
-
-def get_ros_distro() -> str:
-    from vinca.configuration import read_vinca_yaml
-    from vinca.platforms import get_conda_subdir
-
-    ros_distro = read_vinca_yaml(REPO_ROOT / "vinca.yaml", get_conda_subdir()).get("ros_distro")
-    if not ros_distro:
-        print("Could not find 'ros_distro:' in vinca.yaml", file=sys.stderr)
-        sys.exit(2)
-    return ros_distro
-
-
-def build_patches_dict(patch_dir: Path) -> dict[str, dict[str, list[str]]]:
-    """Mirrors the glob loop in vinca/main.py that builds vinca_conf['_patches']."""
-    patches: dict[str, dict[str, list[str]]] = {}
-    for x in sorted(glob.glob(os.path.join(str(patch_dir), "*.patch"))):
-        splitted = os.path.basename(x).split(".")
-        if splitted[0] not in patches:
-            patches[splitted[0]] = {
-                "any": [],
-                "osx": [],
-                "linux": [],
-                "win": [],
-                "emscripten": [],
-            }
-        if len(splitted) == 3:
-            if splitted[1] in ("osx", "linux", "win", "emscripten"):
-                patches[splitted[0]][splitted[1]].append(x)
-                continue
-            if splitted[1] == "unix":
-                patches[splitted[0]]["linux"].append(x)
-                patches[splitted[0]]["osx"].append(x)
-                continue
-        patches[splitted[0]]["any"].append(x)
-    return patches
+from patches import resolved_patch_configs
+from vinca.utils import add_package_name_variants
 
 
 def shortname_of(name: str, ros_distro: str) -> str:
-    """Mirrors the prefix-stripping in vinca/utils.py::add_package_name_variants."""
+    """Use Vinca's own alias expansion to normalize a literal filename prefix."""
+    aliases = {name: None}
+    add_package_name_variants(aliases, ros_distro)
     legacy_prefix = f"ros-{ros_distro}-"
-    if name.startswith(legacy_prefix):
-        return name[len(legacy_prefix):]
-    elif name.startswith("ros2-"):
-        return name[len("ros2-"):]
-    elif name.startswith("ros-"):
-        return name[len("ros-"):]
-    else:
-        return name
+    return next(alias[len(legacy_prefix):] for alias in aliases if alias.startswith(legacy_prefix))
 
 
 def main() -> int:
-    import argparse
-
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
-    parser.add_argument("--patch-dir", type=Path, default=PATCH_DIR, help="default: ./patch")
+    parser = argparse.ArgumentParser(description="Detect orphaned platform patches.")
+    parser.add_argument(
+        "--vinca", type=Path, default=Path("vinca.yaml"),
+        help="Vinca configuration including inherited patches (default: ./vinca.yaml)",
+    )
     args = parser.parse_args()
-    ros_distro = get_ros_distro()
-    patches = build_patches_dict(args.patch_dir)
-
-    groups: dict[str, list[str]] = {}
-    for prefix in patches:
-        groups.setdefault(shortname_of(prefix, ros_distro), []).append(prefix)
-
-    collisions = {
-        shortname: prefixes
-        for shortname, prefixes in groups.items()
-        if len(prefixes) > 1
-    }
+    scanned: set[Path] = set()
+    collisions: dict[tuple[str, str], dict[str, set[Path]]] = {}
+    for platform, config in resolved_patch_configs(args.vinca):
+        groups: dict[str, dict[str, set[Path]]] = {}
+        # Alias collisions happen before Vinca selects a platform bucket:
+        # ros2-demo.linux.patch can hide ros-jazzy-demo.osx.patch on macOS.
+        files = {
+            Path(path)
+            for buckets in config["_patches"].values()
+            for paths in buckets.values()
+            for path in paths
+        }
+        for path in files:
+            scanned.add(path)
+            prefix = path.name.split(".")[0]
+            shortname = shortname_of(prefix, config["ros_distro"])
+            groups.setdefault(shortname, {}).setdefault(prefix, set()).add(path)
+        for shortname, prefixes in groups.items():
+            if len(prefixes) > 1:
+                collisions[platform, shortname] = prefixes
 
     if not collisions:
-        print(f"OK: no orphaned platform-specific patches ({len(patches)} patch-file prefixes scanned).")
+        print(f"OK: no orphaned platform-specific patches ({len(scanned)} effective patch files scanned).")
         return 0
 
     print(
@@ -141,15 +99,10 @@ def main() -> int:
         "the others is silently never applied.\n",
         file=sys.stderr,
     )
-    for shortname, prefixes in sorted(collisions.items()):
-        print(f"  {shortname}:", file=sys.stderr)
-        for prefix in sorted(prefixes):
-            files = [
-                os.path.basename(f)
-                for platform_files in patches[prefix].values()
-                for f in platform_files
-            ]
-            print(f"    {prefix}: {', '.join(sorted(files))}", file=sys.stderr)
+    for (platform, shortname), prefixes in sorted(collisions.items()):
+        print(f"  {shortname} ({platform}):", file=sys.stderr)
+        for prefix, files in sorted(prefixes.items()):
+            print(f"    {prefix}: {', '.join(str(path) for path in sorted(files))}", file=sys.stderr)
     print(
         "\nFix: rename the patch file(s) so every file for a given package shares "
         "the SAME name prefix (matching whichever prefix that package's own "

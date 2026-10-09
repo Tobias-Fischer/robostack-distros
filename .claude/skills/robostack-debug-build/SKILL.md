@@ -15,8 +15,9 @@ pixi run rs <d> generate-recipes          # if distros/<d>/work/recipes is missi
 pixi run rs <d> build-one ros2-<pkg>
 ```
 
-`build-one` copies the package's patches into the recipe and builds without
-`--skip-existing`. For a CI failure, first read the failing job's log
+`build-one` requires current recipes for the target platform and builds without
+`--skip-existing`. Regenerate after changing patches or other build inputs; existing
+outputs are kept. For a CI failure, first read the failing job's log
 (`gh run view <run> --job <job> --log-failed`) and search for `× error`,
 `CMake Error`, `error:` and `undefined reference`.
 
@@ -77,16 +78,18 @@ bash -x conda_build.sh 2>&1 | less
   maps to a conda-forge package (e.g. `tl_expected` -> `cpp-expected`), vinca may build
   the ROS package under the conda-forge name. vinca skips ROS packages mapped in
   `shared/robostack.yaml` automatically; if it still happens, check the mapping, and
-  evict a stale build from the PR cache (`evict_cache` in `distros/<d>/ci.yaml`, plain
-  names work).
+  request a fresh PR cache epoch with `evict_cache` in `distros/<d>/ci.yaml`
+  (this invalidates the whole distribution/platform cache, including dependents).
 - **CMake args for one package**: `additional_cmake_args` in `pkg_additional_info.yaml`.
 
 ## 5. Make it stick
 
 1. Turn source edits into a patch (`robostack-patch` skill).
-2. Rebuild: `pixi run rs <d> build-one ros2-<pkg>`.
-3. If the fixed package was already built in the PR, add it to `evict_cache` in
-   `distros/<d>/ci.yaml`. A package that is already published needs a new build
+2. Regenerate with `pixi run rs <d> generate-recipes`, then rebuild:
+   `pixi run rs <d> build-one ros2-<pkg>`.
+3. Changed patches and recipes start a fresh PR cache epoch automatically.
+   `evict_cache` in `distros/<d>/ci.yaml` requests one explicitly; retries retain
+   replacement artifacts. A package that is already published needs a new build
    number: `<ros_pkg>: {build_number: <global + 1>}` in `distros/<d>/pkg_additional_info.yaml`.
 4. Check whether the same fix applies to other distributions; port it only where the
    source is compatible.

@@ -15,6 +15,8 @@ description: Create, refresh, place, port and validate source patches for RoboSt
   `pixi run rs check` rejects other names.
 - `distros/<d>/patch/dependencies.yaml` is for dependency fixes, not source patches
   (`shared/patch/dependencies.yaml` for all distributions).
+- Shared patches live in `shared/patch/`. A distribution override replaces the
+  package's entire shared patch set, including its platform variants.
 
 ## Create a patch from work-directory edits
 
@@ -32,6 +34,7 @@ Move the result to `distros/<d>/patch/ros2-<pkg>.patch`, merging it with an
 existing patch for that package if there is one. Then:
 
 ```bash
+pixi run rs <d> generate-recipes
 pixi run rs <d> build-one ros2-<pkg>
 ```
 
@@ -47,6 +50,10 @@ pixi run rs <d> check-patches --dry --recipe ros2-<pkg>  # prepare only
 pixi run rs <d> check-orphaned-patches                 # platform patches without a recipe
 ```
 
+Both checks resolve shared/distribution inheritance and platform selectors in the
+same way as recipe generation. Clean-apply checks cover the distinct patch sets
+for every target platform, regardless of the host.
+
 ## Refresh a patch that no longer applies
 
 A new upstream version moved the code: build the package without the patch (rename it
@@ -61,7 +68,8 @@ it, in which case delete the patch.
   patch only because a file of that name exists elsewhere.
 - The file name stays the same in every distribution (`ros2-<pkg>.patch`), so
   `diff distros/{jazzy,humble}/patch/ros2-<pkg>.patch` shows how two distributions differ.
-- After the PR's first build, add the package to `evict_cache` in the target's
-  `ci.yaml` if CI already cached it.
+- Changed patches automatically start a fresh PR cache epoch. `evict_cache` in the
+  target's `ci.yaml` requests one explicitly, invalidating the whole
+  distribution/platform cache, including dependents. Retries keep replacement builds.
 - Fixes that belong upstream: open a PR on the package's repository and note it in the
   patch header.

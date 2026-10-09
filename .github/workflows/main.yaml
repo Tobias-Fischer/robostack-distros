@@ -23,6 +23,9 @@ on:
 permissions:
   contents: write
 
+env:
+  PIXI_LOCKED: 'true'
+
 jobs:
   plan:
     runs-on: ubuntu-latest
@@ -50,6 +53,11 @@ jobs:
     needs: plan
     if: needs.plan.outputs.distros != '[]'
     runs-on: ubuntu-latest
+    # A newer run can supersede queued work only for this same distribution.
+    # Never cancel a generator that may still owe platforms to this distribution.
+    concurrency:
+      group: generate-${{ matrix.distro }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
@@ -69,13 +77,19 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+      - name: Assume this distribution's latest pending work
+        # GitHub may replace pending concurrency runs out of order. Once holding
+        # the distro lock, even a delayed old event must generate current main.
+        run: |
+          source=$(python3 tools/release.py refresh-source --distro "$DISTRO")
+          echo "SOURCE_SHA=$source" >> "$GITHUB_ENV"
       # git auto-maintenance can leave a lock file in the git clones pixi caches
       # (e.g. vinca's), which breaks every later run restoring that cache
       - name: Disable git auto-maintenance
         run: git config --global maintenance.auto false && git config --global gc.auto 0 && git config --global core.longpaths true
       - uses: prefix-dev/setup-pixi@v0.11.0
         with:
-          frozen: true
+          locked: true
           pixi-version: v0.81.0
           # one job saves the shared pixi environment cache (same key for all)
           cache-write: ${{ matrix.distro == fromJSON(needs.plan.outputs.distros)[0] }}
@@ -93,11 +107,13 @@ jobs:
           fi
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          # Keep credentials out of command arguments and the recorded remote URL.
+          git config --local credential.helper '!f() { echo username=x-access-token; echo "password=$PUSH_TOKEN"; }; f'
           mkdir -p "$RUNNER_TEMP/workflows"
           # vinca fetches package.xml files from GitHub; retry on network errors
           retry() { for attempt in 1 2 3; do "$@" && return 0; echo "attempt ${attempt} failed: $*" >&2; sleep 15; done; return 1; }
           for platform in linux-64 osx-64 osx-arm64 win-64 linux-aarch64; do
-            git reset --hard "$GITHUB_SHA" && git clean -fdx -e .pixi
+            git reset --hard "$SOURCE_SHA" && git clean -fdx -e .pixi
             retry pixi run -v rs "$DISTRO" generate-recipes --platform "$platform"
             retry pixi run -v rs "$DISTRO" gha --platform "$platform" --batch-size 25
             if [ ! -f .github/workflows/build.yaml ]; then
@@ -106,10 +122,10 @@ jobs:
             fi
             cp .github/workflows/build.yaml "$RUNNER_TEMP/workflows/build_${DISTRO}_${platform}.yaml"
             if [ "$PUSH" == "true" ]; then
-              branch="buildbranch_${DISTRO}_${platform//-/_}"
+              python3 tools/release.py check-source --distro "$DISTRO" --source "$SOURCE_SHA"
               git add -f . ':!.pixi'
               git commit -qm "Build files for $DISTRO $platform $(date '+%Y-%m-%d-%H%M')"
-              git push "https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "HEAD:$branch" --force
+              pixi run python tools/release.py push --distro "$DISTRO" --platform "$platform" --source "$SOURCE_SHA"
             fi
           done
       - uses: actions/upload-artifact@v6

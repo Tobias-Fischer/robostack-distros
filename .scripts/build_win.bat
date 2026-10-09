@@ -1,5 +1,6 @@
 
 setlocal EnableExtensions EnableDelayedExpansion
+set "PIXI_LOCKED=true"
 
 set CONDA_BLD_PATH=C:\bld
 echo "PATH is %PATH%"
