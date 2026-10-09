@@ -436,24 +436,42 @@ def find_stale(distro: str) -> Result:
 # whole repository
 # --------------------------------------------------------------------------- #
 def _set_pinning(distro: str, version: str, migrations: list[str]) -> str:
-    """Write the new pinning version and migrations where the distribution takes them
-    from: its own distro.yaml, or shared/pinning/conda_forge.yaml. Returns that file."""
-    if rs.settings(distro).get("conda_forge_pinning_version"):
-        path = rs.DISTROS / distro / "distro.yaml"
-        text = path.read_text()
-        text = re.sub(r"(?m)^conda_forge_pinning_version:.*$", f"conda_forge_pinning_version: {version}", text, count=1)
-        text = re.sub(r"(?m)^conda_forge_migrations:(?:.*\n)(?:[ \t]+.*\n)*",
-                      f"conda_forge_migrations: [{', '.join(migrations)}]\n", text, count=1)
-        path.write_text(text)
-        return f"distros/{distro}/distro.yaml"
-    shared = rs.SHARED / "pinning" / "conda_forge.yaml"
-    header = [l for l in shared.read_text().splitlines() if l.startswith("#")]
-    body = [f"conda_forge_pinning_version: {version}", "migrations:"] + [f"  - {m}" for m in migrations]
-    shared.write_text("\n".join(header + body) + "\n")
-    return "shared/pinning/conda_forge.yaml"
+    """Own updated pins in the distro, leaving other shared followers unchanged."""
+    path = rs.DISTROS / distro / "distro.yaml"
+    ry = _ruamel()
+    data = ry.load(path.read_text()) or {}
+    data["conda_forge_pinning_version"] = version
+    data["conda_forge_migrations"] = migrations
+    with path.open("w") as fh:
+        ry.dump(data, fh)
+    return f"distros/{distro}/distro.yaml"
 
 
 def update_pinning(distro: str) -> Result:
+    """Update one distro atomically, including generated pins and rebuild state."""
+    directory = rs.DISTROS / distro
+    paths = [directory / name for name in (
+        "distro.yaml", "conda_build_config.yaml", "vinca.yaml",
+        "pkg_additional_info.yaml", "ci.yaml",
+        "work/vinca.yaml", "work/vinca_pinning.yaml", "work/conda_build_config.yaml",
+    )]
+    before = {path: path.read_bytes() if path.is_file() else None for path in paths}
+    result = None
+    try:
+        result = _update_pinning(distro)
+        return result
+    except (Exception, SystemExit) as error:
+        return Result(f"{distro}: pinning update failed", str(error), ok=False)
+    finally:
+        if result is None or not result.ok or not result.changed:
+            for path, content in before.items():
+                if content is None:
+                    path.unlink(missing_ok=True)
+                else:
+                    path.write_bytes(content)
+
+
+def _update_pinning(distro: str) -> Result:
     """Move the distribution's conda-forge pinning to the latest version, with the
     migrations that are done for its dependencies. Only the packages that use a changed
     pin (and what depends on them) are rebuilt, unless that is most of them."""
@@ -470,13 +488,15 @@ def update_pinning(distro: str) -> Result:
     version, migrations, reports = pinning.update_pinning(work / "vinca_pinning.yaml", dependencies=dependencies)
     if str(before[0]) == str(version) and before[1] == list(migrations):
         return Result(f"{distro}: pinning is up to date", f"{distro} is on conda-forge-pinning {version}.")
-    where = _set_pinning(distro, str(version), list(migrations))
 
     cbc = rs.DISTROS / distro / "conda_build_config.yaml"
     before_cbc = cbc.read_text() if cbc.is_file() else ""
     print(f"Checking the dependencies of {distro} with the current pins", flush=True)
+    rs.prepare(distro)  # discard the updater's proposed work spec before checking old pins
     conflicts_before = dependency_conflicts(distro)
-    rs.task(distro, "render-pinning", [])
+    where = _set_pinning(distro, str(version), list(migrations))
+    if rs.task(distro, "render-pinning", []):
+        raise RuntimeError("render-pinning failed; restored the previous pinning and rebuild state.")
     added = sorted(set(migrations) - set(before[1]))
     candidates = {name for name, _ in reports}
     finished = sorted(set(before[1]) - set(migrations) - candidates)
@@ -490,6 +510,8 @@ def update_pinning(distro: str) -> Result:
         + (f"; dropped: {', '.join(f'`{m}`' for m in removed)}" if removed else ""),
         "",
     ]
+    if not settings.get("conda_forge_pinning_version"):
+        lines += ["This distribution now owns its pinning; shared pins and other followers are unchanged.", ""]
     conflicts = False
     if cbc.read_text() == before_cbc:
         lines.append("The rendered pins don't change: nothing to rebuild.")
@@ -538,48 +560,75 @@ def update_pinning(distro: str) -> Result:
         "",
         *_details(f"Migrations that don't concern {distro} ({len(groups['other'])})", groups["other"] or ["none"]),
     ]
+    rs.prepare(distro)
     return Result(f"{distro}: update conda-forge pinning to {version}", "\n".join(lines), changed=True,
                   labels=["dependency-conflict"] if conflicts else [])
 
 
 def new_distro(name: str, source: str) -> Result:
-    """distros/NAME from the template of an existing distribution: its package
-    selection and settings, but no build numbers, patches or own pins."""
-    src, dest = rs.DISTROS / source, rs.DISTROS / name
-    if dest.exists():
-        raise SystemExit(f"{dest} exists")
-    dest.mkdir(parents=True)
-    settings = rs.settings(source)
-    keep = {k: settings[k] for k in ("upload_target",) if k in settings}
-    (dest / "distro.yaml").write_text(
-        f"# Settings of ros-{name} that differ from the other distributions\n"
-        "# (everything else is shared, see the README).\n"
-        + yaml.safe_dump({"channel_name": f"robostack-{name}", **keep}, sort_keys=False)
-    )
-    vinca = (src / "vinca.yaml").read_text()
-    vinca = re.sub(r"(?m)^ros_distro:.*$", f"ros_distro: {name}", vinca)
-    vinca = re.sub(r"(?m)^build_number:.*$", "build_number: 0", vinca)
-    vinca = re.sub(r"(?m)^package_name_mode:.*\n", "", vinca)  # shared default: both
-    (dest / "vinca.yaml").write_text(vinca)
-    info = yaml.safe_load((src / "pkg_additional_info.yaml").read_text()) or {}
-    info = {k: {a: b for a, b in v.items() if a != "build_number"} for k, v in info.items() if isinstance(v, dict)}
-    (dest / "pkg_additional_info.yaml").write_text(yaml.safe_dump({k: v for k, v in info.items() if v}, sort_keys=True))
-    (dest / "rosdistro_additional_recipes.yaml").write_text("{}\n")
-    (dest / "patch").mkdir()
-    (dest / "ci.yaml").write_text(_default_ci_yaml())
-    steps = [rs.task(name, "create-snapshot", []), rs.task(name, "render-pinning", [])]
-    patches = sorted(p.name for p in (src / "patch").glob("*.patch"))
-    lines = [
-        f"Created `distros/{name}/` from `distros/{source}/` "
-        f"(snapshot: {'ok' if not steps[0] else 'FAILED'}, pinning: {'ok' if not steps[1] else 'FAILED'}).",
-        "",
-        "Next steps:",
-        f"- [ ] review `distros/{name}/vinca.yaml` (mutex name/version, package selection)",
-        f"- [ ] create the `robostack-{name}` channel and its trusted publisher / upload token",
-        f"- [ ] port patches that still apply ({len(patches)} in `distros/{source}/patch/`), "
-        f"check with `pixi run rs {name} check-patches`",
-    ]
-    return Result(f"New distribution {name}", "\n".join(lines), changed=True, ok=not any(steps))
+    """Create a distro from validated inputs; remove only our new path on failure."""
+    created = False
+    dest = rs.DISTROS / name
+    try:
+        for label, value in (("name", name), ("source", source)):
+            if not re.fullmatch(r"[a-z][a-z0-9_]*", value):
+                raise ValueError(f"Invalid distribution {label} {value!r}: use a lowercase name, not a path.")
+        if dest.exists() or dest.is_symlink():
+            raise ValueError(f"{dest} exists")
+        if source not in rs.distros():
+            raise ValueError(f"Unknown source distribution {source!r}")
+        src = rs.DISTROS / source
+        settings = rs.settings(source)
+        if not isinstance(settings, dict):
+            raise ValueError(f"{src / 'distro.yaml'}: expected a mapping")
+        vinca = (src / "vinca.yaml").read_text()
+        config = yaml.safe_load(vinca)
+        if not isinstance(config, dict) or config.get("ros_distro") != source:
+            raise ValueError(f"{src / 'vinca.yaml'}: expected ros_distro: {source}")
+        if type(config.get("build_number")) is not int or config["build_number"] < 0:
+            raise ValueError(f"{src / 'vinca.yaml'}: build_number must be a nonnegative integer")
+        info = yaml.safe_load((src / "pkg_additional_info.yaml").read_text()) or {}
+        if not isinstance(info, dict):
+            raise ValueError(f"{src / 'pkg_additional_info.yaml'}: expected a mapping")
+        ci = _default_ci_yaml()
+        # Read required shared inputs before making the destination visible.
+        for relative in ("vinca.yaml", "pinning/conda_forge.yaml", "pinning/overrides.yaml"):
+            (rs.SHARED / relative).read_text()
+        keep = {k: settings[k] for k in ("upload_target",) if k in settings}
+        vinca = re.sub(r"(?m)^ros_distro:.*$", f"ros_distro: {name}", vinca)
+        vinca = re.sub(r"(?m)^build_number:.*$", "build_number: 0", vinca)
+        vinca = re.sub(r"(?m)^package_name_mode:.*(?:\n|$)", "", vinca)
+        info = {k: {a: b for a, b in v.items() if a != "build_number"} for k, v in info.items() if isinstance(v, dict)}
+        dest.mkdir()
+        created = True
+        (dest / "distro.yaml").write_text(
+            f"# Settings of ros-{name} that differ from the other distributions\n"
+            "# (everything else is shared, see the README).\n"
+            + yaml.safe_dump({"channel_name": f"robostack-{name}", **keep}, sort_keys=False)
+        )
+        (dest / "vinca.yaml").write_text(vinca)
+        (dest / "pkg_additional_info.yaml").write_text(yaml.safe_dump({k: v for k, v in info.items() if v}, sort_keys=True))
+        (dest / "rosdistro_additional_recipes.yaml").write_text("{}\n")
+        (dest / "patch").mkdir()
+        (dest / "ci.yaml").write_text(ci)
+        for step in ("create-snapshot", "render-pinning"):
+            if rs.task(name, step, []):
+                raise RuntimeError(f"{step} failed; removed the new distribution so creation can be retried.")
+        patches = sorted(p.name for p in (src / "patch").glob("*.patch"))
+        lines = [
+            f"Created `distros/{name}/` from `distros/{source}/` (snapshot: ok, pinning: ok).",
+            "",
+            "Next steps:",
+            f"- [ ] review `distros/{name}/vinca.yaml` (mutex name/version, package selection)",
+            f"- [ ] create the `robostack-{name}` channel and its trusted publisher / upload token",
+            f"- [ ] port patches that still apply ({len(patches)} in `distros/{source}/patch/`), "
+            f"check with `pixi run rs {name} check-patches`",
+        ]
+        return Result(f"New distribution {name}", "\n".join(lines), changed=True)
+    except (Exception, SystemExit) as error:
+        if created:
+            shutil.rmtree(dest)
+        return Result(f"New distribution {name} failed", str(error), ok=False)
 
 
 PACKAGE_NAME = re.compile(r"^[a-z][a-z0-9_]*$")  # valid ROS package names only
@@ -593,15 +642,15 @@ def _package_name(name: str) -> str:
     return name.replace("-", "_")
 
 
-PLATFORMS = ("linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64")
-
-
-def _selected(distro: str) -> set[str]:
-    """Packages the distribution selects (on at least one platform)."""
-    names: set[str] = set()
-    for platform in PLATFORMS:
-        names |= {n.replace("-", "_") for n in rs.read_vinca(distro, platform)["packages_select_by_deps"]}
-    return names
+def _selection_names(value) -> set[str]:
+    """Read source entries without evaluating selectors or dropping exclusions."""
+    if isinstance(value, str):
+        return {value.replace("-", "_")}
+    if isinstance(value, list):
+        return set().union(*(_selection_names(item) for item in value))
+    if isinstance(value, dict):
+        return _selection_names(value.get("then")) | _selection_names(value.get("else"))
+    return set()
 
 
 def _available(distro: str) -> set[str]:
@@ -638,16 +687,28 @@ def add_package(packages: list[str], distros: list[str], preview: bool = False) 
     if not wanted:
         return Result("add-package: no package given", "Name at least one ROS package.", ok=False)
     targets = distros or rs.distros()
+    shared = rs.load_yaml(rs.SHARED / "vinca.yaml")
+    sources = {distro: rs.load_yaml(rs.DISTROS / distro / "vinca.yaml") for distro in rs.distros()}
+    selected = _selection_names(shared.get("packages_select_by_deps"))
+    for config in sources.values():
+        selected |= _selection_names(config.get("packages_select_by_deps"))
     plan: dict[str, list[str]] = {}
     lines: list[str] = []
     for distro in targets:
-        available, selected = _available(distro), _selected(distro)
+        available = _available(distro)
+        config = sources[distro]
+        excluded = _selection_names(shared.get("packages_exclude")) | _selection_names(config.get("packages_exclude"))
+        skipped = _selection_names(shared.get("packages_skip")) | _selection_names(config.get("packages_skip"))
         add = []
         for pkg in wanted:
             if pkg not in available:
                 lines.append(f"- **{distro}**: `{pkg}` is not in its rosdistro")
+            elif pkg in excluded:
+                lines.append(f"- **{distro}**: `{pkg}` is excluded by existing policy (possibly platform-specific); unchanged")
+            elif pkg in skipped:
+                lines.append(f"- **{distro}**: `{pkg}` is skipped by existing policy (possibly platform-specific); unchanged")
             elif pkg in selected:
-                lines.append(f"- **{distro}**: `{pkg}` is already selected")
+                lines.append(f"- **{distro}**: `{pkg}` is already selected in shared or distro configuration; existing platform conditions and scope are unchanged")
             else:
                 add.append(pkg)
         if add:
@@ -769,8 +830,15 @@ def check() -> Result:
         sync = settings.get("rosdistro_sync")
         if sync is not None and sync != "manual" and not ((m := SYNC_TAG.match(str(sync))) and m["distro"] == distro):
             problems.append(f"{distro}: rosdistro_sync must be 'manual' or a sync tag like {distro}/2026-10-05")
-        if bool(settings.get("conda_forge_pinning_version")) != bool(settings.get("conda_forge_migrations")):
-            problems.append(f"{distro}: set conda_forge_pinning_version and conda_forge_migrations together")
+        version_key, migrations_key = "conda_forge_pinning_version", "conda_forge_migrations"
+        if (version_key in settings) != (migrations_key in settings):
+            problems.append(f"{distro}: set {version_key} and {migrations_key} together")
+        if version_key in settings and (not isinstance(settings[version_key], str) or not settings[version_key].strip()):
+            problems.append(f"{distro}: {version_key} must be a nonempty version string")
+        if migrations_key in settings:
+            migrations = settings[migrations_key]
+            if not isinstance(migrations, list) or any(not isinstance(item, str) or not item.strip() for item in migrations):
+                problems.append(f"{distro}: {migrations_key} must be a list of nonempty migration names (an empty list is valid)")
         try:
             vinca = rs.read_vinca(distro, "linux-64")
         except Exception as error:  # noqa: BLE001 - reported as a problem
@@ -778,7 +846,9 @@ def check() -> Result:
             continue
         if vinca.get("ros_distro") != distro:
             problems.append(f"{distro}: vinca.yaml has ros_distro {vinca.get('ros_distro')!r}")
-        for key in ("build_number", "mutex_package", "packages_select_by_deps"):
+        if type(vinca.get("build_number")) is not int or vinca["build_number"] < 0:
+            problems.append(f"{distro}: vinca.yaml build_number must be a nonnegative integer (not a boolean)")
+        for key in ("mutex_package", "packages_select_by_deps"):
             if not vinca.get(key):
                 problems.append(f"{distro}: vinca.yaml has no {key}")
         for patch in (d / "patch").glob("*.patch"):

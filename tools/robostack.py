@@ -105,8 +105,9 @@ def vinca_pinning(distro: str) -> str:
            f"# distros/{distro}/distro.yaml; edit those instead.", ""]
     if s.get("conda_forge_pinning_version"):
         out.append(f"conda_forge_pinning_version: {s['conda_forge_pinning_version']}")
-        out.append("migrations:")
-        out += [f"  - {m}" for m in s.get("conda_forge_migrations") or []]
+        migrations = s.get("conda_forge_migrations") or []
+        out.append("migrations:" if migrations else "migrations: []")
+        out += [f"  - {m}" for m in migrations]
     else:
         out += [l for l in (SHARED / "pinning" / "conda_forge.yaml").read_text().splitlines()
                 if not l.startswith("#")]

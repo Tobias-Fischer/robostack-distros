@@ -78,6 +78,7 @@ combines the two, and the files next to each:
 - **`patch/*.patch` and `tests/`:** per package, the distribution's file replaces the shared one. In tests, `- if: ros_distro in ["humble", "jazzy"]` blocks select distribution-specific parts.
 - **`vinca_pinning.yaml`:** the shared pinning, adjusted by `distro.yaml`:
   - `conda_forge_pinning_version` and `conda_forge_migrations` keep a distribution on its own conda-forge pinning, for example until its next full rebuild;
+    set both fields together; an empty migration list (`[]`) is valid.
   - `pinning_overrides` replace shared pins by name, for example jazzy's Python 3.12.
   - `pixi run rs <distro> render-pinning` turns this into the committed `conda_build_config.yaml`.
 
@@ -124,10 +125,10 @@ of a distribution uses `full_rebuild: true` there. A new build number goes into 
 
 | command | who | what it does |
 |---|---|---|
-| `add-package <pkg>... [<distro>...]` | anyone | Adds ROS packages to the shared selection in `shared/vinca.yaml`, in sorted position; every distribution that has them builds them. Opens a PR listing, for the given (default: every) distribution, what will be built on linux-64 (and what is already published as a dependency). Valid ROS package names only, at most 10 per request. |
+| `add-package <pkg>... [<distro>...]` | anyone | Adds absent ROS packages to the shared selection in `shared/vinca.yaml`, in sorted position; every distribution that has them builds them. Existing exclusions, skips and conditional selections are reported without broadening their scope. Opens a PR listing, for the given (default: every) distribution, what will be built on linux-64 (and what is already published as a dependency). Valid ROS package names only, at most 10 per request. |
 | `update-rosdistro-snapshot [<distro>... \| all]` | maintainers | Snapshots the distribution's latest rosdistro sync (the release team's tag, e.g. `jazzy/2026-10-05`, recorded as `rosdistro_sync` in `distro.yaml`; rosdistro master for `rosdistro_sync: manual`, like rolling), then sets `build_number` to the highest build of the distribution's released packages + 1, bumps the mutex minor version and removes all per-package build numbers: a full rebuild. The PR links the sync's announcement and lists the version bumps. Runs daily for distributions with a new sync. |
 | `find-stale-packages [<distro>... \| all]` | maintainers | Published packages built against pins that no longer match, with the build-number snippet to rebuild them. Replies only. |
-| `update-conda-forge-pinning [<distro>... \| all]` | maintainers | Moves the distribution's conda-forge pinning (`conda_forge_pinning_version` / `conda_forge_migrations` in `distro.yaml`, or `shared/pinning/conda_forge.yaml` for distributions that follow it) to the latest version, with the migrations that are done for the distribution's dependencies, and re-renders `conda_build_config.yaml`. Only packages that use a changed pin, and everything depending on them, are rebuilt (per-package build numbers, a new build of the mutex at the same version); more than half affected means a full rebuild. Mutex `run_constraints` of the form `<pkg> <version>.*` follow the new pins. The PR lists the rebuilt packages, the migrations used and those waiting for feedstocks, and the dependency check; it is labelled `dependency-conflict` when the pins can't be installed together. Runs daily, one PR per distribution. |
+| `update-conda-forge-pinning [<distro>... \| all]` | maintainers | Moves the distribution's conda-forge pinning to the latest version, with the migrations that are done for its dependencies, and re-renders `conda_build_config.yaml`. A changed distribution gets its own `conda_forge_pinning_version` / `conda_forge_migrations` in `distro.yaml`; shared pins and other distributions stay untouched. A failed render or update restores the previous configuration. Only packages that use a changed pin, and everything depending on them, are rebuilt (per-package build numbers, a new build of the mutex at the same version); more than half affected means a full rebuild. Mutex `run_constraints` of the form `<pkg> <version>.*` follow the new pins. The PR lists the rebuilt packages, the migrations used and those waiting for feedstocks, and the dependency check; it is labelled `dependency-conflict` when the pins can't be installed together. Runs daily, one PR per distribution. |
 
 There are three ways to trigger a command:
 - a *Package request* or *robostack-bot command* issue;
@@ -143,6 +144,10 @@ pixi run rs new-distro <name> --from rolling
 ```
 
 This creates `distros/<name>/` with rolling's package selection and settings, but without its build numbers, patches or own pins. It also generates the snapshot and `conda_build_config.yaml`, and prints a checklist: mutex, channel, upload credentials, and patches to port.
+Invalid names and source configurations are rejected before creating the directory.
+If snapshot or pinning generation fails, the newly created directory is removed
+so the command can be retried; an existing destination is never removed.
+Build number `0` is valid.
 
 ### Moving a distribution here from its own repository
 

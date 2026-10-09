@@ -19,7 +19,7 @@ change, or on request) open PRs that already contain the bumps below. Do it by h
     every distribution that doesn't set its own.
   - `shared/pinning/overrides.yaml` holds local pins.
   - `distros/<d>/distro.yaml` can set `conda_forge_pinning_version` together with
-    `conda_forge_migrations` (its own pinning, e.g. until its next full rebuild), and
+    `conda_forge_migrations` (its own pinning; `[]` is valid), and
     `pinning_overrides` (replace shared pins by name).
   - `pixi run rs <d> render-pinning` writes the committed
     `distros/<d>/conda_build_config.yaml`.
@@ -71,11 +71,16 @@ recipes` uses `recipes/` instead, which with skip-existing only holds unbuilt pa
 
 ### What the pinning PR rebuilds
 
-`update-pinning` moves the distribution's pinning (its own `distro.yaml` version, or
-the shared one it follows) forward and compares the old and new
-`conda_build_config.yaml` with `vinca-rebuild-plan`: packages with a changed pin among their build or
-host requirements, plus everything that depends on them (host or run, transitively),
-are rebuilt; the rest keep their published builds.
+`update-pinning` moves the requested distribution forward. If it follows shared
+pins, a changed result is written as its own version and migration list in
+`distro.yaml`; shared pins and other distributions are not changed. A no-op stays
+a shared follower. Failed updates restore the original configuration and rendered
+pins.
+
+It compares the old and new `conda_build_config.yaml` with `vinca-rebuild-plan`:
+packages with a changed pin among their build or host requirements, plus
+everything that depends on them (host or run, transitively), are rebuilt; the rest
+keep their published builds.
 
 - **Partial rebuild** (the usual case): those packages get `build_number` = highest
   released build + 1 in `distros/<d>/pkg_additional_info.yaml`, and when the mutex
