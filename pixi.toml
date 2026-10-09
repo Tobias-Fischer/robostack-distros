@@ -1,0 +1,44 @@
+[workspace]
+name = "robostack-distros"
+description = "RoboStack: conda packages for all ROS 2 distributions, from one repository"
+authors = ["Tobias Fischer <tobias.fischer@qut.edu.au>", "Wolf Vollprecht <w.vollprecht@gmail.com>", "Silvio Traversaro <silvio@traversaro.it>", "Daisuke Nishimatsu <daisuke.nishimatsu1021@gmail.com>"]
+channels = ["https://prefix.dev/conda-forge"]
+platforms = [
+  "osx-arm64",
+  # 2.17 is the glibc version used in CentOS 7
+  { platform = "linux-64", glibc = "2.17" },
+  "osx-64",
+  { platform = "linux-aarch64", glibc = "2.17" },
+  "win-64",
+]
+
+[target.win.activation.env]
+PYTHONIOENCODING = "utf-8"
+
+[dependencies]
+python = ">=3.14.0,<3.15"
+rattler-build = ">=0.76.1,<0.77"
+cmake = "<4.0"
+setuptools = "<82.0"
+rattler-index = ">=0.27.16"
+pyyaml = "*"
+# Some git repos need git-lfs, see https://github.com/RoboStack/ros-jazzy/issues/118
+git-lfs = "*"
+
+[target.win-64.dependencies]
+# patch is required by rattler-build
+m2-patch = "*"
+# git is required by rattler-build
+git = "*"
+
+[pypi-dependencies]
+# One vinca for all distributions.
+# Tobias-Fischer/vinca robostack-integration (RoboStack/vinca#162 + extends, test selectors, gha fix) until merged upstream
+vinca = { git = "https://github.com/Tobias-Fischer/vinca.git", rev = "b5c524bfc06221d8f9345ad851f7d4d9fd9b79b6" }
+# For local development, temporarily use (and regenerate pixi.lock):
+# vinca = { path = "../vinca", editable = true }
+
+[tasks]
+rs = { cmd = "python tools/robostack.py", description = "Run a task for one distribution: `pixi run rs <distro> <task>` (generate-recipes, build, build-one, check-patches, check-deps, create-snapshot, render-pinning, sort, ...)." }
+sort = { cmd = "sh -lc 'vinca-sort-vinca-lists $@ shared/vinca.yaml && vinca-sort-yaml-keys $@ shared/robostack.yaml shared/pkg_additional_info.yaml shared/patch/dependencies.yaml && for d in distros/*/; do (cd $d && vinca-sort-vinca-lists $@ vinca.yaml && vinca-sort-yaml-keys $@ pkg_additional_info.yaml rosdistro_additional_recipes.yaml $(ls patch/dependencies.yaml 2>/dev/null)) || exit 1; done' --", description = "Sort the YAML files of all distributions (`--check` to only check)." }
+render-pinning = { cmd = "sh -lc 'for d in distros/*/; do python tools/robostack.py $(basename $d) render-pinning || exit 1; done'", description = "Regenerate every distribution's conda_build_config.yaml from shared/pinning and its distro.yaml." }
