@@ -1,0 +1,31 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index bb578b1a..eb303305 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -5,7 +5,7 @@ project(moveit_planners_ompl)
+ find_package(moveit_common REQUIRED)
+ moveit_package()
+ 
+-find_package(Boost REQUIRED system filesystem date_time thread serialization)
++find_package(Boost REQUIRED filesystem date_time thread serialization)
+ find_package(moveit_core REQUIRED)
+ find_package(moveit_msgs REQUIRED)
+ find_package(moveit_ros_planning REQUIRED)
+diff --git a/ompl_interface/CMakeLists.txt b/ompl_interface/CMakeLists.txt
+index ff71c07c..0d0aef71 100644
+--- a/ompl_interface/CMakeLists.txt
++++ b/ompl_interface/CMakeLists.txt
+@@ -24,7 +24,12 @@ add_library(${MOVEIT_LIB_NAME} SHARED
+ )
+ set_target_properties(${MOVEIT_LIB_NAME} PROPERTIES VERSION "${${PROJECT_NAME}_VERSION}")
+ 
+-find_package(OpenMP REQUIRED)
++if(APPLE)
++  find_package(OpenMP)
++  set(OpenMP_CXX_FLAGS "-fopenmp")
++else()
++  find_package(OpenMP REQUIRED)
++endif()
+ 
+ # Used to link in ODE, an OMPL dependency, on macOS
+ if(APPLE)

@@ -1,0 +1,54 @@
+diff --git a/collision_detection/include/moveit/collision_detection/collision_common.h b/collision_detection/include/moveit/collision_detection/collision_common.h
+index 319273fd6..319273fd6 100644
+--- a/collision_detection/include/moveit/collision_detection/collision_common.h
++++ b/collision_detection/include/moveit/collision_detection/collision_common.h
+@@ -306,8 +306,7 @@ struct CollisionResult
+   void clear()
+   {
+     collision = false;
+     distance = std::numeric_limits<double>::max();
+-    distance_result.clear();
+     contact_count = 0;
+     contacts.clear();
+     cost_sources.clear();
+@@ -321,8 +320,5 @@ struct CollisionResult
+   /** \brief Closest distance between two bodies */
+   double distance = std::numeric_limits<double>::max();
+ 
+-  /** \brief Distance data for each link */
+-  DistanceResult distance_result;
+-
+   /** \brief Number of contacts returned */
+   std::size_t contact_count = 0;
+@@ -357,6 +353,3 @@ struct CollisionRequest
+   /** \brief The group name to check collisions for (optional; if empty, assume the complete robot) */
+   std::string group_name;
+ 
+-  /** \brief If true, return detailed distance information. Distance must be set to true as well */
+-  bool detailed_distance = false;
+-
+   /** \brief If true, a collision cost is computed */
+diff --git a/collision_detection_fcl/src/collision_env_fcl.cpp b/collision_detection_fcl/src/collision_env_fcl.cpp
+index 1ce152dcf..1ce152dcf 100644
+--- a/collision_detection_fcl/src/collision_env_fcl.cpp
++++ b/collision_detection_fcl/src/collision_env_fcl.cpp
+@@ -277,9 +277,5 @@ void CollisionEnvFCL::checkSelfCollisionHelper(const CollisionRequest& req, Coll
+     dreq.enableGroup(getRobotModel());
+     distanceSelf(dreq, dres, state);
+     res.distance = dres.minimum_distance.distance;
+-    if (req.detailed_distance)
+-    {
+-      res.distance_result = dres;
+-    }
+   }
+ }
+@@ -334,9 +330,5 @@ void CollisionEnvFCL::checkRobotCollisionHelper(const CollisionRequest& req, Col
+     dreq.enableGroup(getRobotModel());
+     distanceRobot(dreq, dres, state);
+     res.distance = dres.minimum_distance.distance;
+-    if (req.detailed_distance)
+-    {
+-      res.distance_result = dres;
+-    }
+   }
+ }

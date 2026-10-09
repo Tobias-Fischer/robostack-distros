@@ -1,0 +1,144 @@
+extends: ../../shared/vinca.yaml
+ros_distro: humble
+patch_dir: patch
+rosdistro_snapshot: rosdistro_snapshot.yaml
+rosdistro_additional_recipes: rosdistro_additional_recipes.yaml
+
+build_number: 20
+
+mutex_package:
+  version: "0.10.0"
+  run_constraints:
+    - krb5 1.22.*
+
+packages_exclude:
+
+  - if: not linux
+    then:
+      - ament_cmake_xmllint
+      - ament_xmllint
+      - mimick_vendor
+      - mujoco_ros2_control
+      - mujoco_ros2_control_demos
+      - mujoco_vendor
+      - osrf_testing_tools_cpp
+      - performance_test_fixture
+      - rclc_examples
+      - rmw_connextdds
+
+  - if: win
+    then:
+      - gz_ros2_control
+      - gz_ros2_control_demos
+      - robot_localization
+      - ros_gz_sim
+      - ros_gz_sim_demos
+      - ros_ign_gazebo
+      - ros_ign_gazebo_demos
+      - ros_ign_image
+      - test_ros_gz_bridge
+      - velodyne_gazebo_plugins
+
+# These are the packages that are built on all platforms (only a subset, to reduce maintainer load)
+
+
+# Shared selections that humble doesn't build on some platforms (see also
+# packages_skip_by_deps / packages_remove_from_deps).
+
+packages_skip:
+  - as2_behaviors_trajectory_generation  # nested FetchContent'd NLopt violates CMake 4's minimum version floor; too fragile to patch, skip for now
+
+  - if: not (linux and x86_64)
+    then:
+      - ublox_ubx_interfaces
+
+  - if: not linux
+    then:
+      - event_camera_codecs
+      - event_camera_renderer
+      - foxglove_bridge
+      - joy_linux
+      - moveit_ros_perception
+      - moveit_runtime
+      - orbbec_camera_msgs
+      - orbbec_description
+      - plotjuggler
+      - plotjuggler_ros
+      - point_cloud_transport_plugins
+      - random_numbers
+      - realsense2_camera
+      - realsense2_description
+      - rmw_stats_shim
+      - robotiq_controllers
+      - robotiq_description
+      - ros_gz
+      - rosgraph_monitor
+      - rosgraph_monitor_msgs
+      - rqt_mocap4r2_control
+      - rqt_tf_tree
+      - rviz_2d_overlay_plugins
+      - rviz_satellite
+      - sick_safetyscanners_base
+      - turtlebot4_description
+      - turtlebot4_desktop
+      - turtlebot4_msgs
+      - turtlebot4_navigation
+      - turtlebot4_node
+      - turtlebot4_simulator
+      - turtlebot4_viz
+      - twist_stamper
+      - ublox
+      - ublox_dgnss
+      - ublox_dgnss_node
+      - ur_simulation_gz
+      - velodyne_simulator
+
+  - if: win
+    then:
+      - diagnostic_remote_logging
+      - kinematics_interface
+      - kinematics_interface_kdl
+      - laser_segmentation
+      - libg2o
+      - mavlink
+      - mavros
+      - mavros_extras
+      - microstrain_inertial_description
+      - microstrain_inertial_driver
+      - microstrain_inertial_examples
+      - microstrain_inertial_msgs
+      - microstrain_inertial_rqt
+      - mocap4r2_control
+      - mocap4r2_control_msgs
+      - mocap4r2_dummy_driver
+      - mocap4r2_marker_publisher
+      - mocap4r2_marker_viz
+      - mocap4r2_marker_viz_srvs
+      - mocap4r2_robot_gt
+      - mocap4r2_robot_gt_msgs
+      - motion_capture_tracking
+      - moveit_hybrid_planning
+      - moveit_py
+      - moveit_task_constructor_demo
+      - odom_to_tf_ros2
+      - ouster_ros
+      - pinocchio
+
+packages_select_by_deps:
+
+  # Not on win-64 elsewhere (MSVC C1083 in its _msgs), but humble's 0.15 builds there
+  - if: win
+    then:
+      - cartographer_ros
+      - rosbag2_performance_benchmarking
+      - rplidar_ros
+      - serial_driver  # humble's builds there (LNK1181 on rolling)
+      - udp_driver
+
+  # humble's popf has a macOS patch (patch/ros2-popf.patch); elsewhere plansys2 is Linux only
+  - if: osx
+    then:
+      - plansys2_bringup
+      - plansys2_bt_actions
+      - smacc2
+

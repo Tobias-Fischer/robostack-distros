@@ -1,0 +1,102 @@
+apriltag:
+  generate_dummy_package_with_run_deps:
+    dep_name: apriltag
+    max_pin: 'x.x.x'
+cartographer_ros:
+  additional_cmake_args: "-DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON"
+eigenpy:
+  generate_dummy_package_with_run_deps:
+    dep_name: eigenpy
+    max_pin: 'x.x.x'
+    # the version in ros is not compatible with conda-forge's coal and hpp_fcl builds
+    override_version: '3.13.0'
+fastrtps:
+  additional_cmake_args:
+    if: unix
+    then: '-DCMAKE_CXX_FLAGS="-include cstdint"'
+gtsam:
+  generate_dummy_package_with_run_deps:
+    dep_name: gtsam
+    max_pin: 'x.x'
+    # humble is on 4.2.0, but we stick to 4.2.1 for compat with the rest of conda-forge
+    override_version: '4.2.1'
+hpp_fcl:
+  generate_dummy_package_with_run_deps:
+    dep_name: hpp-fcl
+    max_pin: 'x.x.x'
+    # the version on ros is outdated w.r.t. to the conda-forge one
+    override_version: '3.0.4'
+iceoryx_binding_c:
+  generate_dummy_package_with_run_deps:
+    dep_name: libiceoryx-binding-c
+    max_pin: 'x.x'
+    override_version: '2.95.8'
+iceoryx_hoofs:
+  generate_dummy_package_with_run_deps:
+    dep_name: libiceoryx-hoofs
+    max_pin: 'x.x'
+    override_version: '2.95.8'
+iceoryx_posh:
+  generate_dummy_package_with_run_deps:
+    dep_name: libiceoryx-posh
+    max_pin: 'x.x'
+    override_version: '2.95.8'
+ignition_cmake2_vendor:
+  additional_cmake_args: "-DAMENT_VENDOR_POLICY=NEVER_VENDOR_IGNORE_SATISFIED_CHECK -DBUILD_TESTING=OFF"
+ignition_math6_vendor:
+  additional_cmake_args: "-DAMENT_VENDOR_POLICY=NEVER_VENDOR_IGNORE_SATISFIED_CHECK -DBUILD_TESTING=OFF"
+libcamera:
+  generate_dummy_package_with_run_deps:
+    dep_name: libcamera
+    # see https://git.libcamera.org/libcamera/libcamera.git/tree/meson.build?h=v0.5.1#n65
+    max_pin: 'x.x'
+    # humble is on 0.1.0, but we stick to 0.5.0 for compat
+    override_version: '0.5.0'
+libg2o:
+  additional_cmake_args: "-DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON"
+librealsense2:
+  generate_dummy_package_with_run_deps:
+    dep_name: librealsense
+    max_pin: 'x.x'
+octomap:
+  generate_dummy_package_with_run_deps:
+    dep_name: octomap
+    max_pin: 'x.x'
+    # humble is on 1.9.8, but we stick to 1.10.0 for compat
+    override_version: '1.10.0'
+ompl:
+  generate_dummy_package_with_run_deps:
+    dep_name: ompl
+    max_pin: 'x.x'
+    # OMPL 2 is rebuilt for Boost 1.90 on all supported platforms.
+    override_version: '2.0.1'
+proxsuite:
+  generate_dummy_package_with_run_deps:
+    dep_name: proxsuite
+    max_pin: 'x.x'
+    # the version on ros is outdated w.r.t. to the conda-forge one
+    override_version: '0.7.2'
+# remember on next rebuild to remove build number override
+py_trees:
+  generate_dummy_package_with_run_deps:
+    dep_name: py-trees
+    max_pin: 'x.x.x'
+    override_version: '2.5.0'
+rtabmap:
+  additional_cmake_args:
+    if: win
+    then: "-DWITH_QT=OFF -DBUILD_TOOLS=OFF -DBUILD_EXAMPLES=OFF -DWITH_GTSAM=OFF"
+    else: "-DWITH_QT=OFF -DBUILD_TOOLS=OFF -DBUILD_EXAMPLES=OFF"
+urdfdom:
+  generate_dummy_package_with_run_deps:
+    dep_name: urdfdom
+    max_pin: 'x.x'
+    # the version on ros is outdated w.r.t. to the conda-forge one
+    override_version: '6.0.0'
+urdfdom_headers:
+  generate_dummy_package_with_run_deps:
+    dep_name: urdfdom_headers
+    max_pin: 'x.x'
+    override_version: '3.0.0'
+zenoh_cpp_vendor:
+  additional_cmake_args: "-DAMENT_VENDOR_POLICY=NEVER_VENDOR_IGNORE_SATISFIED_CHECK"

@@ -1,0 +1,61 @@
+From b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c Mon Sep 17 00:00:00 2001
+From: Esteve Fernandez <esteve.fernandez@bonsairobotics.ai>
+Date: Mon, 11 May 2026 11:49:35 +0100
+Subject: [PATCH] fix(generate_parameter_library): migrate tl_expected to libexpected-dev
+
+Signed-off-by: Esteve Fernandez <esteve.fernandez@bonsairobotics.ai>
+---
+ cmake/generate_parameter_library.cmake  | 4 ++--
+ generate_parameter_library-extras.cmake | 2 +-
+ package.xml                             | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/cmake/generate_parameter_library.cmake b/cmake/generate_parameter_library.cmake
+index b047ec4..6fe31e2 100644
+--- a/cmake/generate_parameter_library.cmake
++++ b/cmake/generate_parameter_library.cmake
+@@ -96,10 +96,10 @@ macro(generate_parameter_library LIB_NAME YAML_FILE)
+     rclcpp_lifecycle::rclcpp_lifecycle
+     rsl::rsl
+     tcb_span::tcb_span
+-    tl_expected::tl_expected
++    tl::expected
+   )
+   install(DIRECTORY ${LIB_INCLUDE_DIR} DESTINATION include)
+-  ament_export_dependencies(fmt parameter_traits rclcpp rclcpp_lifecycle rsl tcb_span tl_expected)
++  ament_export_dependencies(fmt parameter_traits rclcpp rclcpp_lifecycle rsl tcb_span tl-expected)
+ endmacro()
+ 
+ 
+diff --git a/generate_parameter_library-extras.cmake b/generate_parameter_library-extras.cmake
+index 452030d..30e80e8 100644
+--- a/generate_parameter_library-extras.cmake
++++ b/generate_parameter_library-extras.cmake
+@@ -32,6 +32,6 @@ find_package(rclcpp REQUIRED)
+ find_package(rsl REQUIRED)
+ find_package(rclcpp_lifecycle REQUIRED)
+ find_package(tcb_span REQUIRED)
+-find_package(tl_expected REQUIRED)
++find_package(tl-expected REQUIRED)
+ 
+ include("${generate_parameter_library_DIR}/generate_parameter_library.cmake")
+diff --git a/package.xml b/package.xml
+index fcd4503..2971c44 100644
+--- a/package.xml
++++ b/package.xml
+@@ -23,10 +23,10 @@
+   <buildtool_export_depend>generate_parameter_library_py</buildtool_export_depend>
+ 
+   <depend>fmt</depend>
++  <depend>libexpected-dev</depend>
+   <depend>parameter_traits</depend>
+   <depend>rclcpp</depend>
+   <depend>rclpy</depend>
+   <depend>rclcpp_lifecycle</depend>
+   <depend>rsl</depend>
+   <depend>tcb_span</depend>
+-  <depend>tl_expected</depend>
+ 
+   <export>
+-- 
+2.54.0

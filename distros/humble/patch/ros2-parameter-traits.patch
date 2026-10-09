@@ -1,0 +1,81 @@
+From a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0 Mon Sep 17 00:00:00 2001
+From: Esteve Fernandez <esteve.fernandez@bonsairobotics.ai>
+Date: Mon, 11 May 2026 11:48:26 +0100
+Subject: [PATCH] fix(parameter_traits): migrate tl_expected to libexpected-dev
+
+Signed-off-by: Esteve Fernandez <esteve.fernandez@bonsairobotics.ai>
+---
+ CMakeLists.txt                                | 6 +++---
+ include/parameter_traits/parameter_traits.hpp | 4 ++--
+ package.xml                                   | 2 +-
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 92ef542..92cdd82 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -7,7 +7,7 @@ find_package(fmt REQUIRED)
+ find_package(rclcpp REQUIRED)
+ find_package(rsl REQUIRED)
+ find_package(tcb_span REQUIRED)
+-find_package(tl_expected REQUIRED)
++find_package(tl-expected REQUIRED)
+ 
+ add_library(parameter_traits INTERFACE)
+ target_include_directories(parameter_traits INTERFACE
+@@ -20,7 +20,7 @@ target_link_libraries(parameter_traits
+     rclcpp::rclcpp
+     rsl::rsl
+     tcb_span::tcb_span
+-    tl_expected::tl_expected
++    tl::expected
+ )
+ 
+ install(
+@@ -37,5 +37,5 @@ install(
+ )
+ 
+ ament_export_targets(export_parameter_traits HAS_LIBRARY_TARGET)
+-ament_export_dependencies(fmt rclcpp rsl tcb_span tl_expected)
++ament_export_dependencies(fmt rclcpp rsl tcb_span tl-expected)
+ ament_package()
+diff --git a/include/parameter_traits/parameter_traits.hpp b/include/parameter_traits/parameter_traits.hpp
+index a62153d..dfd48e8 100644
+--- a/include/parameter_traits/parameter_traits.hpp
++++ b/include/parameter_traits/parameter_traits.hpp
+@@ -34,7 +34,7 @@
+ #include <vector>
+ 
+ #include <rsl/algorithm.hpp>
+-#include <tl_expected/expected.hpp>
++#include <tl/expected.hpp>
+ 
+ #ifndef SILENCE_DEPRECATION_WARNINGS
+ #ifdef _MSC_VER
+@@ -53,7 +53,7 @@ namespace parameter_traits {
+ 
+ using Result
+     [[deprecated("Use tl::expected<void, std::string> for return instead. "
+-                 "`#include <tl_expected/expected.hpp>`.")]] =
++                 "`#include <tl/expected.hpp>`.")]] =
+         tl::expected<void, std::string>;
+ 
+ template <typename... Args>
+diff --git a/package.xml b/package.xml
+index 7e95556..03fc75b 100644
+--- a/package.xml
++++ b/package.xml
+@@ -15,10 +15,10 @@
+   <buildtool_depend>ament_cmake</buildtool_depend>
+ 
+   <depend>fmt</depend>
++  <depend>libexpected-dev</depend>
+   <depend>rclcpp</depend>
+   <depend>rsl</depend>
+   <depend>tcb_span</depend>
+-  <depend>tl_expected</depend>
+ 
+   <test_depend>ament_cmake_gtest</test_depend>
+ 
+-- 
+2.54.0
