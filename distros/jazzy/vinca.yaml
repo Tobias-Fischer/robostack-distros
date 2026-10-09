@@ -51,6 +51,9 @@ packages_exclude:
       - microstrain_inertial_driver
       - microstrain_inertial_examples
       - microstrain_inertial_rqt
+      # std::tr1 / OpenCV link errors with MSVC; rolling's fix needs a newer tf2_ros,
+      # and ros-jazzy never built it on Windows
+      - moveit_ros_perception
 
 packages_select_by_deps:
 
