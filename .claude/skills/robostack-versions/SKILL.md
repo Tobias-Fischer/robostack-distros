@@ -7,8 +7,8 @@ description: Update ROS package versions (rosdistro snapshot) and conda-forge pi
 
 robostack-bot does the routine part: `update-rosdistro-snapshot` (daily, when a new
 rosdistro sync is tagged) and
-`update-conda-forge-pinning` (weekly, or on request) open PRs that already contain the
-bumps below. Do it by hand when the bot fails or something extra is needed.
+`update-conda-forge-pinning` (daily, when the pinning version or the usable migrations
+change, or on request) open PRs that already contain the bumps below. Do it by hand when the bot fails or something extra is needed.
 
 ## What is pinned where
 
@@ -50,7 +50,8 @@ pixi run rs <d> create-snapshot
 ## Update the conda-forge pinning
 
 ```bash
-pixi run rs update-pinning          # = bot command, for all distributions that follow shared/
+pixi run rs <d> update-pinning      # = bot command: latest pinning + rebuild plan for <d>
+pixi run rs update-pinning          # the same for every distribution
 pixi run rs <d> render-pinning      # after editing shared/pinning or distro.yaml
 pixi run rs <d> check-deps          # solve all non-ROS deps + mutex constraints, nothing built
 ```
@@ -65,9 +66,36 @@ pixi run rs <d> check-deps          # solve all non-ROS deps + mutex constraints
 Exit code 1 means something conflicts. Status of migrations:
 https://conda-forge.org/status/.
 
+`check-deps` takes the requirements of every selected package from vinca (`--source
+recipes` uses `recipes/` instead, which with skip-existing only holds unbuilt packages).
+
+### What the pinning PR rebuilds
+
+`update-pinning` moves the distribution's pinning (its own `distro.yaml` version, or
+the shared one it follows) forward and compares the old and new
+`conda_build_config.yaml` with `vinca-rebuild-plan`: packages with a changed pin among their build or
+host requirements, plus everything that depends on them (host or run, transitively),
+are rebuilt; the rest keep their published builds.
+
+- **Partial rebuild** (the usual case): those packages get `build_number` = highest
+  released build + 1 in `distros/<d>/pkg_additional_info.yaml`, and when the mutex
+  `run_constraints` changed, the mutex gets a new build at the same version
+  (`mutex_package.build_number`), so all other published packages stay installable.
+- **Full rebuild** (more than half of the packages affected): the bump below.
+
+The PR lists the packages and why, the migrations used / waiting for our dependencies'
+feedstocks, and a linux-64 `check-deps` result; it is labelled `dependency-conflict`
+when the new pins can't be installed together.
+
+```bash
+pixi run vinca-rebuild-plan --old <old cbc> --new distros/<d>/conda_build_config.yaml \
+  --vinca-dir distros/<d>/work      # the plan by hand (after `rs <d> prepare`)
+```
+
 ## Rebuild bump (full rebuild)
 
-When the snapshot or the pins change, everything is rebuilt:
+When the snapshot changes (or a pinning change affects most packages), everything is
+rebuilt:
 
 1. `build_number` in `distros/<d>/vinca.yaml` = the highest build number of the
    distribution's released packages + 1, so every package gets a new build.

@@ -38,10 +38,12 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import tomllib
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Optional
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 import ruamel.yaml
@@ -52,8 +54,20 @@ DEFAULT_CHANNELS = ["https://repo.prefix.dev/conda-forge"]
 USER_AGENT = "robostack-check-dependency-compat"
 
 
-def _urlopen(url: str, timeout: int):
-    return urlopen(Request(url, headers={"User-Agent": USER_AGENT}), timeout=timeout)  # noqa: S310
+def _urlopen(url: str, timeout: int, attempts: int = 3):
+    """urlopen with a few retries: conda-forge's status pages and the channels fail
+    now and then."""
+    for attempt in range(1, attempts + 1):
+        try:
+            return urlopen(Request(url, headers={"User-Agent": USER_AGENT}), timeout=timeout)  # noqa: S310
+        except HTTPError as exc:
+            if exc.code < 500 or attempt == attempts:
+                raise
+        except (URLError, TimeoutError, ConnectionError):
+            if attempt == attempts:
+                raise
+        time.sleep(5 * attempt)
+    raise AssertionError("unreachable")
 FAKE_PACKAGE_NAME = "robostack-dependency-compat-check"
 DEFAULT_GLIBC = "2.17"  # fallback when c_stdlib_version is not in the variant config
 DEFAULT_OSX = "15.0"
@@ -205,6 +219,29 @@ def collect_requirements(
     return requirements
 
 
+def collect_requirements_from_vinca(
+    vinca_path: Path,
+    platform: str,
+    sections: Iterable[str] = ("host", "run"),
+    host_names: Optional[set[str]] = None,
+) -> dict[tuple[Optional[str], str], set[str]]:
+    """Like collect_requirements, for every selected package of the configuration
+    (not only the recipes that happen to be generated, e.g. with skip_existing)."""
+    from vinca.rebuild import requirements_from_vinca
+
+    requirements: dict[tuple[Optional[str], str], set[str]] = defaultdict(set)
+    packages, _ = requirements_from_vinca(vinca_path.resolve().parent, [platform])
+    for name, reqs in packages.items():
+        for section in sections:
+            for condition, spec in walk_requirements(reqs.get(section)):
+                if not spec or "${{" in spec or is_ros_dependency(spec_name(spec)):
+                    continue
+                requirements[(condition, spec)].add(name)
+                if section == "host" and host_names is not None:
+                    host_names.add(normalized(spec_name(spec)))
+    return requirements
+
+
 def mutex_constraints(vinca_conf: dict[str, Any]) -> list[str]:
     mutex = vinca_conf.get("mutex_package")
     if isinstance(mutex, dict):
@@ -268,6 +305,7 @@ def run_solve(
     output_dir: Path,
     *,
     verbose: bool = False,
+    glibc: Optional[str] = None,
 ) -> tuple[bool, str]:
     cmd = rattler_build_executable() + [
         "build",
@@ -292,6 +330,8 @@ def run_solve(
     # Solving for a foreign platform yields __glibc=0 / __osx=0 virtual packages, which
     # makes every package look uninstallable.  Provide sane defaults unless overridden.
     if platform.startswith("linux"):
+        if glibc:
+            env["CONDA_OVERRIDE_GLIBC"] = glibc
         env.setdefault("CONDA_OVERRIDE_GLIBC", glibc_floor(variant_config, platform))
     elif platform.startswith("osx") and sys.platform != "darwin":
         env.setdefault("CONDA_OVERRIDE_OSX", DEFAULT_OSX)
@@ -390,7 +430,13 @@ class Solver:
         self.workdir = workdir
         self.calls = 0
 
-    def solve(self, label: str, pins: list[str], requirements: Iterable[tuple[Optional[str], str]]) -> tuple[bool, str]:
+    def solve(
+        self,
+        label: str,
+        pins: list[str],
+        requirements: Iterable[tuple[Optional[str], str]],
+        glibc: Optional[str] = None,
+    ) -> tuple[bool, str]:
         recipe = self.workdir / label / "recipe.yaml"
         write_fake_recipe(recipe, pins, requirements)
         self.calls += 1
@@ -401,6 +447,7 @@ class Solver:
             self.args.platform,
             self.workdir / "output",
             verbose=self.args.verbose,
+            glibc=glibc,
         )
 
     def find_partner(
@@ -444,14 +491,20 @@ def load_vinca(path: Path, platform: str | None = None) -> dict[str, Any]:
 
 def solve_mode(args: argparse.Namespace) -> int:
     recipes_dir = Path(args.recipes_dir)
-    if not any(recipes_dir.glob("*/recipe.yaml")):
+    if args.source == "recipes" and not any(recipes_dir.glob("*/recipe.yaml")):
         raise SystemExit(
             f"No recipes found in {recipes_dir}; run `pixi run generate-recipes` first."
         )
     vinca_conf = load_vinca(Path(args.vinca), getattr(args, "platform", None))
     pins = mutex_constraints(vinca_conf) + list(args.pin)
     variant = variant_pins(Path(args.variant_config), args.platform)
-    requirements = collect_requirements(recipes_dir)
+    host_names: Optional[set[str]] = set() if args.source != "recipes" else None
+    if args.source == "recipes":
+        requirements = collect_requirements(recipes_dir)
+        source = f"{len(list(recipes_dir.glob('*/recipe.yaml')))} recipes in {recipes_dir}"
+    else:
+        requirements = collect_requirements_from_vinca(Path(args.vinca), args.platform, host_names=host_names)
+        source = f"{len(set().union(*requirements.values())) if requirements else 0} selected packages of {args.vinca}"
     names = {spec_name(spec) for _, spec in requirements}
     channels = args.channel or channels_from_pixi(Path("pixi.toml"))
     workdir = Path(args.workdir)
@@ -461,7 +514,7 @@ def solve_mode(args: argparse.Namespace) -> int:
     print(f"Platform:       {args.platform}")
     print(f"Channels:       {' '.join(channels)}")
     print(f"Variant config: {args.variant_config} ({len(variant)} single-valued pins)")
-    print(f"Recipes:        {len(list(recipes_dir.glob('*/recipe.yaml')))} in {recipes_dir}")
+    print(f"Packages:       {source}")
     print(f"Dependencies:   {len(names)} distinct non-ROS packages, {len(requirements)} specs")
     print(f"Hard pins:      {', '.join(pins) if pins else '(none)'}")
     print()
@@ -475,7 +528,8 @@ def solve_mode(args: argparse.Namespace) -> int:
         print("  -> align mutex_package.run_constraints in vinca.yaml with the rendered pins"
               " (or drop the migration from vinca_pinning.yaml).\n")
 
-    # 2. iterative solve of the whole dependency set
+    # 2. iterative solve of the whole dependency set (the mutex run_constraints are
+    # installed too, so each of them must be satisfiable on its own as well)
     protected = {spec_name(spec) for spec in pins}
     active_pins = list(pins)
     excluded: dict[str, str] = {}
@@ -521,7 +575,11 @@ def solve_mode(args: argparse.Namespace) -> int:
         print("OK: every dependency is co-installable under the current pins.")
         return 0
 
-    report_conflicts(args, solver, excluded, pin_conflicts, requirements, active_pins, variant, solved)
+    real = report_conflicts(args, solver, excluded, pin_conflicts, requirements, active_pins, variant, solved,
+                            host_names)
+    if solved and not real and not pin_conflicts:
+        print("OK: every dependency is co-installable under the current pins (see the notes above).")
+        return 0
     return 1
 
 
@@ -534,7 +592,9 @@ def report_conflicts(
     pins: list[str],
     variant: dict[str, str],
     solved: bool,
-) -> None:
+    host_names: Optional[set[str]] = None,
+) -> int:
+    """Print the conflicts; returns how many are real (not just notes)."""
     protected = {spec_name(spec) for spec in pins}
     if pin_conflicts:
         print(f"{len(pin_conflicts)} mutex constraint(s) contradict {args.variant_config}:")
@@ -605,6 +665,14 @@ def report_conflicts(
             print("   note: the spec is version-restricted (dummy package in pkg_additional_info.yaml?);"
                   " a newer conda-forge version may already be built against the pinned libraries.")
         glibc_needs = sorted({m.group(1) for m in _GLIBC_NEED_RE.finditer(block)}, key=version_tuple)
+        if (glibc_needs and host_names is not None and normalized(culprit) not in host_names
+                and args.platform.startswith("linux")
+                and solver.solve(f"glibc-{culprit}", pins, specs, glibc=glibc_needs[-1])[0]):
+            # only a run requirement, and it only needs a newer glibc than the build
+            # floor: that limits the systems it installs on, it's not a pin conflict
+            details[culprit]["category"] = "runtime-glibc"
+            print(f"   note: only a run requirement, built for glibc >= {glibc_needs[-1]}: installs on such"
+                  " systems only, but doesn't conflict with the pins.")
         if glibc_needs and args.platform.startswith("linux"):
             floor = glibc_floor(Path(args.variant_config), args.platform)
             print(f"   note: needs glibc >= {glibc_needs[-1]} but the build floor (c_stdlib_version /"
@@ -616,15 +684,19 @@ def report_conflicts(
             print(f"   | … ({len(lines) - args.max_lines} more lines)")
         print()
 
+    notes = {name: info for name, info in details.items() if info.get("category")}
+    real = {name: info for name, info in details.items() if not info.get("category")}
     if args.json:
         Path(args.json).write_text(
-            json.dumps({"pin_conflicts": pin_conflicts, "conflicts": details}, indent=2), encoding="utf-8"
+            json.dumps({"pin_conflicts": pin_conflicts, "conflicts": real, "notes": notes}, indent=2),
+            encoding="utf-8",
         )
         print(f"Wrote {args.json}")
     print(f"({solver.calls} solver runs)")
 
     if args.migrations:
-        report_migrations(details, pin_conflicts, pins, Path(args.pinning))
+        report_migrations(real, pin_conflicts, pins, Path(args.pinning))
+    return len(real)
 
 
 # ------------------------------------------------------------------- migrations
@@ -874,10 +946,15 @@ def ros_name_map(vinca_conf: dict[str, Any]) -> dict[str, str]:
 def stale_mode(args: argparse.Namespace) -> int:
     vinca_conf = load_vinca(Path(args.vinca), getattr(args, "platform", None))
     distro = vinca_conf.get("ros_distro", "")
-    prefix = f"ros-{distro}-"
+    prefixes = ("ros2-", f"ros-{distro}-")
     pins: dict[str, str] = {}
     if not args.mutex_only:
-        pins.update(variant_pins(Path(args.variant_config), args.platform))
+        for key, value in variant_pins(Path(args.variant_config), args.platform).items():
+            pins[key] = value
+            # conda_build_config.yaml pins the -devel package (libboost_devel), while the
+            # built packages depend on what its run_exports name (libboost)
+            if key.endswith("-devel"):
+                pins.setdefault(key[: -len("-devel")], value)
     mutex_pins = {}
     for spec in mutex_constraints(vinca_conf) + list(args.pin):
         parts = spec.split()
@@ -892,7 +969,7 @@ def stale_mode(args: argparse.Namespace) -> int:
     packages = {
         filename: record
         for filename, record in packages.items()
-        if record.get("name", "").startswith(prefix) or record.get("name") == mutex_name
+        if record.get("name", "").startswith(prefixes) or record.get("name") == mutex_name
     }
     if not args.all_builds:
         # Only the newest build of every package matters for what users install now.
@@ -952,7 +1029,8 @@ def stale_mode(args: argparse.Namespace) -> int:
     for name in names:
         if name == mutex_name:
             continue
-        suffix = name[len(prefix):] if name.startswith(prefix) else name
+        prefix = next((p for p in prefixes if name.startswith(p)), "")
+        suffix = name[len(prefix):]
         ros_names.append(mapping.get(normalized(suffix), suffix.replace("-", "_")))
 
     build_number = int(vinca_conf.get("build_number", 0)) + 1
@@ -1007,6 +1085,12 @@ def parse_args() -> argparse.Namespace:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--platform", default=detect_platform(), help="conda platform (default: current machine)")
+    parser.add_argument(
+        "--source",
+        choices=("vinca", "recipes"),
+        default="vinca",
+        help="requirements of every selected package (vinca, default) or of the recipes in --recipes-dir",
+    )
     parser.add_argument("--recipes-dir", default="recipes")
     parser.add_argument("--vinca", default="vinca.yaml")
     parser.add_argument("--variant-config", default="conda_build_config.yaml")

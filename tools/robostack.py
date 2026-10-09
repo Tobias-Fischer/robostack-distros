@@ -5,6 +5,7 @@
     pixi run rs jazzy build-one ros2-ros-workspace
     pixi run rs changed-distros --base origin/main      # for CI
     pixi run rs check | update-pinning | new-distro NAME --from DISTRO   (whole repository)
+    pixi run rs <distro> update-pinning                                  (one distribution)
 
 Every distribution lives in distros/<distro>/ and only holds what is specific to
 it; everything else is in shared/. distros/<d>/vinca.yaml extends shared/vinca.yaml,
@@ -222,7 +223,7 @@ def task(distro: str, name: str, args: list[str]) -> int:
         return rc or run(["vinca-sort-yaml-keys", *args, *files], d)
     if name == "upload":
         return upload(distro, args, w if w.is_dir() else d)
-    if name in ("update-snapshot", "find-stale"):
+    if name in ("update-snapshot", "find-stale", "update-pinning"):
         import maintenance
 
         return maintenance.main(name, args, distro)

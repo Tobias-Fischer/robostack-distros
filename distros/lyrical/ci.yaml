@@ -23,7 +23,4 @@ full_rebuild: false
 #
 # Remember that dependents are not rebuilt automatically: evict them as well if
 # they must pick up the change.
-evict_cache:
-  - ros_image_to_qimage  # rebuilt with Qt6
-  - openvdb_vendor  # rebuilt with the OpenVDB module path fix
-  - nlohmann_json_schema_validator_vendor  # rebuilt with exported symbols on Windows
+evict_cache: []
