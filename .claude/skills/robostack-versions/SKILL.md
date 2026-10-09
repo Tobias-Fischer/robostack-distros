@@ -132,16 +132,19 @@ pixi run abi-check --distro jazzy --pr-builds distros/jazzy/work/output/linux-64
 Per package: `compatible`, `additions` (only added symbols), `soname` (SONAME
 changed, symbols unchanged; dependents must be relinked, e.g. MoveIt's versioned
 SONAMEs), `incompatible` (removed or changed symbols, or a removed library), or
-`no libraries`. Published packages are stripped, so only exported symbols are
-compared: struct layout and inline/header-only changes don't show up.
+`no libraries`. Published packages are stripped, so abidiff compares exported
+symbols only; the installed headers (`include/`, ignoring comments and whitespace)
+are compared too: unchanged headers rule out layout and inline changes, changed ones
+are listed for review.
 
 Every pull request runs `--pr-builds` in its linux-64 builds (non-blocking) and
 posts one "ABI check" comment, updated on each push. Use it to accept pull requests
 that bump single packages: `compatible`/`additions` can be bumped alone; for
-`soname`/`incompatible` the comment lists the released packages that depend on it,
-whose build numbers (`pkg_additional_info.yaml`) must be bumped in the same pull
-request (those with compiled code; metapackages and configs don't link). A changed
-non-ROS pin listed in the comment is part of the comparison.
+`soname`/`incompatible` the comment lists the released dependents whose binaries
+link to the changed library (DT_NEEDED; above 40 dependents they are listed
+unchecked), whose build numbers (`pkg_additional_info.yaml`) must be bumped in the
+same pull request. A changed non-ROS pin listed in the comment is part of the
+comparison.
 
 ## Packages built against outdated pins
 

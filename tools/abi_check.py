@@ -23,7 +23,8 @@ Verdicts per package (the worst of its libraries):
   must be rebuilt);
 - no libraries: nothing to compare (Python, messages without C++ libs, data).
 
-Linux only: abidiff reads ELF. It is run with `pixi exec -s libabigail`.
+Linux only: abidiff reads ELF. It is run with `pixi exec -s libabigail`; ELF
+entries are read with pyelftools.
 """
 
 from __future__ import annotations
@@ -126,7 +127,10 @@ def compare(old_pkg: Path, new_pkg: Path, work: Path) -> dict:
     extract_conda(old_pkg, a)
     extract_conda(new_pkg, b)
     old_libs, new_libs = libraries(a), libraries(b)
-    result = {"libraries": {}, "removed_libraries": sorted(set(old_libs) - set(new_libs))}
+    result = {"libraries": {}, "removed_libraries": sorted(set(old_libs) - set(new_libs)),
+              "headers": header_changes(a, b)}
+    # the SONAMEs dependents link to, of the libraries that break them
+    result["broken_sonames"] = [soname(old_libs[name]) for name in result["removed_libraries"]]
     if not old_libs and not new_libs:
         result["verdict"] = "no libraries"
         return result
@@ -135,10 +139,70 @@ def compare(old_pkg: Path, new_pkg: Path, work: Path) -> dict:
         rc, text = abidiff(old_libs[name], new_libs[name])
         lib_verdict = classify(rc, text)
         result["libraries"][name] = {"verdict": lib_verdict, "report": "\n".join(text.splitlines()[:40])}
+        if lib_verdict in ("soname", "incompatible"):
+            result["broken_sonames"].append(soname(old_libs[name]))
         if RANK.index(lib_verdict) > RANK.index(verdict):
             verdict = lib_verdict
     result["verdict"] = verdict
     return result
+
+
+def _dynamic(path: Path, tag: str) -> list[str]:
+    """DT_SONAME / DT_NEEDED entries of an ELF file ([] when it has none)."""
+    from elftools.common.exceptions import ELFError
+    from elftools.elf.dynamic import DynamicSection
+    from elftools.elf.elffile import ELFFile
+
+    try:
+        with open(path, "rb") as fh:
+            elf = ELFFile(fh)
+            return [
+                getattr(t, "soname" if tag == "DT_SONAME" else "needed")
+                for section in elf.iter_sections() if isinstance(section, DynamicSection)
+                for t in section.iter_tags() if t.entry.d_tag == tag
+            ]
+    except (ELFError, OSError):
+        return []
+
+
+def soname(path: Path) -> str:
+    return next(iter(_dynamic(path, "DT_SONAME")), path.name)
+
+
+def needed(prefix: Path) -> set[str]:
+    """The libraries the ELF files under prefix link to (DT_NEEDED)."""
+    found = set()
+    for f in prefix.rglob("*"):
+        if f.is_file() and not f.is_symlink():
+            with open(f, "rb") as fh:
+                if fh.read(4) != b"\x7fELF":
+                    continue
+            found.update(_dynamic(f, "DT_NEEDED"))
+    return found
+
+
+_COMMENTS = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
+
+
+def header_changes(old: Path, new: Path) -> list[str]:
+    """Installed headers (include/) added, removed or changed beyond comments and
+    whitespace. Unchanged headers rule out layout and inline changes, which the
+    symbol comparison can't see."""
+    def headers(prefix):
+        root = prefix / "include"
+        out = {}
+        for f in root.rglob("*") if root.is_dir() else []:
+            if f.is_file():
+                text = _COMMENTS.sub("", f.read_text(errors="replace"))
+                out[str(f.relative_to(root))] = " ".join(text.split())
+        return out
+
+    a, b = headers(old), headers(new)
+    return sorted(
+        [f"+{h}" for h in set(b) - set(a)] + [f"-{h}" for h in set(a) - set(b)]
+        + [h for h in set(a) & set(b) if a[h] != b[h]],
+        key=lambda h: h.lstrip("+-"),
+    )
 
 
 def _is_compatibility_package(rec: dict) -> bool:
@@ -248,6 +312,27 @@ def download(channel: str, platform: str, filename: str, dest: Path) -> Path:
     return target
 
 
+# Above this many dependents, list them all instead of downloading each to check it.
+MAX_DEPENDENTS_TO_INSPECT = 40
+
+
+def linking_dependents(channel, platform, by_name, candidates, sonames, downloads: Path, tmp: Path) -> dict:
+    """Which of the dependents link to one of the SONAMEs (and so need a rebuild);
+    metapackages, Python packages and configurations don't."""
+    if len(candidates) > MAX_DEPENDENTS_TO_INSPECT:
+        return {"rebuild": candidates, "checked": False}
+    rebuild = []
+    for name in candidates:
+        pkg = download(channel, platform, newest(by_name[name])["file"], downloads)
+        target = tmp / "dependent"
+        shutil.rmtree(target, ignore_errors=True)
+        extract_conda(pkg, target)
+        pkg.unlink(missing_ok=True)
+        if needed(target) & set(sonames):
+            rebuild.append(name)
+    return {"rebuild": rebuild, "checked": True, "candidates": len(candidates)}
+
+
 def check_pr_builds(pr_dir: Path, channel: str, platform: str, distro: str, tmp: Path) -> dict:
     """Compare every package in pr_dir with the newest released build of it."""
     by_name = released(channel, platform, distro)
@@ -271,8 +356,10 @@ def check_pr_builds(pr_dir: Path, channel: str, platform: str, distro: str, tmp:
         old_pkg.unlink(missing_ok=True)
         res.update(old=f"{old['version']} (build {old.get('build_number', 0)})", new=index["version"],
                    pins=pin_changes(old, index, distro))
-        if res["verdict"] in ("soname", "incompatible"):
-            res["dependents"] = dependents(by_name, short, distro)
+        if res["broken_sonames"]:
+            res["dependents"] = linking_dependents(
+                channel, platform, by_name, dependents(by_name, short, distro), res["broken_sonames"], downloads, tmp
+            )
         results[short] = res
         print(f"  -> {res['verdict']}", flush=True)
     return results
@@ -307,8 +394,19 @@ def pr_summary(results: dict, distro: str, platform: str, channel: str) -> list[
             details.append("removed: " + ", ".join(f"`{lib}`" for lib in res["removed_libraries"]))
         if res.get("dependents") is not None:
             deps = res["dependents"]
-            details.append(f"**{len(deps)} released packages depend on it** (rebuild those with compiled code): "
-                           + (", ".join(deps) if deps else "none"))
+            listed = ", ".join(deps["rebuild"]) if deps["rebuild"] else "none"
+            if deps["checked"]:
+                details.append(f"**rebuild {len(deps['rebuild'])} dependents** (of {deps['candidates']} released "
+                               f"dependents, these link to it): {listed}")
+            else:
+                details.append(f"**{len(deps['rebuild'])} released dependents** (too many to check which link to it; "
+                               f"rebuild those with compiled code): {listed}")
+        headers = res.get("headers") or []
+        if headers:
+            shown = ", ".join(f"`{h}`" for h in headers[:8]) + (f" and {len(headers) - 8} more" if len(headers) > 8 else "")
+            details.append(f"{len(headers)} headers changed (check for layout/inline changes): {shown}")
+        elif res["verdict"] not in ("new package",) and "headers" in res:
+            details.append("headers unchanged")
         if res.get("pins"):
             details.append("⚠️ changed pins (the comparison includes them): " + ", ".join(res["pins"]))
         verdict = f"{res['verdict']}: {VERDICT_NOTE.get(res['verdict'], '')}"

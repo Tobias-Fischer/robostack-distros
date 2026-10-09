@@ -283,7 +283,7 @@ jobs:
             echo "- **soname** / **incompatible**: the packages that depend on it need a rebuild (build number bump) in the same pull request."
             echo
             cat "${files[@]}"
-            echo "Only exported symbols are compared (the released packages are stripped): struct layout and inline/header-only changes don't show up. A changed pin is part of the comparison."
+            echo "Exported symbols are compared (the released packages are stripped, so struct layouts aren't); unchanged installed headers rule out layout and inline changes, changed ones are listed for review. Dependents to rebuild are the released ones linking to a changed library. A changed pin is part of the comparison."
           } > body.md
           if [ -n "$existing" ]; then
             gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@body.md > /dev/null
