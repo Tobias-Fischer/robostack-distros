@@ -100,7 +100,7 @@ jobs:
       - name: Bot token
         id: app
         if: vars.ROBOSTACK_BOT_APP_ID != ''
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.ROBOSTACK_BOT_APP_ID }}
           private-key: ${{ secrets.ROBOSTACK_BOT_PRIVATE_KEY }}
@@ -146,7 +146,7 @@ jobs:
           printf '\nCloses #%s\n' "$NUMBER" >> "$RUNNER_TEMP/summary.md"
       - name: Open or update the pull request
         if: steps.bot.outputs.changed == 'true' && !matrix.preview
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ steps.app.outputs.token || secrets.GHA_PAT || github.token }}
           branch: bot/${{ matrix.command }}${{ matrix.distro && format('-{0}', matrix.distro) || '' }}${{ matrix.command == 'add-package' && format('-{0}', github.run_id) || '' }}
