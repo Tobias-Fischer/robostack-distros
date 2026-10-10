@@ -61,6 +61,8 @@ jobs:
         distro: ${{ fromJSON(needs.plan.outputs.distros) }}
     env:
       DISTRO: ${{ matrix.distro }}
+      # while uploads go to a test channel, packages already there aren't built again
+      ROBOSTACK_UPLOAD_CHANNEL: ${{ vars.ROBOSTACK_UPLOAD_CHANNEL }}
       DRY_RUN: ${{ inputs.dry_run || 'false' }}
     steps:
       - name: Bot token (pushing workflow files needs more than GITHUB_TOKEN)

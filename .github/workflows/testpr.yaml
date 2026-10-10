@@ -84,6 +84,8 @@ jobs:
     env:
       DISTRO: ${{ matrix.distro }}
       PLATFORM: ${{ matrix.target.platform }}
+      # while uploads go to a test channel, packages already there aren't built again
+      ROBOSTACK_UPLOAD_CHANNEL: ${{ vars.ROBOSTACK_UPLOAD_CHANNEL }}
       # rattler-build writes to distros/<d>/work/output, or to CONDA_BLD_PATH (win-64)
       CACHE_DIR: ${{ matrix.target.platform == 'win-64' && 'C:/bld/win-64' || format('distros/{0}/work/output/{1}', matrix.distro, matrix.target.platform) }}
     steps:
