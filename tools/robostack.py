@@ -291,10 +291,15 @@ def task(distro: str, name: str, args: list[str]) -> int:
         return run(py + [str(TOOLS / "check_dependency_compat.py"), *args], w)
     if name == "gap-report":
         return run(py + [str(TOOLS / "build_gap_report.py"), *args], w)
-    if name in ("build", "build-one") and not any((w / "recipes").glob("*/recipe.yaml")):
-        print(f"No recipes in {(w / 'recipes').relative_to(ROOT)}: run `pixi run rs {distro} generate-recipes` first",
-              file=sys.stderr)
-        return 1
+    if name in ("build", "build-one"):
+        if not (w / "recipes").is_dir():
+            print(f"No {(w / 'recipes').relative_to(ROOT)}: run `pixi run rs {distro} generate-recipes` first",
+                  file=sys.stderr)
+            return 1
+        if not any((w / "recipes").glob("*/recipe.yaml")):
+            # generated, but every package is already built (on the channel)
+            print(f"Nothing to build: {(w / 'recipes').relative_to(ROOT)} is empty")
+            return 0
     if name == "build":
         return run(rattler_build(distro, ["--recipe-dir", "./recipes", *args]), w)
     if name == "build-ci":  # used by .scripts/build_unix.sh / build_win.bat
