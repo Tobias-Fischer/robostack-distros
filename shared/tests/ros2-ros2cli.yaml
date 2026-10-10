@@ -1,11 +1,14 @@
 tests:
-  # Regression test for https://github.com/RoboStack/ros-humble/issues/271
+  # Regression test for https://github.com/RoboStack/ros-humble/issues/271: the
+  # completion scripts are installed under the names the shells load on demand
   - script:
     - if: unix
       then:
-        - test -f ${PREFIX}/share/bash-completion/completions/ros2-argcomplete.bash
-        - test -f ${PREFIX}/share/zsh/site-functions/ros2-argcomplete.zsh
-        # only rolling's and lyrical's ros2cli patch installs a fish completion
+        - test -f ${PREFIX}/share/bash-completion/completions/ros2
+        - test -f ${PREFIX}/share/zsh/site-functions/_ros2
+        # only rolling's and lyrical's ros2cli install a fish completion
         - if: ros_distro in ["rolling", "lyrical"]
           then:
-            - test -f ${PREFIX}/share/fish/vendor_completions.d/ros2-argcomplete.fish
+            - test -f ${PREFIX}/share/fish/vendor_completions.d/ros2.fish
+        # and the bash one registers a completion for ros2 (as pixi shell sources it)
+        - bash -c ". ${PREFIX}/share/bash-completion/completions/ros2 && complete -p ros2"

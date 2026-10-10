@@ -84,6 +84,9 @@ gz_gui_vendor:
   build_number: 30
 gz_sim_vendor:
   build_number: 30
+ros2cli:
+  # Rebuild with the shell completions under the names bash/zsh/fish load (patch).
+  build_number: 30
 rqt_plot:
   # Rebuild with qt6-main 6.11 (b29 was built against qt6-main 6.12, which pyqt6 6.11 can't install with).
   build_number: 30

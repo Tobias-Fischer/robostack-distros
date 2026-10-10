@@ -128,6 +128,9 @@ gz_gui_vendor:
   build_number: 28
 gz_sim_vendor:
   build_number: 28
+ros2cli:
+  # Rebuild with the shell completions under the names bash/zsh/fish load (patch).
+  build_number: 28
 rqt_plot:
   build_number: 28
 rqt_py_common:

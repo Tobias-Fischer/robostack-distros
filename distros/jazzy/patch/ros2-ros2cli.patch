@@ -1,31 +1,42 @@
-diff --git a/ros2cli/completion/ros2-argcomplete.zsh b/ros2cli/completion/ros2-argcomplete.zsh
-index b9fc309..ad14fbb 100644
---- a/ros2cli/completion/ros2-argcomplete.zsh
-+++ b/ros2cli/completion/ros2-argcomplete.zsh
-@@ -20,6 +20,6 @@ autoload -U +X bashcompinit && bashcompinit
- # Get this scripts directory
- __ros2cli_completion_dir=${0:a:h}
- # Just source the bash version, it works in zsh too
--source "$__ros2cli_completion_dir/ros2-argcomplete.bash"
-+source "$CONDA_PREFIX/share/bash-completion/completions/ros2-argcomplete.bash"
- # Cleanup
- unset __ros2cli_completion_dir
+diff --git a/ros2cli/completion/conda/_ros2 b/ros2cli/completion/conda/_ros2
+new file mode 100644
+index 000000000..70927f705
+--- /dev/null
++++ b/ros2cli/completion/conda/_ros2
+@@ -0,0 +1,8 @@
++#compdef ros2
++# zsh autoloads this from $fpath (site-functions) the first time ros2 is
++# completed: register argcomplete's completion function for ros2, which replaces
++# this one, and complete with it
++if (( $+commands[register-python-argcomplete] )); then
++  eval "$(register-python-argcomplete ros2)"
++  _python_argcomplete "$@"
++fi
+diff --git a/ros2cli/completion/conda/ros2 b/ros2cli/completion/conda/ros2
+new file mode 100644
+index 000000000..0ee81b139
+--- /dev/null
++++ b/ros2cli/completion/conda/ros2
+@@ -0,0 +1,5 @@
++# bash completion for ros2, under the name bash-completion loads on demand
++# (completions/<command>); pixi shell sources this directory when activating
++if type register-python-argcomplete > /dev/null 2>&1; then
++  eval "$(register-python-argcomplete ros2)"
++fi
 diff --git a/ros2cli/setup.py b/ros2cli/setup.py
-index f28b689..a0fe44a 100644
+index 71deb3d3e..a0a41a364 100644
 --- a/ros2cli/setup.py
 +++ b/ros2cli/setup.py
-@@ -23,6 +23,14 @@ setup(
+@@ -23,6 +23,12 @@ setup(
              'completion/ros2-argcomplete.bash',
              'completion/ros2-argcomplete.zsh'
          ]),
 +
-+        # [pixi] install autocompletion scripts
-+        ('share/bash-completion/completions', [
-+            'completion/ros2-argcomplete.bash',
-+        ]),
-+        ('share/zsh/site-functions', [
-+            'completion/ros2-argcomplete.zsh'
-+        ]),
++        # [conda] completion scripts under the names the shells load on demand
++        # (bash-completion: completions/<command>, zsh: $fpath/_<command>, fish:
++        # vendor_completions.d/<command>.fish), which pixi shell activates
++        ('share/bash-completion/completions', ['completion/conda/ros2']),
++        ('share/zsh/site-functions', ['completion/conda/_ros2']),
      ],
      zip_safe=False,
      author='Dirk Thomas',
