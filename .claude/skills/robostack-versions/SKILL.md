@@ -139,7 +139,7 @@ posts one "ABI check" comment, updated on each push. Use it to accept pull reque
 that bump single packages: `compatible`/`additions` can be bumped alone; for
 `soname`/`incompatible` the comment lists the released dependents whose binaries
 link to the changed library (DT_NEEDED; above 40 dependents they are listed
-unchecked), whose build numbers (`pkg_additional_info.yaml`) must be bumped in the
+unchecked), whose build numbers (`pkg_additional_info.yaml`; the comment has the entries to paste, with the next free build number) must be bumped in the
 same pull request. A changed non-ROS pin listed in the comment is part of the
 comparison.
 

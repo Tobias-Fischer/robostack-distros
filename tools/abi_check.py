@@ -356,8 +356,21 @@ def linking_dependents(channel, platform, by_name, candidates, sonames, download
     return {"rebuild": rebuild, "checked": True, "candidates": len(candidates)}
 
 
-def check_pr_builds(pr_dir: Path, channel: str, platform: str, distro: str, tmp: Path) -> dict:
-    """Compare every package in pr_dir with the newest released build of it."""
+def next_build_number(by_name: dict[str, dict[str, dict]], distro: str) -> int:
+    """The build number a rebuild gets, as the pinning bot gives it: above the
+    distribution's build_number and every published build of its packages."""
+    sys.path.insert(0, str(Path(__file__).parent))
+    import robostack as rs
+
+    vinca = rs.DISTROS / distro / "vinca.yaml"
+    m = re.search(r"(?m)^build_number:\s*(\d+)", vinca.read_text()) if vinca.is_file() else None
+    published = [rec.get("build_number", 0) for versions in by_name.values() for rec in versions.values()]
+    return max([int(m.group(1)) if m else 0, *published]) + 1
+
+
+def check_pr_builds(pr_dir: Path, channel: str, platform: str, distro: str, tmp: Path) -> tuple[dict, int]:
+    """Compare every package in pr_dir with the newest released build of it; also the
+    build number rebuilds of dependents get."""
     by_name = released(channel, platform, distro)
     downloads = tmp / "downloads"
     downloads.mkdir(exist_ok=True)
@@ -386,7 +399,7 @@ def check_pr_builds(pr_dir: Path, channel: str, platform: str, distro: str, tmp:
             )
         results[short] = res
         print(f"  -> {res['verdict']}", flush=True)
-    return results
+    return results, next_build_number(by_name, distro)
 
 
 VERDICT_NOTE = {
@@ -438,7 +451,26 @@ def _needs_attention(res: dict) -> bool:
 TABLE_HEADER = ["| package | released → PR | verdict | details |", "|---|---|---|---|"]
 
 
-def pr_summary(results: dict, distro: str, platform: str, channel: str) -> list[str]:
+def rebuild_snippet(results: dict, distro: str, build_number: int | None) -> list[str]:
+    """pkg_additional_info.yaml entries for the dependents to rebuild in the same PR."""
+    names = sorted({dep.replace("-", "_") for res in results.values()
+                    for dep in (res.get("dependents") or {}).get("rebuild", [])})
+    if not names or build_number is None:
+        return []
+    unchecked = any(not (res.get("dependents") or {}).get("checked", True) for res in results.values())
+    return [
+        f"**To rebuild the dependents in this pull request**, add these to `distros/{distro}/pkg_additional_info.yaml` "
+        "(for a package that already has an entry, set its `build_number`):"
+        + (" some lists couldn't be checked for linking, drop the packages without compiled code." if unchecked else ""),
+        "",
+        "```yaml",
+        *[line for name in names for line in (f"{name}:", f"  build_number: {build_number}")],
+        "```",
+        "",
+    ]
+
+
+def pr_summary(results: dict, distro: str, platform: str, channel: str, build_number: int | None = None) -> list[str]:
     """Markdown for the pull-request comment: what needs attention as a table, the
     rest collapsed. Packages without a release are left out; a distribution with
     nothing to compare gets no section."""
@@ -455,6 +487,7 @@ def pr_summary(results: dict, distro: str, platform: str, channel: str) -> list[
     lines = [f"#### {distro} {platform}", ""]
     if attention:
         lines += TABLE_HEADER + [_row(n, r) for n, r in attention] + [""]
+        lines += rebuild_snippet(dict(attention), distro, build_number)
     if rest:
         counts: dict[str, int] = {}
         for _, res in rest:
@@ -485,10 +518,12 @@ def main() -> int:
     channel = [args.channel] if args.channel else channel_for(args.distro)
 
     results = {}
+    next_build = None
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         if args.pr_builds:
-            results = check_pr_builds(args.pr_builds, channel, args.platform, args.distro, tmp) if args.pr_builds.is_dir() else {}
+            if args.pr_builds.is_dir():
+                results, next_build = check_pr_builds(args.pr_builds, channel, args.platform, args.distro, tmp)
         elif args.old and args.new:
             results[args.new.name] = compare(args.old, args.new, tmp / "work")
         else:
@@ -513,7 +548,7 @@ def main() -> int:
         args.json.write_text(json.dumps(results, indent=2))
     if args.summary:
         if args.pr_builds:
-            lines = pr_summary(results, args.distro, args.platform, channel)
+            lines = pr_summary(results, args.distro, args.platform, channel, next_build)
         else:
             lines = ["### ABI check", "", "| package | old → new | verdict | libraries |", "|---|---|---|---|"]
             for name, res in results.items():
