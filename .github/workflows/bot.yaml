@@ -15,7 +15,7 @@
 #   from anyone): the bot opens a PR that adds the packages; maintainers review it.
 #   Every other command is for owners, members and collaborators.
 #
-# PRs are opened with the robostack-bot GitHub App (vars.ROBOSTACK_BOT_APP_ID +
+# PRs are opened with the robostack-bot GitHub App (vars.ROBOSTACK_BOT_CLIENT_ID +
 # secrets.ROBOSTACK_BOT_PRIVATE_KEY, falling back to secrets.GHA_PAT) so CI runs on them.
 name: robostack-bot
 
@@ -99,10 +99,10 @@ jobs:
     steps:
       - name: Bot token
         id: app
-        if: vars.ROBOSTACK_BOT_APP_ID != ''
+        if: vars.ROBOSTACK_BOT_CLIENT_ID != ''
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.ROBOSTACK_BOT_APP_ID }}
+          client-id: ${{ vars.ROBOSTACK_BOT_CLIENT_ID }}
           private-key: ${{ secrets.ROBOSTACK_BOT_PRIVATE_KEY }}
       - uses: actions/checkout@v6
         with:
