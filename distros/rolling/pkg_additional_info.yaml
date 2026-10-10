@@ -83,7 +83,7 @@ zenoh_cpp_vendor:
 gz_gui_vendor:
   build_number: 30
 gz_sim_vendor:
-  build_number: 30
+  build_number: 31
 ros2cli:
   # Rebuild with the shell completions under the names bash/zsh/fish load (patch).
   build_number: 30
@@ -113,10 +113,276 @@ rviz_rendering_tests:
   build_number: 30
 rviz_satellite:
   # Rebuild with qt6-main 6.11 (b29 was built against qt6-main 6.12, which pyqt6 6.11 can't install with).
-  build_number: 30
+  build_number: 31
 rviz_visual_testing_framework:
   # Rebuild with qt6-main 6.11 (b29 was built against qt6-main 6.12, which pyqt6 6.11 can't install with).
   build_number: 30
 turtlesim:
   # Rebuild with qt6-main 6.11 (b29 was built against qt6-main 6.12, which pyqt6 6.11 can't install with).
   build_number: 30
+backward_ros:
+  build_number: 31
+rmf_traffic_ros2:
+  build_number: 31
+rtabmap:
+  build_number: 31
+visp:
+  build_number: 31
+ackermann_steering_controller:
+  build_number: 31
+admittance_controller:
+  build_number: 31
+battery_state_broadcaster:
+  build_number: 31
+bicycle_steering_controller:
+  build_number: 31
+control_toolbox:
+  build_number: 31
+controller_manager:
+  build_number: 31
+diff_drive_controller:
+  build_number: 31
+force_torque_sensor_broadcaster:
+  build_number: 31
+forward_command_controller:
+  build_number: 31
+hardware_interface:
+  build_number: 31
+imu_sensor_broadcaster:
+  build_number: 31
+joint_limits:
+  build_number: 31
+joint_state_broadcaster:
+  build_number: 31
+joint_trajectory_controller:
+  build_number: 31
+kinematics_interface:
+  build_number: 31
+kinematics_interface_kdl:
+  build_number: 31
+magnetometer_broadcaster:
+  build_number: 31
+mecanum_drive_controller:
+  build_number: 31
+moveit_common:
+  build_number: 31
+mujoco_ros2_control:
+  build_number: 31
+mujoco_ros2_control_plugins:
+  build_number: 31
+parallel_gripper_controller:
+  build_number: 31
+pid_controller:
+  build_number: 31
+pose_broadcaster:
+  build_number: 31
+range_sensor_broadcaster:
+  build_number: 31
+rmf_fleet_adapter:
+  build_number: 31
+rmf_task_ros2:
+  build_number: 31
+ros2_fmt_logger:
+  build_number: 31
+state_interfaces_broadcaster:
+  build_number: 31
+steering_controllers_library:
+  build_number: 31
+tricycle_controller:
+  build_number: 31
+tricycle_steering_controller:
+  build_number: 31
+ur_robot_driver:
+  build_number: 31
+gz_ros2_control:
+  build_number: 31
+gz_ros2_control_demos:
+  build_number: 31
+ros_gz_sim:
+  build_number: 31
+ros_gz_sim_demos:
+  build_number: 31
+turtlebot3_gazebo:
+  build_number: 31
+rmf_demos:
+  build_number: 31
+rmf_visualization_navgraphs:
+  build_number: 31
+rmf_visualization_rviz2_plugins:
+  build_number: 31
+rmf_visualization_schedule:
+  build_number: 31
+ros2_controllers:
+  build_number: 31
+chained_filter_controller:
+  build_number: 31
+gpio_controllers:
+  build_number: 31
+gps_sensor_broadcaster:
+  build_number: 31
+motion_primitives_controllers:
+  build_number: 31
+moveit_hybrid_planning:
+  build_number: 31
+moveit_resources_fanuc_moveit_config:
+  build_number: 31
+moveit_resources_panda_moveit_config:
+  build_number: 31
+moveit_servo:
+  build_number: 31
+moveit_task_constructor_capabilities:
+  build_number: 31
+moveit_task_constructor_demo:
+  build_number: 31
+mujoco_ros2_control_demos:
+  build_number: 31
+omni_wheel_drive_controller:
+  build_number: 31
+roboplan_ros_franka:
+  build_number: 31
+ros2_control:
+  build_number: 31
+ros2controlcli:
+  build_number: 31
+rqt_controller_manager:
+  build_number: 31
+ur_controllers:
+  build_number: 31
+webots_ros2_control:
+  build_number: 31
+webots_ros2_epuck:
+  build_number: 31
+webots_ros2_husarion:
+  build_number: 31
+webots_ros2_tiago:
+  build_number: 31
+webots_ros2_turtlebot:
+  build_number: 31
+webots_ros2_universal_robot:
+  build_number: 31
+controller_interface:
+  build_number: 31
+hardware_interface_testing:
+  build_number: 31
+transmission_interface:
+  build_number: 31
+chomp_motion_planner:
+  build_number: 31
+moveit_core:
+  build_number: 31
+moveit_kinematics:
+  build_number: 31
+moveit_planners_chomp:
+  build_number: 31
+moveit_planners_ompl:
+  build_number: 31
+moveit_planners_stomp:
+  build_number: 31
+moveit_ros_benchmarks:
+  build_number: 31
+moveit_ros_control_interface:
+  build_number: 31
+moveit_ros_move_group:
+  build_number: 31
+moveit_ros_occupancy_map_monitor:
+  build_number: 31
+moveit_ros_perception:
+  build_number: 31
+moveit_ros_planning:
+  build_number: 31
+moveit_ros_planning_interface:
+  build_number: 31
+moveit_ros_robot_interaction:
+  build_number: 31
+moveit_ros_trajectory_cache:
+  build_number: 31
+moveit_ros_visualization:
+  build_number: 31
+moveit_ros_warehouse:
+  build_number: 31
+moveit_setup_framework:
+  build_number: 31
+moveit_simple_controller_manager:
+  build_number: 31
+moveit_visual_tools:
+  build_number: 31
+pilz_industrial_motion_planner:
+  build_number: 31
+pilz_industrial_motion_planner_testutils:
+  build_number: 31
+rviz_marker_tools:
+  build_number: 31
+rmf_fleet_adapter_python:
+  build_number: 31
+rmf_reservation_node:
+  build_number: 31
+ur:
+  build_number: 31
+ur_calibration:
+  build_number: 31
+ur_simulation_gz:
+  build_number: 31
+nav2_minimal_tb3_sim:
+  build_number: 31
+nav2_minimal_tb4_sim:
+  build_number: 31
+ros_gz:
+  build_number: 31
+simulation:
+  build_number: 31
+desktop_full:
+  build_number: 31
+turtlebot3_simulations:
+  build_number: 31
+rmf_visualization:
+  build_number: 31
+moveit_resources:
+  build_number: 31
+moveit_setup_controllers:
+  build_number: 31
+moveit_task_constructor_core:
+  build_number: 31
+moveit_setup_assistant:
+  build_number: 31
+pick_ik:
+  build_number: 31
+ur_moveit_config:
+  build_number: 31
+webots_ros2:
+  build_number: 31
+webots_ros2_tests:
+  build_number: 31
+robotiq_controllers:
+  build_number: 31
+moveit:
+  build_number: 31
+moveit_py:
+  build_number: 31
+moveit_resources_prbt_ikfast_manipulator_plugin:
+  build_number: 31
+moveit_runtime:
+  build_number: 31
+moveit_task_constructor_visualization:
+  build_number: 31
+trac_ik_kinematics_plugin:
+  build_number: 31
+moveit_planners:
+  build_number: 31
+moveit_ros:
+  build_number: 31
+moveit_resources_prbt_moveit_config:
+  build_number: 31
+moveit_setup_app_plugins:
+  build_number: 31
+moveit_setup_core_plugins:
+  build_number: 31
+moveit_setup_srdf_plugins:
+  build_number: 31
+moveit_plugins:
+  build_number: 31
+rmf_demos_fleet_adapter:
+  build_number: 31
+moveit_resources_prbt_pg70_support:
+  build_number: 31
+trac_ik:
+  build_number: 31

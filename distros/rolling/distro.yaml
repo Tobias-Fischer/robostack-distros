@@ -2,8 +2,7 @@
 # (everything else is shared, see the README).
 channel_name: robostack-rolling
 upload_target: prefix
-conda_forge_pinning_version: 2026.09.01.16.28.00
-conda_forge_migrations: [giflib6, go_macos, gstreamer128, hdf52, libboost190, pybind11_abi11, urdfdom6,
-  vtk970]
+conda_forge_pinning_version: 2026.10.09.13.11.31
+conda_forge_migrations: [elfutils0196, giflib6, go_macos, gsl28, gstreamer128, hdf52, libboost190, libhwloc2150, proj99, urdfdom6]
 # rolling has no regular sync tags; update-rosdistro-snapshot reads rosdistro master.
 rosdistro_sync: manual
