@@ -22,31 +22,6 @@ packages_exclude:
   # gone in Boost 1.89+ (patch/ros2-sick-safetyscanners-base.patch is for 1.0.3); jazzy
   # never built it
   - sick_safetyscanners2
-  # localtime_r etc. on MSVC; lyrical's/rolling's patch is for 4.8/4.9, ros-jazzy never
-  # built these on Windows
-  - if: win
-    then:
-      - draco_point_cloud_transport
-      - microstrain_inertial_driver
-      - microstrain_inertial_examples
-      # std::tr1 / OpenCV link errors with MSVC; rolling's fix needs a newer tf2_ros,
-      # and ros-jazzy never built it on Windows
-      - microstrain_inertial_rqt
-      # 4.0.4 can't find zstd.lib with MSVC (LNK1181), fixed upstream by lyrical's 6.x;
-      # ros-jazzy never built the plugins on Windows
-      - moveit2_tutorials  # find_package(moveit_task_constructor_core)
-      - moveit_py
-      - moveit_ros_perception
-      - moveit_task_constructor_capabilities
-      # 0.1.8 uses POSIX uint and more (C2061 on win-64); lyrical's/rolling's Windows-ready
-      # patches are for 0.2.0/0.1.6, and ros-jazzy never built these on Windows
-      - moveit_task_constructor_core
-      - moveit_task_constructor_demo
-      - moveit_task_constructor_visualization
-      - point_cloud_transport_plugins
-      # 2.12.4 links python312.lib explicitly (LNK1104); ros-jazzy never built it on Windows
-      - zlib_point_cloud_transport
-      - zstd_point_cloud_transport
 
 packages_select_by_deps:
 
