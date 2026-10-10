@@ -7,6 +7,10 @@
     pixi run rs <distro> update-pinning               # latest conda-forge pinning + rebuild plan
     pixi run rs new-distro NAME --from DISTRO         # add distros/NAME, seeded from DISTRO
     pixi run rs add-package PKG... [DISTRO...] [--preview]   # select packages for building
+    pixi run rs rebuild PKG... [DISTRO...] [--with-dependents]  # per-package build-number bumps
+    pixi run rs rebuild-dependents PR                 # commit the ABI check's suggested rebuilds to the PR
+    pixi run rs update-vinca [REF]                    # move the vinca pin to the newest commit of its branch
+    pixi run rs <distro> dependency-report            # dependency check, kept in a dependency-report issue
     pixi run rs parse-command --body TEXT --association ROLE   # for @robostack-bot comments
 
 Each command prints a markdown summary; `--summary FILE` also writes it to FILE and,
@@ -35,8 +39,13 @@ BOT_COMMANDS = {
     "update-rosdistro-snapshot": "refresh the distribution's rosdistro_snapshot.yaml (opens a PR)",
     "find-stale-packages": "list its published packages built against outdated pins",
     "update-conda-forge-pinning": "move the conda-forge pinning to the latest version, rebuilding what changed pins affect (opens a PR)",
+    "rebuild": "new builds of ROS packages, optionally with everything depending on them (opens a PR)",
+    "rebuild-dependents": "on a pull request: add the rebuilds its ABI check suggests (pushes to its branch)",
+    "update-vinca": "move the vinca pin to the newest commit of its branch (opens a PR)",
+    "dependency-report": "check the dependencies against the pins, in the distribution's dependency-report issue",
 }
-PER_DISTRO_COMMANDS = ("update-rosdistro-snapshot", "find-stale-packages", "update-conda-forge-pinning")
+PER_DISTRO_COMMANDS = ("update-rosdistro-snapshot", "find-stale-packages", "update-conda-forge-pinning",
+                       "dependency-report")
 ALLOWED_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
 
 
@@ -639,14 +648,391 @@ def add_package(packages: list[str], distros: list[str], preview: bool = False) 
     return Result(f"Add {', '.join(wanted)}", "\n".join(lines), changed=True, ok=builds_ok)
 
 
+REBUILD_SEED = "robostack-rebuild-request"
+
+
+def rebuild_plan(requirements: dict, prefix: str, packages: list[str], with_dependents: bool) -> dict[str, str]:
+    """The packages to rebuild, with the reason: the requested ones the distribution
+    builds and, with_dependents, every package depending on them (host or run,
+    transitively; vinca's rebuild planner)."""
+    from vinca import rebuild
+
+    wanted = [p for p in packages if p in requirements]
+    if not with_dependents:
+        return {p: "requested" for p in wanted}
+    # the planner rebuilds the packages using a changed pin and everything that
+    # depends on them: give only the requested packages a made-up pin that changed
+    seeded = {name: {**reqs, "build": [*(reqs.get("build") or []), [REBUILD_SEED]]} if name in wanted else reqs
+              for name, reqs in requirements.items()}
+    planned = rebuild.plan(seeded, [REBUILD_SEED], prefix)
+    return {name: "requested" if name in wanted else reason for name, reason in planned.items()}
+
+
+def rebuild_packages(packages: list[str], distros: list[str], with_dependents: bool = False) -> Result:
+    """New builds of the packages (and, with_dependents, what depends on them) in the
+    given distributions (default: every one that builds them): per-package build
+    numbers above everything on the channel (bump_partial)."""
+    from vinca import rebuild
+
+    wanted = list(dict.fromkeys(n for n in (_package_name(p) for p in packages if p.strip()) if PACKAGE_NAME.match(n)))
+    wanted = wanted[:MAX_PACKAGES]
+    if not wanted:
+        return Result("rebuild: no package given", "Name at least one ROS package.", ok=False)
+    title = f"Rebuild {', '.join(wanted)}" + (" and dependents" if with_dependents else "")
+    lines: list[str] = []
+    changed = False
+    for distro in distros or rs.distros():
+        requirements, prefix = rebuild.requirements_from_vinca(rs.prepare(distro))
+        if missing := [p for p in wanted if p not in requirements]:
+            lines.append(f"- **{distro}** doesn't build {', '.join(f'`{p}`' for p in missing)}")
+        plan = rebuild_plan(requirements, prefix, wanted, with_dependents)
+        if not plan:
+            continue
+        changed = True
+        lines.append(f"- **{distro}**: " + "; ".join(bump_partial(distro, plan)))
+        if dependents := sorted(n for n, reason in plan.items() if reason != "requested"):
+            lines += ["", *_details(f"{distro}: dependents ({len(dependents)})",
+                                    [f"- `{n}`: {plan[n]}" for n in dependents]), ""]
+    if not changed:
+        return Result(f"{title}: nothing to rebuild", "\n".join(lines) or "No distribution builds these packages.")
+    return Result(title, "\n".join(lines), changed=True)
+
+
+ABI_MARKER = "<!-- robostack-abi-check -->"
+ABI_AUTHOR = "github-actions[bot]"  # testpr.yaml's abi-comment job posts with the workflow token
+
+
+def abi_rebuilds(comment: str) -> dict[str, dict[str, int]]:
+    """The pkg_additional_info.yaml entries the ABI check's pull-request comment
+    suggests, per distribution: the ```yaml block in each `#### <distro> <platform>`
+    section (tools/abi_check.py, rebuild_snippet). With several platforms of a
+    distribution, the highest build number of a package."""
+    found: dict[str, dict[str, int]] = {}
+    for section in re.split(r"(?m)^#### ", comment)[1:]:
+        heading, _, body = section.partition("\n")
+        distro = (heading.split() or [""])[0]
+        block = re.search(r"(?ms)^```yaml\n(.*?)^```", body)
+        if not re.match(r"^[a-z]+$", distro) or not block:
+            continue
+        try:
+            entries = yaml.safe_load(block.group(1)) or {}
+        except yaml.YAMLError:
+            continue
+        for name, entry in (entries.items() if isinstance(entries, dict) else []):
+            number = entry.get("build_number") if isinstance(entry, dict) else None
+            if PACKAGE_NAME.match(str(name)) and isinstance(number, int) and not isinstance(number, bool):
+                packages = found.setdefault(distro, {})
+                packages[name] = max(packages.get(name, 0), number)
+    return found
+
+
+def merge_build_numbers(path: Path, entries: dict[str, int]) -> list[str]:
+    """Set the build numbers in a pkg_additional_info.yaml, keeping the other keys of
+    existing entries (and a build number that is already higher). Returns the
+    packages that changed."""
+    from vinca.sort_yaml_keys import sort_mapping_keys
+
+    ry = _ruamel()
+    data = (ry.load(path.read_text()) if path.is_file() else None) or {}
+    changed = []
+    for name, number in sorted(entries.items()):
+        entry = data.get(name)
+        if entry is None:
+            data[name] = {"build_number": number}
+        elif int(entry.get("build_number", -1)) < number:
+            entry["build_number"] = number
+        else:
+            continue
+        changed.append(name)
+    if changed:
+        with path.open("w") as fh:
+            ry.dump(data, fh)
+        sort_mapping_keys(path)  # `pixi run sort` order: build-number entries last
+    return changed
+
+
+def _gh(args: list[str]) -> str:
+    proc = subprocess.run(["gh", *args], cwd=rs.ROOT, capture_output=True, text=True)
+    if proc.returncode:
+        raise RuntimeError(f"gh {' '.join(args[:2])} failed: {tail(proc.stderr, 5)}")
+    return proc.stdout
+
+
+def _repository() -> str:
+    return os.environ.get("GITHUB_REPOSITORY") or _gh(["repo", "view", "--json", "nameWithOwner", "-q",
+                                                       ".nameWithOwner"]).strip()
+
+
+def _abi_comment(repo: str, pr: str) -> str | None:
+    """The ABI check's comment on the pull request (the newest; it is updated in place)."""
+    query = (f'.[] | select(.user.login == {json.dumps(ABI_AUTHOR)}) '
+             f'| select(.body | startswith({json.dumps(ABI_MARKER)})) | .body | @json')
+    out = _gh(["api", "--paginate", f"repos/{repo}/issues/{pr}/comments", "--jq", query])
+    bodies = [json.loads(line) for line in out.splitlines() if line.strip()]
+    return bodies[-1] if bodies else None
+
+
+def _snippets(rebuilds: dict[str, dict[str, int]]) -> list[str]:
+    lines = []
+    for distro, entries in sorted(rebuilds.items()):
+        lines += [f"`distros/{distro}/pkg_additional_info.yaml`:", "", "```yaml",
+                  *[l for name, n in sorted(entries.items()) for l in (f"{name}:", f"  build_number: {n}")], "```", ""]
+    return lines
+
+
+def rebuild_dependents(pr: str) -> Result:
+    """Commit the rebuilds the ABI check suggests to the pull request's own branch."""
+    repo = _repository()
+    title = f"rebuild-dependents #{pr}"
+    pull = json.loads(_gh(["api", f"repos/{repo}/pulls/{pr}"]))
+    comment = _abi_comment(repo, pr)
+    if comment is None:
+        return Result(f"{title}: no ABI check", "The ABI check hasn't commented on this pull request (yet).", ok=False)
+    known = set(rs.distros())
+    rebuilds = {d: e for d, e in abi_rebuilds(comment).items() if d in known}
+    if not rebuilds:
+        return Result(f"{title}: nothing to rebuild", "The ABI check suggests no rebuilds of dependents.")
+    head = pull["head"]
+    if pull.get("state") != "open":
+        return Result(f"{title}: the pull request is closed", "Nothing changed.", ok=False)
+    if (head.get("repo") or {}).get("full_name") != repo:
+        # robostack-bot's token only reaches this repository
+        return Result(f"{title}: can't push to a fork", "\n".join([
+            "This pull request comes from a fork, which robostack-bot can't push to. "
+            "Please add these entries yourself (for a package that already has an entry, set its `build_number`):",
+            "", *_snippets(rebuilds)]), ok=False)
+
+    def git(*args: str, cwd: Path = rs.ROOT) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
+
+    branch = head["ref"]
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp) / "pr"
+        if (fetch := git("fetch", "-q", "origin", f"refs/heads/{branch}")).returncode:
+            return Result(f"{title}: can't fetch `{branch}`", f"```\n{tail(fetch.stderr, 10)}\n```", ok=False)
+        git("worktree", "add", "-q", "--detach", str(work), "FETCH_HEAD")
+        try:
+            lines = []
+            for distro, entries in sorted(rebuilds.items()):
+                info = work / "distros" / distro / "pkg_additional_info.yaml"
+                if not info.parent.is_dir():
+                    lines.append(f"- **{distro}**: not in this branch, skipped")
+                elif changed := merge_build_numbers(info, entries):
+                    lines.append(f"- **{distro}**: " + ", ".join(f"`{n}` → {entries[n]}" for n in changed))
+                else:
+                    lines.append(f"- **{distro}**: already there")
+            if not git("status", "--porcelain", cwd=work).stdout.strip():
+                return Result(f"{title}: already up to date", "\n".join(lines))
+            git("add", "distros", cwd=work)
+            git("-c", "user.name=robostack-bot",
+                "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com",
+                "commit", "-q", "-m", "Rebuild the dependents the ABI check lists", cwd=work)
+            if (push := git("push", "-q", "origin", f"HEAD:refs/heads/{branch}", cwd=work)).returncode:
+                return Result(f"{title}: can't push to `{branch}`", "\n".join([
+                    f"robostack-bot couldn't push to `{branch}`:", "", f"```\n{tail(push.stderr, 10)}\n```", "",
+                    "Please add these entries yourself:", "", *_snippets(rebuilds)]), ok=False)
+            sha = git("rev-parse", "HEAD", cwd=work).stdout.strip()
+        finally:
+            git("worktree", "remove", "--force", str(work))
+    return Result(f"{title}: pushed {sha[:10]} to `{branch}`",
+                  "\n".join(["Build-number bumps from the ABI check's comment:", "", *lines]), changed=True)
+
+
+VINCA_PIN = re.compile(r'(?m)^(vinca\s*=\s*\{\s*git\s*=\s*"(?P<url>[^"]+)"\s*,\s*rev\s*=\s*")(?P<rev>[0-9a-f]{7,40})"')
+# the branch that is followed per vinca repository (others: their default branch)
+VINCA_BRANCHES = {"Tobias-Fischer/vinca": "robostack-integration"}
+VINCA_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$")
+
+
+def vinca_pin(text: str) -> tuple[str, str]:
+    """(owner/repo, rev) of the vinca pin in pixi.toml."""
+    m = VINCA_PIN.search(text)
+    if not m:
+        raise SystemExit('pixi.toml: no `vinca = { git = "https://github.com/...", rev = "..." }` pin')
+    return re.sub(r"^https://github\.com/|\.git$|/$", "", m["url"]), m["rev"]
+
+
+def set_vinca_pin(text: str, rev: str) -> str:
+    return VINCA_PIN.sub(lambda m: f'{m[1]}{rev}"', text, count=1)
+
+
+def _github_api(path: str):
+    import urllib.request
+
+    headers = {"User-Agent": "robostack-bot", "Accept": "application/vnd.github+json"}
+    if token := os.environ.get("GITHUB_TOKEN"):
+        headers["Authorization"] = f"Bearer {token}"
+    request = urllib.request.Request(f"https://api.github.com/{path}", headers=headers)
+    with urllib.request.urlopen(request, timeout=60) as response:
+        return json.load(response)
+
+
+def vinca_changes(repo: str, old: str, new: str, compare: dict) -> list[str]:
+    """The compare link and one line per vinca commit between the pins."""
+    url = f"https://github.com/{repo}/compare/{old[:12]}...{new[:12]}"
+    status = compare.get("status", "ahead")
+    lines = [f"[{repo} `{old[:10]}...{new[:10]}`]({url})"
+             + (f" ({status}: the new pin is not a descendant of the old one)" if status != "ahead" else ""), ""]
+    commits = compare.get("commits") or []
+    for c in commits:
+        message = (c["commit"]["message"].splitlines() or [""])[0]
+        lines.append(f"- [`{c['sha'][:7]}`]({c['html_url']}) {message}")
+    if (total := compare.get("total_commits", len(commits))) > len(commits):
+        lines.append(f"- … and {total - len(commits)} more, see the link")
+    return lines
+
+
+def update_vinca(ref: str | None = None) -> Result:
+    """Move the vinca pin in pixi.toml to the newest commit of its branch (or of ref),
+    then lock, re-render the pinning and run the repository checks."""
+    pixi = rs.ROOT / "pixi.toml"
+    text = pixi.read_text()
+    repo, old = vinca_pin(text)
+    if ref and not VINCA_REF.match(ref):
+        return Result(f"update-vinca: invalid ref {ref!r}", "Give a branch, tag or commit of vinca.", ok=False)
+    branch = ref or VINCA_BRANCHES.get(repo) or _github_api(f"repos/{repo}")["default_branch"]
+    new = _github_api(f"repos/{repo}/commits/{branch}")["sha"]
+    if new.startswith(old):
+        return Result("vinca is up to date", f"vinca is pinned to `{old[:10]}`, the newest commit of {repo} `{branch}`.")
+    compare = _github_api(f"repos/{repo}/compare/{old}...{new}")
+    pixi.write_text(set_vinca_pin(text, new))
+    lines = [f"Moves the vinca pin in `pixi.toml` to the newest commit of {repo} `{branch}`:", "",
+             *vinca_changes(repo, old, new, compare), ""]
+    print("pixi lock", flush=True)
+    lock = subprocess.run(["pixi", "lock"], cwd=rs.ROOT, capture_output=True, text=True)
+    if lock.returncode:
+        return Result("update-vinca: pixi lock failed", f"```\n{tail(lock.stdout + lock.stderr, 40)}\n```", ok=False)
+    # the new vinca may render the pinning differently
+    before = {p: p.read_text() for p in rs.DISTROS.glob("*/conda_build_config.yaml")}
+    render = subprocess.run(["pixi", "run", "render-pinning"], cwd=rs.ROOT, capture_output=True, text=True)
+    rendered = sorted(str(p.relative_to(rs.ROOT)) for p, t in before.items() if p.read_text() != t)
+    if render.returncode:
+        lines.append(f"❌ `pixi run render-pinning` failed:\n\n```\n{tail(render.stdout + render.stderr, 30)}\n```")
+    elif rendered:
+        lines.append("The new vinca renders the pinning differently: " + ", ".join(f"`{p}`" for p in rendered))
+    print("pixi run rs check", flush=True)
+    checked = subprocess.run(["pixi", "run", "rs", "check"], cwd=rs.ROOT, capture_output=True, text=True)
+    lines += ["", "`pixi run rs check`: " + ("✅ ok" if checked.returncode == 0 else
+                                            f"❌ problems:\n\n```\n{tail(checked.stdout + checked.stderr, 40)}\n```")]
+    return Result(f"Update vinca to {new[:10]}", "\n".join(lines), changed=True)
+
+
+REPORT_LABEL = "dependency-report"
+REPORT_MARKER = "<!-- robostack-dependency-report -->"
+MAX_ISSUE_BODY = 60000  # GitHub's limit is 65536 characters
+
+
+def migration_status(output: str) -> str:
+    """The conda-forge migration section of check_dependency_compat.py's output."""
+    m = re.search(r"(?ms)^conda-forge migration status.*?(?=^Legend:|\Z)", output)
+    return m.group(0).strip() if m else ""
+
+
+def report_issue_body(distro: str, data: dict, migrations: str = "", run_url: str = "") -> str:
+    """The dependency-report issue of a distribution, from check_dependency_compat.py's
+    --json output (pin_conflicts, conflicts, notes) and its migration status."""
+    conflicts, pins, notes = data.get("conflicts") or {}, data.get("pin_conflicts") or {}, data.get("notes") or {}
+    count = len(conflicts) + len(pins)
+    lines = [
+        REPORT_MARKER,
+        f"Weekly dependency check of **{distro}** (linux-64, `pixi run rs {distro} check-deps`): can every non-ROS "
+        f"dependency of its packages be installed together with the pins of `distros/{distro}/conda_build_config.yaml`? "
+        "robostack-bot updates this issue every week and closes it when nothing conflicts.",
+        "",
+        f"**{count} conflict{'s' if count != 1 else ''}**" if count else "✅ **No conflicts.**",
+        "",
+    ]
+    if pins:
+        lines += ["Mutex constraints that contradict the rendered pins:", ""]
+        lines += [f"- `{info.get('mutex')}` vs `{info.get('variant')}`" for info in pins.values()] + [""]
+    if conflicts:
+        lines += ["| dependency | needed by | clashes with |", "|---|---|---|"]
+        for name, info in sorted(conflicts.items()):
+            recipes = info.get("recipes") or []
+            needed = f"{len(recipes)}: " + ", ".join(recipes[:5]) + (" …" if len(recipes) > 5 else "")
+            specs = ", ".join(s for s in info.get("specs") or [] if s != name)
+            lines.append(f"| `{name}`{f' ({specs})' if specs else ''} | {needed} | "
+                         f"{', '.join(f'`{p}`' for p in info.get('pins') or []) or 'not attributed'} |")
+        lines.append("")
+    if notes:
+        lines += ["Notes (run requirements built for a newer glibc than the build floor: they limit the systems "
+                  "they install on, but don't conflict with the pins): " + ", ".join(f"`{n}`" for n in sorted(notes)), ""]
+    if migrations:
+        lines += [*_details("conda-forge migration status", ["```text", migrations, "```"]), ""]
+    if conflicts:
+        explanations = []
+        for name, info in sorted(conflicts.items()):
+            text = "\n".join((info.get("explanation") or "").splitlines()[:30])
+            explanations += [f"**{name}**", "", "```text", text, "```", ""]
+        lines += [*_details("Solver explanations", explanations), ""]
+    if run_url:
+        lines.append(f"[Workflow run]({run_url})")
+    body = "\n".join(lines)
+    if len(body) > MAX_ISSUE_BODY:
+        body = body[:MAX_ISSUE_BODY] + "\n\n… (truncated, see the workflow run)"
+    return body
+
+
+def publish_report(repo: str, distro: str, body: str, conflicts: bool) -> str | None:
+    """Create or update the distribution's dependency-report issue: open while there
+    are conflicts, closed otherwise. Returns its URL."""
+    title = f"{distro}: dependency report"
+    query = f'.[] | select(.title == {json.dumps(title)}) | {{number, state, html_url}} | @json'
+    out = _gh(["api", "--paginate", f"repos/{repo}/issues?labels={REPORT_LABEL}&state=all&per_page=100", "--jq", query])
+    # the open one, else the newest
+    issues = sorted((json.loads(l) for l in out.splitlines() if l.strip()),
+                    key=lambda i: (i["state"] == "open", i["number"]))
+    if not issues and not conflicts:
+        return None
+    with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False) as fh:
+        fh.write(body)
+    try:
+        if issues:
+            issue = issues[-1]
+            _gh(["api", "-X", "PATCH", f"repos/{repo}/issues/{issue['number']}", "-F", f"body=@{fh.name}",
+                 "-f", f"state={'open' if conflicts else 'closed'}"])
+            return issue["html_url"]
+        created = _gh(["api", f"repos/{repo}/issues", "-f", f"title={title}", "-F", f"body=@{fh.name}",
+                       "-f", f"labels[]={REPORT_LABEL}"])
+        return json.loads(created)["html_url"]
+    finally:
+        os.unlink(fh.name)
+
+
+def dependency_report(distro: str) -> Result:
+    """Check the distribution's dependencies against its pins (linux-64) and keep its
+    dependency-report issue up to date (in GitHub Actions; locally only the report)."""
+    work = rs.prepare(distro)
+    with tempfile.TemporaryDirectory() as tmp:
+        out = Path(tmp) / "conflicts.json"
+        proc = subprocess.run([sys.executable, str(rs.TOOLS / "check_dependency_compat.py"), "--platform", "linux-64",
+                               "--json", str(out)], cwd=work, capture_output=True, text=True)
+        data = json.loads(out.read_text()) if out.is_file() else {}
+    print(proc.stdout + proc.stderr, flush=True)
+    if proc.returncode not in (0, 1) or (proc.returncode == 1 and not data):
+        return Result(f"{distro}: dependency check failed", f"```\n{tail(proc.stdout + proc.stderr, 40)}\n```", ok=False)
+    count = len(data.get("conflicts") or {}) + len(data.get("pin_conflicts") or {})
+    run_url = ""
+    if run_id := os.environ.get("GITHUB_RUN_ID"):
+        run_url = f"{os.environ.get('GITHUB_SERVER_URL', 'https://github.com')}/{os.environ.get('GITHUB_REPOSITORY')}/actions/runs/{run_id}"
+    body = report_issue_body(distro, data, migration_status(proc.stdout), run_url)
+    title = f"{distro}: {count} dependency conflict{'s' if count != 1 else ''}" if count else f"{distro}: no dependency conflicts"
+    if not os.environ.get("GITHUB_ACTIONS"):
+        return Result(title, body)
+    url = publish_report(_repository(), distro, body, bool(count))
+    return Result(title, f"Report: {url}" if url else "No conflicts, and no report issue to close.")
+
+
 def _default_ci_yaml() -> str:
     return (rs.TOOLS / "ci_default.yaml").read_text()
 
 
-def parse_command(body: str, association: str) -> list[dict]:
+def parse_command(body: str, association: str, pull_request: str = "") -> list[dict]:
     """What a comment or issue asks for:
 
-    - `@robostack-bot <command> [<distro>... | all]`, `@robostack-bot add-package <pkg>... [<distro>...]`
+    - `@robostack-bot <command> [<distro>... | all]`, `@robostack-bot add-package <pkg>... [<distro>...]`,
+      `@robostack-bot rebuild <pkg>... [<distro>...] [--with-dependents]`, `@robostack-bot update-vinca [<ref>]`,
+      `@robostack-bot rebuild-dependents` (in a comment on the pull request, its number in pull_request)
     - the "robostack-bot command" and "Package request" issue forms
 
     Returns the jobs to run, each {"command", "distro", "args", "preview"} (one per
@@ -681,6 +1067,23 @@ def parse_command(body: str, association: str) -> list[dict]:
         return [{"command": command, "distro": "", "args": " ".join(packages + distros), "preview": False}]
     if not maintainer:
         return []
+    if command == "rebuild":
+        packages = [_package_name(w) for w in words if w.lower() not in known and w.lower() != "all"
+                    and not w.startswith("--")]
+        packages = list(dict.fromkeys(p for p in packages if PACKAGE_NAME.match(p)))[:MAX_PACKAGES]
+        flags = ["--with-dependents"] if any(w.lower() == "--with-dependents" for w in words) else []
+        if not packages:
+            return []
+        return [{"command": command, "distro": "", "args": " ".join(packages + distros + flags), "preview": False}]
+    if command == "rebuild-dependents":
+        if not pull_request.isdigit():
+            return []
+        return [{"command": command, "distro": "", "args": pull_request, "preview": False}]
+    if command == "update-vinca":
+        refs = [w for w in words if w.lower() not in known and w.lower() != "all"]
+        if refs and not VINCA_REF.match(refs[0]):
+            return []
+        return [{"command": command, "distro": "", "args": refs[0] if refs else "", "preview": False}]
     if command in PER_DISTRO_COMMANDS:
         return [{"command": command, "distro": d, "args": "", "preview": False} for d in distros or known]
     return [{"command": command, "distro": "", "args": "", "preview": False}]
@@ -783,13 +1186,33 @@ def main(command: str, argv: list[str], distro: str | None = None) -> int:
         # the text comes from the environment: pixi's task shell would re-parse quotes in it
         parser.add_argument("--body", default=os.environ.get("ROBOSTACK_BOT_BODY", ""))
         parser.add_argument("--association", default=os.environ.get("ROBOSTACK_BOT_ASSOCIATION", ""))
+        parser.add_argument("--pull-request", default=os.environ.get("ROBOSTACK_BOT_PULL_REQUEST", ""),
+                            help="number of the pull request the comment is on")
     if command == "add-package":
         parser.add_argument("names", nargs="+", help="ROS packages, optionally followed by distributions")
         parser.add_argument("--preview", action="store_true", help="don't change files, only report")
+    if command == "rebuild":
+        parser.add_argument("names", nargs="+", help="ROS packages, optionally followed by distributions")
+        parser.add_argument("--with-dependents", action="store_true", help="also every package depending on them")
+    if command == "rebuild-dependents":
+        parser.add_argument("pull_request")
+    if command == "update-vinca":
+        parser.add_argument("ref", nargs="?", help="vinca branch, tag or commit (default: the pinned branch)")
     args = parser.parse_args(argv)
     if command == "parse-command":
-        print(json.dumps(parse_command(args.body, args.association)))
+        print(json.dumps(parse_command(args.body, args.association, args.pull_request)))
         return 0
+    if command == "rebuild":
+        known = set(rs.distros())
+        distros = [n for n in args.names if n in known]
+        packages = [n for n in args.names if n not in known]
+        return report(rebuild_packages(packages, distros, args.with_dependents), args.summary)
+    if command == "rebuild-dependents":
+        return report(rebuild_dependents(args.pull_request), args.summary)
+    if command == "update-vinca":
+        return report(update_vinca(args.ref), args.summary)
+    if command == "dependency-report":
+        return report(dependency_report(distro), args.summary)
     if command == "add-package":
         known = set(rs.distros())
         distros = [n for n in args.names if n in known]
