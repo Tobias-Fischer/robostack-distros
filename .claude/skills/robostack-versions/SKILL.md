@@ -25,8 +25,10 @@ change, or on request) open PRs that already contain the bumps below. Do it by h
     `distros/<d>/conda_build_config.yaml`.
 - **The mutex** (`mutex_package` in `distros/<d>/vinca.yaml`): `ros2-distro-mutex`
   with `upper_bound: x.x`. Packages built with mutex 0.11 can't be installed with
-  0.10 builds. Its `run_constraints` pin the ABI-relevant libraries for users'
-  environments and must agree with the rendered pins.
+  0.10 builds. It has no `run_constraints` (`rs check` enforces it): library versions
+  come from the packages' own dependencies. When an environment resolves to a broken
+  combination, fix the metadata of the package that is wrong (a patch,
+  `pkg_additional_info.yaml`, or a conda-forge repodata patch), never the mutex.
 
 ## Update the snapshot
 
@@ -53,12 +55,10 @@ pixi run rs <d> create-snapshot
 pixi run rs <d> update-pinning      # = bot command: latest pinning + rebuild plan for <d>
 pixi run rs update-pinning          # the same for every distribution
 pixi run rs <d> render-pinning      # after editing shared/pinning or distro.yaml
-pixi run rs <d> check-deps          # solve all non-ROS deps + mutex constraints, nothing built
+pixi run rs <d> check-deps          # solve all non-ROS deps together, nothing built
 ```
 
 `check-deps` reports:
-- `PIN MISMATCH`: a mutex `run_constraints` entry contradicts the rendered pin. Fix
-  `vinca.yaml` or the pinning; never `conda_build_config.yaml`.
 - Per conflicting package: the recipes that need it, the clashing pin, the solver
   explanation and the conda-forge migration status. "no migration" means the feedstock
   only needs a rebuild upstream.
@@ -78,9 +78,8 @@ host requirements, plus everything that depends on them (host or run, transitive
 are rebuilt; the rest keep their published builds.
 
 - **Partial rebuild** (the usual case): those packages get `build_number` = highest
-  released build + 1 in `distros/<d>/pkg_additional_info.yaml`, and when the mutex
-  `run_constraints` changed, the mutex gets a new build at the same version
-  (`mutex_package.build_number`), so all other published packages stay installable.
+  released build + 1 in `distros/<d>/pkg_additional_info.yaml`. The mutex stays as
+  it is, so all other published packages stay installable.
 - **Full rebuild** (more than half of the packages affected): the bump below.
 
 The PR lists the packages and why, the migrations used / waiting for our dependencies'
@@ -102,11 +101,9 @@ rebuilt:
 2. Mutex minor version + 1, e.g. `0.10.0` -> `0.11.0`. Nothing else hard-codes the
    mutex version.
 3. Remove all per-package `build_number` entries in `distros/<d>/pkg_additional_info.yaml`.
-4. Update mutex `run_constraints` to the new pins, then run `check-deps`.
-5. `pixi run rs check`.
+4. `pixi run rs <d> check-deps`, then `pixi run rs check`.
 
-The bot does 1–4. It only moves constraints of the form `<pkg> <version>.*`; ranges
-and other constraints are left for you to check.
+The bot does 1–3.
 
 In the PR, CI uses its cache unless told otherwise. A full rebuild PR sets
 `full_rebuild: true` in `distros/<d>/ci.yaml` (reset after merging).
@@ -123,15 +120,12 @@ In the PR, CI uses its cache unless told otherwise. A full rebuild PR sets
 ```bash
 pixi run rs <d> find-stale                                     # = bot find-stale-packages
 pixi run rs <d> check-deps --stale                             # local artifacts
-pixi run rs <d> check-deps --stale --mutex-only                # only mutex violations
 pixi run rs <d> check-deps --stale --repodata https://conda.anaconda.org/<channel>
 pixi run rs <d> check-deps --stale --delete                    # delete stale local artifacts
 ```
 
 For published stale builds, the report prints the `pkg_additional_info.yaml`
-build-number snippet, a `mutex_package: build_number:` bump (re-publishes the mutex
-with new constraints without changing its version), and the `anaconda remove`
-commands for the old files.
+build-number snippet and the `anaconda remove` commands for the old files.
 
 ## Bump vinca or rattler-build
 

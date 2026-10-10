@@ -65,6 +65,8 @@ jobs:
           cache-write: false  # the build jobs save the pixi environment cache
       - name: Sanity checks (every distribution assembles, generated files up to date, sorted)
         run: pixi run rs check
+      - name: Unit tests of the tooling
+        run: pixi run test
 
   build:
     needs: plan

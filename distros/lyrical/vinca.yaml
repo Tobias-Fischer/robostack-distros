@@ -6,13 +6,9 @@ rosdistro_additional_recipes: rosdistro_additional_recipes.yaml
 build_number: 27
 
 mutex_package:
+  # new build without run_constraints (same version as the published ones)
+  build_number: 28
   name: ros2-distro-mutex
   version: 0.21.0
   upper_bound: x.x
-  run_constraints:
-    - libboost 1.90.*
-    - libboost-devel 1.90.*
-    - pcl 1.15.1.*
-    - libprotobuf 7.35.1.*
-    - vtk 9.7.0.*
 
