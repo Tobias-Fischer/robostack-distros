@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 20bdedf..aaa3d38 100644
+index 75d5822..cbb5971 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -5,8 +5,10 @@ project(apriltag_ros)
@@ -32,7 +32,7 @@ index 20bdedf..aaa3d38 100644
  find_package(apriltag 3.2 REQUIRED)
  
  if(cv_bridge_VERSION VERSION_GREATER_EQUAL 3.3.0)
-@@ -86,7 +96,7 @@ target_link_libraries(pose_estimation
+@@ -98,7 +108,7 @@ target_link_libraries(pose_estimation
    PUBLIC
      apriltag::apriltag
      Eigen3::Eigen
@@ -41,16 +41,3 @@ index 20bdedf..aaa3d38 100644
      conversion
      ${geometry_msgs_TARGETS}
      tf2::tf2
-diff --git a/src/conversion.cpp b/src/conversion.cpp
-index b9b30a8..0ba29ae 100644
---- a/src/conversion.cpp
-+++ b/src/conversion.cpp
-@@ -56,7 +56,7 @@ tf2::toMsg(const std::pair<cv::Mat_<double>, cv::Mat_<double>>& pose)
- 
-     // convert compact rotation vector to angle-axis to quaternion
-     const Eigen::Map<const Eigen::Vector3d> rvec(reinterpret_cast<double*>(pose.second.data));
--    const Eigen::Quaterniond q({rvec.norm(), rvec.normalized()});
-+    const Eigen::Quaterniond q(Eigen::AngleAxisd(rvec.norm(), rvec.normalized()));
- 
-     geometry_msgs::msg::Transform t;
-     tf2::convert(pose.first, t.translation);

@@ -4,12 +4,12 @@ patch_dir: patch
 rosdistro_snapshot: rosdistro_snapshot.yaml
 rosdistro_additional_recipes: rosdistro_additional_recipes.yaml
 
-build_number: 20
+build_number: 21
 
 mutex_package:
   # new build without run_constraints (same version as the published ones)
   build_number: 21
-  version: "0.10.0"
+  version: "0.11.0"
 
 packages_exclude:
 
