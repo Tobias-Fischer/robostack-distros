@@ -16,7 +16,6 @@ patch_dir: patch
 mutex_package:
   name: "ros2-distro-mutex"
   upper_bound: "x.x"
-  run_constraints: []  # vinca requires the key
 
 # pixi used by the generated build workflows; keep in sync with .github/workflows.
 setup_pixi_version: "0.11.0"
