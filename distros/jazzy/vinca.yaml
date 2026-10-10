@@ -22,6 +22,11 @@ packages_exclude:
   # gone in Boost 1.89+ (patch/ros2-sick-safetyscanners-base.patch is for 1.0.3); jazzy
   # never built it
   - sick_safetyscanners2
+  # POSIX sleep() and C++20 designated initializers in its tutorial code (MSVC C3861,
+  # C7555); no other distro builds it on Windows either
+  - if: win
+    then:
+      - moveit2_tutorials
 
 packages_select_by_deps:
 

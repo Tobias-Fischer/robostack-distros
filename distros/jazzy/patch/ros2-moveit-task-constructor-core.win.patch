@@ -49,6 +49,87 @@ index 26c86ac..3d8eeb6 100644
  
  # moveit.task_constructor
  pybind11_add_module(pymoveit_mtc
+diff --git a/python/bindings/src/core.h b/python/bindings/src/core.h
+index 7ab1437..8cd6e62 100644
+--- a/python/bindings/src/core.h
++++ b/python/bindings/src/core.h
+@@ -51,35 +51,38 @@ namespace solvers {
+ class PlannerInterface;
+ }
+ 
+-template <class Stage = moveit::task_constructor::Stage>
+-class PyStage : public Stage, public pybind11::trampoline_self_life_support
++// The template parameters used to be named after the classes they default to
++// (Stage, Generator, ...): MSVC then looks those names up as the namespace's
++// classes, not as the parameters (C3881 / C3210 on the inheriting constructors).
++template <class T = moveit::task_constructor::Stage>
++class PyStage : public T, public pybind11::trampoline_self_life_support
+ {
+ public:
+-	using Stage::Stage;
++	using T::T;
+ 
+ 	void init(const moveit::core::RobotModelConstPtr& robot_model) override {
+-		PYBIND11_OVERRIDE(void, Stage, init, robot_model);
++		PYBIND11_OVERRIDE(void, T, init, robot_model);
+ 	}
+-	void reset() override { PYBIND11_OVERRIDE(void, Stage, reset, ); }
++	void reset() override { PYBIND11_OVERRIDE(void, T, reset, ); }
+ };
+ 
+-template <class Generator = moveit::task_constructor::Generator>
+-class PyGenerator : public PyStage<Generator>
++template <class T = moveit::task_constructor::Generator>
++class PyGenerator : public PyStage<T>
+ {
+ public:
+-	using PyStage<Generator>::PyStage;
+-	bool canCompute() const override { PYBIND11_OVERRIDE_PURE(bool, Generator, canCompute, ); }
+-	void compute() override { PYBIND11_OVERRIDE_PURE(void, Generator, compute, ); }
++	using PyStage<T>::PyStage;
++	bool canCompute() const override { PYBIND11_OVERRIDE_PURE(bool, T, canCompute, ); }
++	void compute() override { PYBIND11_OVERRIDE_PURE(void, T, compute, ); }
+ };
+ 
+-template <class MonitoringGenerator = moveit::task_constructor::MonitoringGenerator>
+-class PyMonitoringGenerator : public PyGenerator<MonitoringGenerator>
++template <class T = moveit::task_constructor::MonitoringGenerator>
++class PyMonitoringGenerator : public PyGenerator<T>
+ {
+ public:
+-	using PyGenerator<MonitoringGenerator>::PyGenerator;
++	using PyGenerator<T>::PyGenerator;
+ 	void onNewSolution(const SolutionBase& s) override {
+ 		// pass solution as pointer to trigger passing by reference
+-		PYBIND11_OVERRIDE_PURE(void, MonitoringGenerator, onNewSolution, &s);
++		PYBIND11_OVERRIDE_PURE(void, T, onNewSolution, &s);
+ 	}
+ };
+ 
+@@ -91,18 +94,18 @@ public:
+ 	using MonitoringGenerator::onNewSolution;
+ };
+ 
+-template <class PropagatingEitherWay = moveit::task_constructor::PropagatingEitherWay>
+-class PyPropagatingEitherWay : public PyStage<PropagatingEitherWay>
++template <class T = moveit::task_constructor::PropagatingEitherWay>
++class PyPropagatingEitherWay : public PyStage<T>
+ {
+ public:
+-	using PyStage<PropagatingEitherWay>::PyStage;
++	using PyStage<T>::PyStage;
+ 	void computeForward(const InterfaceState& from_state) override {
+ 		// pass InterfaceState as pointer to trigger passing by reference
+-		PYBIND11_OVERRIDE_PURE(void, PropagatingEitherWay, computeForward, &from_state);
++		PYBIND11_OVERRIDE_PURE(void, T, computeForward, &from_state);
+ 	}
+ 	void computeBackward(const InterfaceState& to_state) override {
+ 		// pass InterfaceState as pointer to trigger passing by reference
+-		PYBIND11_OVERRIDE_PURE(void, PropagatingEitherWay, computeBackward, &to_state);
++		PYBIND11_OVERRIDE_PURE(void, T, computeBackward, &to_state);
+ 	}
+ };
+ 
 diff --git a/python/bindings/src/properties.cpp b/python/bindings/src/properties.cpp
 index a96b292..1046149 100644
 --- a/python/bindings/src/properties.cpp
