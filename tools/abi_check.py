@@ -39,6 +39,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -226,23 +227,38 @@ def _version_key(v: str):
     return [int(p) if p.isdigit() else 0 for p in v.replace("-", ".").split(".")]
 
 
-def released(channel: str, platform: str, distro: str) -> dict[str, dict[str, dict]]:
-    """The channel's ROS packages: package -> version -> newest real build (with its
-    "file"); vinca's empty compatibility packages are left out."""
-    with _open(f"{channel.rstrip('/')}/{platform}/repodata.json") as r:
-        data = json.load(r)
-    records = list(data.get("packages", {}).items()) + list(data.get("packages.conda", {}).items())
+def _belongs_to(rec: dict, distro: str) -> bool:
+    """A record of this distribution: ros-<distro>-* names, or ros2-* builds pinned to
+    its mutex (a channel such as the test channel can hold several distributions)."""
+    if rec["name"].startswith(f"ros-{distro}-"):
+        return True
+    return any(dep.startswith("ros2-distro-mutex") and f" {distro}_" in dep for dep in rec.get("depends", []))
+
+
+def released(channels: str | list[str], platform: str, distro: str) -> dict[str, dict[str, dict]]:
+    """The ROS packages of the distribution on the channels: package -> version -> newest
+    real build across them (with its "file" and "channel"); vinca's empty compatibility
+    packages are left out."""
     by_name: dict[str, dict[str, dict]] = {}
-    for filename, rec in records:
-        short = short_name(rec["name"], distro)
-        if short is None or _is_compatibility_package(rec):
-            continue
-        versions = by_name.setdefault(short, {})
-        current = versions.get(rec["version"])
-        if current is None or (rec.get("build_number", 0), rec.get("timestamp", 0)) > (
-            current.get("build_number", 0), current.get("timestamp", 0)
-        ):
-            versions[rec["version"]] = {"file": filename, **rec}
+    for channel in [channels] if isinstance(channels, str) else channels:
+        try:
+            with _open(f"{channel.rstrip('/')}/{platform}/repodata.json") as r:
+                data = json.load(r)
+        except urllib.error.HTTPError as error:
+            if error.code == 404:  # no packages for this platform there
+                continue
+            raise
+        records = list(data.get("packages", {}).items()) + list(data.get("packages.conda", {}).items())
+        for filename, rec in records:
+            short = short_name(rec["name"], distro)
+            if short is None or _is_compatibility_package(rec) or not _belongs_to(rec, distro):
+                continue
+            versions = by_name.setdefault(short, {})
+            current = versions.get(rec["version"])
+            if current is None or (rec.get("build_number", 0), rec.get("timestamp", 0)) > (
+                current.get("build_number", 0), current.get("timestamp", 0)
+            ):
+                versions[rec["version"]] = {"file": filename, "channel": channel, **rec}
     return by_name
 
 
@@ -294,16 +310,20 @@ def pin_changes(old: dict, new: dict, distro: str) -> list[str]:
     return [f"{n} {a.get(n, '(none)')} → {b.get(n, '(none)')}" for n in sorted(set(a) | set(b)) if a.get(n) != b.get(n)]
 
 
-def channel_for(distro: str) -> str:
-    """The distribution's release channel (repo.prefix.dev serves repodata directly)."""
+def channel_for(distro: str) -> list[str]:
+    """Where the distribution's builds are published: the channel uploads go to while
+    ROBOSTACK_UPLOAD_CHANNEL is set (e.g. a test channel), then the release channel
+    (repo.prefix.dev serves repodata directly)."""
     sys.path.insert(0, str(Path(__file__).parent))
     import robostack as rs
 
     s = rs.settings(distro)
     name = s.get("channel_name", f"robostack-{distro}")
+    upload = os.environ.get("ROBOSTACK_UPLOAD_CHANNEL", "").strip()
+    extra = [f"https://repo.prefix.dev/{upload}"] if upload and upload != "none" else []
     if s.get("upload_target", "prefix") == "prefix":
-        return f"https://repo.prefix.dev/{name}"
-    return f"https://conda.anaconda.org/{name}"
+        return extra + [f"https://repo.prefix.dev/{name}"]
+    return extra + [f"https://conda.anaconda.org/{name}"]
 
 
 def download(channel: str, platform: str, filename: str, dest: Path) -> Path:
@@ -325,7 +345,8 @@ def linking_dependents(channel, platform, by_name, candidates, sonames, download
         return {"rebuild": candidates, "checked": False}
     rebuild = []
     for name in candidates:
-        pkg = download(channel, platform, newest(by_name[name])["file"], downloads)
+        rec = newest(by_name[name])
+        pkg = download(rec["channel"], platform, rec["file"], downloads)
         target = tmp / "dependent"
         shutil.rmtree(target, ignore_errors=True)
         extract_conda(pkg, target)
@@ -354,7 +375,7 @@ def check_pr_builds(pr_dir: Path, channel: str, platform: str, distro: str, tmp:
         if old["file"] == pkg.name:
             continue
         print(f"{short}: {old['version']} (build {old.get('build_number', 0)}) -> {index['version']} (PR)", flush=True)
-        old_pkg = download(channel, platform, old["file"], downloads)
+        old_pkg = download(old["channel"], platform, old["file"], downloads)
         res = compare(old_pkg, pkg, tmp / "work")
         old_pkg.unlink(missing_ok=True)
         res.update(old=f"{old['version']} (build {old.get('build_number', 0)})", new=index["version"],
@@ -443,7 +464,8 @@ def pr_summary(results: dict, distro: str, platform: str, channel: str) -> list[
             lines += ["Nothing that needs a rebuild of other packages.", ""]
         lines += [f"<details><summary>{len(rest)} packages can be bumped on their own ({summary})</summary>", "",
                   *TABLE_HEADER, *[_row(n, r) for n, r in rest], "", "</details>", ""]
-    return lines + [f"Compared with the newest builds on {channel}/{platform}.", ""]
+    where = " and ".join(f"{c}/{platform}" for c in ([channel] if isinstance(channel, str) else channel))
+    return lines + [f"Compared with the newest builds on {where}.", ""]
 
 
 def main() -> int:
@@ -460,7 +482,7 @@ def main() -> int:
     args = parser.parse_args()
     if sys.platform != "linux":
         raise SystemExit("abidiff reads ELF: run this on Linux")
-    channel = args.channel or channel_for(args.distro)
+    channel = [args.channel] if args.channel else channel_for(args.distro)
 
     results = {}
     with tempfile.TemporaryDirectory() as tmp:
@@ -474,8 +496,8 @@ def main() -> int:
             downloads.mkdir()
             for name, old, new in latest_pairs(channel, args.platform, args.latest_pairs, args.distro):
                 print(f"{name}: {old['version']} -> {new['version']}", flush=True)
-                old_pkg = download(channel, args.platform, old["file"], downloads)
-                new_pkg = download(channel, args.platform, new["file"], downloads)
+                old_pkg = download(old["channel"], args.platform, old["file"], downloads)
+                new_pkg = download(new["channel"], args.platform, new["file"], downloads)
                 res = compare(old_pkg, new_pkg, tmp / "work")
                 res.update(old=old["version"], new=new["version"])
                 results[name] = res
