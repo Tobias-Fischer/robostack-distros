@@ -1,10 +1,12 @@
-diff -ruN a/CMakeLists.txt b/CMakeLists.txt
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 3fd1801..a527ae9 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -1,6 +1,9 @@
+@@ -1,7 +1,10 @@
  # Top-Level CmakeLists.txt
 -cmake_minimum_required(VERSION 3.14)
 +cmake_minimum_required(VERSION 3.18)
+ 
  PROJECT( RTABMap )
 +if(POLICY CMP0167)
 +  cmake_policy(SET CMP0167 NEW)
@@ -12,26 +14,7 @@ diff -ruN a/CMakeLists.txt b/CMakeLists.txt
  SET(PROJECT_PREFIX rtabmap)
  
  # Catkin doesn't support multiarch library path, 
-@@ -84,12 +87,12 @@
- ENDIF(MINGW)
- 
- # GCC 4 required
--IF(UNIX OR MINGW)
--    EXEC_PROGRAM( gcc ARGS "-dumpversion" OUTPUT_VARIABLE GCC_VERSION )
--    IF(GCC_VERSION VERSION_LESS "4.0.0")
--        MESSAGE(FATAL_ERROR "GCC ${GCC_VERSION} found, but version 4.x.x minimum is required")
--    ENDIF(GCC_VERSION VERSION_LESS "4.0.0")
--ENDIF(UNIX OR MINGW)
-+# IF(UNIX OR MINGW)
-+#     EXEC_PROGRAM( gcc ARGS "-dumpversion" OUTPUT_VARIABLE GCC_VERSION )
-+#     IF(GCC_VERSION VERSION_LESS "4.0.0")
-+#         MESSAGE(FATAL_ERROR "GCC ${GCC_VERSION} found, but version 4.x.x minimum is required")
-+#     ENDIF(GCC_VERSION VERSION_LESS "4.0.0")
-+# ENDIF(UNIX OR MINGW)
- 
- #The CDT Error Parser cannot handle error messages that span 
- #more than one line, which is the default gcc behavior. 
-@@ -234,8 +237,26 @@
+@@ -241,7 +244,25 @@ option(BUILD_WITH_RPATH_NOT_RUNPATH "Explicitly disable usage of RUNPATH for the
  set(RTABMAP_QT_VERSION AUTO CACHE STRING "Force a specific Qt version.")
  set_property(CACHE RTABMAP_QT_VERSION PROPERTY STRINGS AUTO 4 5 6)
  
@@ -43,7 +26,7 @@ diff -ruN a/CMakeLists.txt b/CMakeLists.txt
 +SET(RTABMAP_OpenCV_COMPONENTS_4 core imgproc highgui stitching photo video videoio calib3d)
 +SET(RTABMAP_OpenCV_OPTIONAL_COMPONENTS_5 objdetect xfeatures2d nonfree gpu cudafeatures2d cudaoptflow cudaimgproc)
 +SET(RTABMAP_OpenCV_OPTIONAL_COMPONENTS_4 aruco objdetect xfeatures2d nonfree gpu cudafeatures2d cudaoptflow cudaimgproc)
- 
++
 +# Probe OpenCV without a version constraint first, then request the components
 +# matching the detected major version. A version-constrained find that fails to
 +# match (e.g. asking for 5 when only 4 is present) resets OpenCV_DIR to NOTFOUND,
@@ -55,11 +38,10 @@ diff -ruN a/CMakeLists.txt b/CMakeLists.txt
 +ELSE()
 +  FIND_PACKAGE(OpenCV REQUIRED QUIET COMPONENTS ${RTABMAP_OpenCV_COMPONENTS_4} OPTIONAL_COMPONENTS ${RTABMAP_OpenCV_OPTIONAL_COMPONENTS_4})
 +ENDIF()
-+
+ 
  IF(WITH_QT)
  FIND_PACKAGE(PCL 1.7 REQUIRED QUIET COMPONENTS common io kdtree search surface filters registration sample_consensus segmentation visualization)
- ELSE()
-@@ -494,7 +515,10 @@
+@@ -501,7 +522,10 @@ IF(WITH_DC1394)
  ENDIF(WITH_DC1394)
  
  IF(WITH_G2O)
@@ -68,9 +50,9 @@ diff -ruN a/CMakeLists.txt b/CMakeLists.txt
      FIND_PACKAGE(g2o NO_MODULE)
 +    SET(CMAKE_FIND_PACKAGE_PREFER_CONFIG ${_RTABMAP_CMAKE_FIND_PACKAGE_PREFER_CONFIG})
      IF(g2o_FOUND)
-        MESSAGE(STATUS "Found g2o (targets)")
-          SET(G2O_FOUND ${g2o_FOUND})
-@@ -530,8 +554,10 @@
+         MESSAGE(STATUS "Found g2o (targets)")
+         SET(G2O_FOUND ${g2o_FOUND})
+@@ -536,8 +560,10 @@ IF(WITH_G2O)
  ENDIF(WITH_G2O)
  
  IF(WITH_GTSAM)
@@ -79,22 +61,10 @@ diff -ruN a/CMakeLists.txt b/CMakeLists.txt
 +    SET(CMAKE_FIND_PACKAGE_PREFER_CONFIG TRUE)
      FIND_PACKAGE(GTSAM CONFIG QUIET)
 +    SET(CMAKE_FIND_PACKAGE_PREFER_CONFIG ${_RTABMAP_CMAKE_FIND_PACKAGE_PREFER_CONFIG})
- ENDIF(WITH_GTSAM)
- 
- IF(WITH_MRPT)
-@@ -576,9 +602,9 @@
- ENDIF(WITH_POINTMATCHER)
- 
- IF(libpointmatcher_FOUND OR GTSAM_FOUND)
--    find_package(Boost COMPONENTS thread filesystem system program_options date_time REQUIRED)
-+    find_package(Boost COMPONENTS thread filesystem program_options date_time REQUIRED)
-     IF(Boost_MINOR_VERSION GREATER 47)
--        find_package(Boost COMPONENTS thread filesystem system program_options date_time chrono timer serialization REQUIRED)
-+        find_package(Boost COMPONENTS thread filesystem program_options date_time chrono timer serialization REQUIRED)
-     ENDIF(Boost_MINOR_VERSION GREATER 47)
-     IF(WIN32)
-         MESSAGE(STATUS "Boost_LIBRARY_DIRS=${Boost_LIBRARY_DIRS}")
-@@ -1207,6 +1233,18 @@
+     IF(GTSAM_FOUND)
+       # For issue https://github.com/introlab/rtabmap/pull/1626
+       FIND_FILE(GTSAM_NOISE_MODEL_FACTOR_N_FILE gtsam/nonlinear/NoiseModelFactorN.h
+@@ -1318,6 +1344,18 @@ install(EXPORT rtabmapTargets
  ####
  # Setup RTABMapConfig.cmake
  ####
@@ -113,7 +83,8 @@ diff -ruN a/CMakeLists.txt b/CMakeLists.txt
  include(CMakePackageConfigHelpers)
  write_basic_package_version_file(
    "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake"
-diff -ruN a/RTABMapConfig.cmake.in b/RTABMapConfig.cmake.in
+diff --git a/RTABMapConfig.cmake.in b/RTABMapConfig.cmake.in
+index 155ef3e..713359b 100644
 --- a/RTABMapConfig.cmake.in
 +++ b/RTABMapConfig.cmake.in
 @@ -1,7 +1,7 @@
@@ -125,10 +96,26 @@ diff -ruN a/RTABMapConfig.cmake.in b/RTABMapConfig.cmake.in
  
  if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/RTABMap_guiTargets.cmake")
      find_dependency(PCL 1.7 COMPONENTS common io kdtree search surface filters registration sample_consensus segmentation visualization)
-diff -ruN a/corelib/include/rtabmap/core/DBDriverSqlite3.h b/corelib/include/rtabmap/core/DBDriverSqlite3.h
+diff --git a/app/src/main.cpp b/app/src/main.cpp
+index 914a349..b0170f2 100644
+--- a/app/src/main.cpp
++++ b/app/src/main.cpp
+@@ -25,6 +25,10 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+ 
++#ifdef WIN32
++#include <objbase.h>
++#endif
++
+ #include <QApplication>
+ #include <QtCore/QDir>
+ #include "rtabmap/utilite/UEventsManager.h"
+diff --git a/corelib/include/rtabmap/core/DBDriverSqlite3.h b/corelib/include/rtabmap/core/DBDriverSqlite3.h
+index a5df8e9..ad7358d 100644
 --- a/corelib/include/rtabmap/core/DBDriverSqlite3.h
 +++ b/corelib/include/rtabmap/core/DBDriverSqlite3.h
-@@ -30,7 +30,11 @@
+@@ -30,7 +30,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
  #include "rtabmap/core/rtabmap_core_export.h" // DLL export/import defines
  #include "rtabmap/core/DBDriver.h"
@@ -140,10 +127,11 @@ diff -ruN a/corelib/include/rtabmap/core/DBDriverSqlite3.h b/corelib/include/rta
  
  typedef struct sqlite3_stmt sqlite3_stmt;
  typedef struct sqlite3 sqlite3;
-diff -ruN a/corelib/include/rtabmap/core/EpipolarGeometry.h b/corelib/include/rtabmap/core/EpipolarGeometry.h
+diff --git a/corelib/include/rtabmap/core/EpipolarGeometry.h b/corelib/include/rtabmap/core/EpipolarGeometry.h
+index e9408cd..ea490d3 100644
 --- a/corelib/include/rtabmap/core/EpipolarGeometry.h
 +++ b/corelib/include/rtabmap/core/EpipolarGeometry.h
-@@ -31,7 +31,14 @@
+@@ -31,7 +31,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/core/Parameters.h"
  #include "rtabmap/utilite/UStl.h"
  #include <opencv2/core/core.hpp>
@@ -158,10 +146,11 @@ diff -ruN a/corelib/include/rtabmap/core/EpipolarGeometry.h b/corelib/include/rt
  #include <pcl/point_cloud.h>
  #include <pcl/point_types.h>
  #include <list>
-diff -ruN a/corelib/include/rtabmap/core/Features2d.h b/corelib/include/rtabmap/core/Features2d.h
+diff --git a/corelib/include/rtabmap/core/Features2d.h b/corelib/include/rtabmap/core/Features2d.h
+index eec3f57..82a6ddb 100644
 --- a/corelib/include/rtabmap/core/Features2d.h
 +++ b/corelib/include/rtabmap/core/Features2d.h
-@@ -32,7 +32,11 @@
+@@ -32,7 +32,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
  #include <opencv2/highgui/highgui.hpp>
  #include <opencv2/core/core.hpp>
@@ -173,7 +162,7 @@ diff -ruN a/corelib/include/rtabmap/core/Features2d.h b/corelib/include/rtabmap/
  #include <list>
  #include <numeric>
  #include "rtabmap/core/Parameters.h"
-@@ -70,6 +74,10 @@
+@@ -70,6 +74,10 @@ class BriefDescriptorExtractor;
  class SIFT;
  #endif
  class SURF;
@@ -184,7 +173,7 @@ diff -ruN a/corelib/include/rtabmap/core/Features2d.h b/corelib/include/rtabmap/
  }
  namespace cuda {
  class FastFeatureDetector;
-@@ -89,7 +97,13 @@
+@@ -89,7 +97,13 @@ typedef cv::xfeatures2d::FREAK CV_FREAK;
  typedef cv::xfeatures2d::DAISY CV_DAISY;
  typedef cv::GFTTDetector CV_GFTT;
  typedef cv::xfeatures2d::BriefDescriptorExtractor CV_BRIEF;
@@ -198,7 +187,7 @@ diff -ruN a/corelib/include/rtabmap/core/Features2d.h b/corelib/include/rtabmap/
  typedef cv::ORB CV_ORB;
  typedef cv::cuda::SURF_CUDA CV_SURF_GPU;
  typedef cv::cuda::ORB CV_ORB_GPU;
-@@ -573,7 +587,7 @@
+@@ -578,7 +592,7 @@ private:
  	int diffusivity_;
  
  #if CV_MAJOR_VERSION > 2
@@ -207,10 +196,11 @@ diff -ruN a/corelib/include/rtabmap/core/Features2d.h b/corelib/include/rtabmap/
  #endif
  };
  
-diff -ruN a/corelib/include/rtabmap/core/Memory.h b/corelib/include/rtabmap/core/Memory.h
+diff --git a/corelib/include/rtabmap/core/Memory.h b/corelib/include/rtabmap/core/Memory.h
+index 8c3306a..543b834 100644
 --- a/corelib/include/rtabmap/core/Memory.h
 +++ b/corelib/include/rtabmap/core/Memory.h
-@@ -41,7 +41,11 @@
+@@ -41,7 +41,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <set>
  #include "rtabmap/utilite/UStl.h"
  #include <opencv2/core/core.hpp>
@@ -222,10 +212,11 @@ diff -ruN a/corelib/include/rtabmap/core/Memory.h b/corelib/include/rtabmap/core
  #include <pcl/pcl_config.h>
  
  namespace rtabmap {
-diff -ruN a/corelib/include/rtabmap/core/OdometryInfo.h b/corelib/include/rtabmap/core/OdometryInfo.h
+diff --git a/corelib/include/rtabmap/core/OdometryInfo.h b/corelib/include/rtabmap/core/OdometryInfo.h
+index 484692b..4f96a59 100644
 --- a/corelib/include/rtabmap/core/OdometryInfo.h
 +++ b/corelib/include/rtabmap/core/OdometryInfo.h
-@@ -34,7 +34,11 @@
+@@ -34,7 +34,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/core/RegistrationInfo.h"
  #include "rtabmap/core/CameraModel.h"
  #include "rtabmap/core/LaserScan.h"
@@ -237,10 +228,11 @@ diff -ruN a/corelib/include/rtabmap/core/OdometryInfo.h b/corelib/include/rtabma
  
  namespace rtabmap {
  
-diff -ruN a/corelib/include/rtabmap/core/SensorData.h b/corelib/include/rtabmap/core/SensorData.h
+diff --git a/corelib/include/rtabmap/core/SensorData.h b/corelib/include/rtabmap/core/SensorData.h
+index ea5a5de..a088755 100644
 --- a/corelib/include/rtabmap/core/SensorData.h
 +++ b/corelib/include/rtabmap/core/SensorData.h
-@@ -34,7 +34,11 @@
+@@ -34,7 +34,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/core/StereoCameraModel.h>
  #include <rtabmap/core/Transform.h>
  #include <opencv2/core/core.hpp>
@@ -252,10 +244,11 @@ diff -ruN a/corelib/include/rtabmap/core/SensorData.h b/corelib/include/rtabmap/
  #include <rtabmap/core/LaserScan.h>
  #include <rtabmap/core/IMU.h>
  #include <rtabmap/core/GPS.h>
-diff -ruN a/corelib/include/rtabmap/core/Signature.h b/corelib/include/rtabmap/core/Signature.h
+diff --git a/corelib/include/rtabmap/core/Signature.h b/corelib/include/rtabmap/core/Signature.h
+index 9dbbe53..11f6f9c 100644
 --- a/corelib/include/rtabmap/core/Signature.h
 +++ b/corelib/include/rtabmap/core/Signature.h
-@@ -31,7 +31,11 @@
+@@ -31,7 +31,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
  #include <pcl/point_types.h>
  #include <opencv2/core/core.hpp>
@@ -267,10 +260,11 @@ diff -ruN a/corelib/include/rtabmap/core/Signature.h b/corelib/include/rtabmap/c
  #include <opencv2/imgproc/imgproc.hpp>
  #include <map>
  #include <list>
-diff -ruN a/corelib/include/rtabmap/core/Statistics.h b/corelib/include/rtabmap/core/Statistics.h
+diff --git a/corelib/include/rtabmap/core/Statistics.h b/corelib/include/rtabmap/core/Statistics.h
+index 1cdaf40..f787d9b 100644
 --- a/corelib/include/rtabmap/core/Statistics.h
 +++ b/corelib/include/rtabmap/core/Statistics.h
-@@ -31,7 +31,11 @@
+@@ -31,7 +31,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/core/rtabmap_core_export.h" // DLL export/import defines
  
  #include <opencv2/core/core.hpp>
@@ -282,10 +276,11 @@ diff -ruN a/corelib/include/rtabmap/core/Statistics.h b/corelib/include/rtabmap/
  #include <opencv2/imgproc/imgproc.hpp>
  #include <list>
  #include <vector>
-diff -ruN a/corelib/include/rtabmap/core/VWDictionary.h b/corelib/include/rtabmap/core/VWDictionary.h
+diff --git a/corelib/include/rtabmap/core/VWDictionary.h b/corelib/include/rtabmap/core/VWDictionary.h
+index ebfa3a6..3a7e195 100644
 --- a/corelib/include/rtabmap/core/VWDictionary.h
 +++ b/corelib/include/rtabmap/core/VWDictionary.h
-@@ -31,7 +31,11 @@
+@@ -31,7 +31,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
  #include <opencv2/highgui/highgui.hpp>
  #include <opencv2/core/core.hpp>
@@ -297,10 +292,11 @@ diff -ruN a/corelib/include/rtabmap/core/VWDictionary.h b/corelib/include/rtabma
  #include <list>
  #include <set>
  #include "rtabmap/core/Parameters.h"
-diff -ruN a/corelib/include/rtabmap/core/stereo/stereoRectifyFisheye.h b/corelib/include/rtabmap/core/stereo/stereoRectifyFisheye.h
+diff --git a/corelib/include/rtabmap/core/stereo/stereoRectifyFisheye.h b/corelib/include/rtabmap/core/stereo/stereoRectifyFisheye.h
+index 2fc12a2..9d07bd6 100644
 --- a/corelib/include/rtabmap/core/stereo/stereoRectifyFisheye.h
 +++ b/corelib/include/rtabmap/core/stereo/stereoRectifyFisheye.h
-@@ -32,12 +32,24 @@
+@@ -32,12 +32,24 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #ifndef CORELIB_SRC_OPENCV_STEREORECTIFYFISHEYE_H_
  #define CORELIB_SRC_OPENCV_STEREORECTIFYFISHEYE_H_
  
@@ -325,10 +321,11 @@ diff -ruN a/corelib/include/rtabmap/core/stereo/stereoRectifyFisheye.h b/corelib
  
  // Opencv4 doesn't expose those functions below anymore, we should recopy all of them!
  int cvRodrigues2( const CvMat* src, CvMat* dst, CvMat* jacobian CV_DEFAULT(0))
-diff -ruN a/corelib/include/rtabmap/core/util3d_correspondences.h b/corelib/include/rtabmap/core/util3d_correspondences.h
+diff --git a/corelib/include/rtabmap/core/util3d_correspondences.h b/corelib/include/rtabmap/core/util3d_correspondences.h
+index 6bbaeb2..d53ece4 100644
 --- a/corelib/include/rtabmap/core/util3d_correspondences.h
 +++ b/corelib/include/rtabmap/core/util3d_correspondences.h
-@@ -32,7 +32,12 @@
+@@ -32,7 +32,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
  #include <pcl/point_cloud.h>
  #include <pcl/point_types.h>
@@ -341,10 +338,11 @@ diff -ruN a/corelib/include/rtabmap/core/util3d_correspondences.h b/corelib/incl
  #include <set>
  #include <map>
  #include <list>
-diff -ruN a/corelib/include/rtabmap/core/util3d_features.h b/corelib/include/rtabmap/core/util3d_features.h
+diff --git a/corelib/include/rtabmap/core/util3d_features.h b/corelib/include/rtabmap/core/util3d_features.h
+index 2ea95bf..6547e5c 100644
 --- a/corelib/include/rtabmap/core/util3d_features.h
 +++ b/corelib/include/rtabmap/core/util3d_features.h
-@@ -30,7 +30,12 @@
+@@ -30,7 +30,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
  #include <rtabmap/core/rtabmap_core_export.h>
  
@@ -357,10 +355,11 @@ diff -ruN a/corelib/include/rtabmap/core/util3d_features.h b/corelib/include/rta
  #include <rtabmap/core/Transform.h>
  #include <rtabmap/core/CameraModel.h>
  #include <rtabmap/core/StereoCameraModel.h>
-diff -ruN a/corelib/src/CameraModel.cpp b/corelib/src/CameraModel.cpp
+diff --git a/corelib/src/CameraModel.cpp b/corelib/src/CameraModel.cpp
+index 04b7732..507de6f 100644
 --- a/corelib/src/CameraModel.cpp
 +++ b/corelib/src/CameraModel.cpp
-@@ -34,6 +34,9 @@
+@@ -34,6 +34,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UMath.h>
  #include <rtabmap/utilite/UStl.h>
  #include <opencv2/imgproc/imgproc.hpp>
@@ -370,10 +369,11 @@ diff -ruN a/corelib/src/CameraModel.cpp b/corelib/src/CameraModel.cpp
  
  namespace rtabmap {
  
-diff -ruN a/corelib/src/EpipolarGeometry.cpp b/corelib/src/EpipolarGeometry.cpp
+diff --git a/corelib/src/EpipolarGeometry.cpp b/corelib/src/EpipolarGeometry.cpp
+index 38f1584..758a14a 100644
 --- a/corelib/src/EpipolarGeometry.cpp
 +++ b/corelib/src/EpipolarGeometry.cpp
-@@ -33,8 +33,11 @@
+@@ -33,8 +33,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/UMath.h"
  
  #include <opencv2/core/core.hpp>
@@ -386,10 +386,11 @@ diff -ruN a/corelib/src/EpipolarGeometry.cpp b/corelib/src/EpipolarGeometry.cpp
  #include <iostream>
  
  namespace rtabmap
-diff -ruN a/corelib/src/Features2d.cpp b/corelib/src/Features2d.cpp
+diff --git a/corelib/src/Features2d.cpp b/corelib/src/Features2d.cpp
+index da83db7..184a4d8 100644
 --- a/corelib/src/Features2d.cpp
 +++ b/corelib/src/Features2d.cpp
-@@ -36,7 +36,6 @@
+@@ -36,7 +36,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/UMath.h"
  #include "rtabmap/utilite/ULogger.h"
  #include "rtabmap/utilite/UTimer.h"
@@ -397,7 +398,7 @@ diff -ruN a/corelib/src/Features2d.cpp b/corelib/src/Features2d.cpp
  #include <opencv2/core/version.hpp>
  #include <opencv2/opencv_modules.hpp>
  
-@@ -857,7 +856,7 @@
+@@ -865,7 +864,7 @@ std::vector<cv::KeyPoint> Feature2D::generateKeypoints(const cv::Mat & image, co
  		cv::cornerSubPix( image, corners,
  				cv::Size( _subPixWinSize, _subPixWinSize ),
  				cv::Size( -1, -1 ),
@@ -406,7 +407,7 @@ diff -ruN a/corelib/src/Features2d.cpp b/corelib/src/Features2d.cpp
  
  		for(unsigned int i=0;i<corners.size(); ++i)
  		{
-@@ -2345,8 +2344,13 @@
+@@ -2377,8 +2376,13 @@ void BRISK::parseParameters(const ParametersMap & parameters)
  	Parameters::parse(parameters, Parameters::kBRISKThresh(), thresh_);
  	Parameters::parse(parameters, Parameters::kBRISKOctaves(), octaves_);
  	Parameters::parse(parameters, Parameters::kBRISKPatternScale(), patternScale_);
@@ -422,7 +423,7 @@ diff -ruN a/corelib/src/Features2d.cpp b/corelib/src/Features2d.cpp
  	brisk_ = cv::Ptr<CV_BRISK>(new CV_BRISK(thresh_, octaves_, patternScale_));
  #else
  	brisk_ = CV_BRISK::create(thresh_, octaves_, patternScale_);
-@@ -2357,6 +2361,7 @@
+@@ -2389,6 +2393,7 @@ std::vector<cv::KeyPoint> BRISK::generateKeypointsImpl(const cv::Mat & image, co
  {
  	UASSERT(!image.empty() && image.channels() == 1 && image.depth() == CV_8U);
  	std::vector<cv::KeyPoint> keypoints;
@@ -430,7 +431,7 @@ diff -ruN a/corelib/src/Features2d.cpp b/corelib/src/Features2d.cpp
  	cv::Mat imgRoi(image, roi);
  	cv::Mat maskRoi;
  	if(!mask.empty())
-@@ -2364,6 +2369,9 @@
+@@ -2396,6 +2401,9 @@ std::vector<cv::KeyPoint> BRISK::generateKeypointsImpl(const cv::Mat & image, co
  		maskRoi = cv::Mat(mask, roi);
  	}
  	brisk_->detect(imgRoi, keypoints, maskRoi); // Opencv keypoints
@@ -440,7 +441,7 @@ diff -ruN a/corelib/src/Features2d.cpp b/corelib/src/Features2d.cpp
  	return keypoints;
  }
  
-@@ -2371,7 +2379,11 @@
+@@ -2403,7 +2411,11 @@ cv::Mat BRISK::generateDescriptorsImpl(const cv::Mat & image, std::vector<cv::Ke
  {
  	UASSERT(!image.empty() && image.channels() == 1 && image.depth() == CV_8U);
  	cv::Mat descriptors;
@@ -452,7 +453,7 @@ diff -ruN a/corelib/src/Features2d.cpp b/corelib/src/Features2d.cpp
  	return descriptors;
  }
  
-@@ -2404,10 +2416,16 @@
+@@ -2436,10 +2448,16 @@ void KAZE::parseParameters(const ParametersMap & parameters)
  	Parameters::parse(parameters, Parameters::kKAZENOctaveLayers(), nOctaveLayers_);
  	Parameters::parse(parameters, Parameters::kKAZEDiffusivity(), diffusivity_);
  
@@ -472,7 +473,7 @@ diff -ruN a/corelib/src/Features2d.cpp b/corelib/src/Features2d.cpp
  #else
  	UWARN("RTAB-Map is not built with OpenCV3 so Kaze feature cannot be used!");
  #endif
-@@ -2417,7 +2435,7 @@
+@@ -2449,7 +2467,7 @@ std::vector<cv::KeyPoint> KAZE::generateKeypointsImpl(const cv::Mat & image, con
  {
  	UASSERT(!image.empty() && image.channels() == 1 && image.depth() == CV_8U);
  	std::vector<cv::KeyPoint> keypoints;
@@ -481,7 +482,7 @@ diff -ruN a/corelib/src/Features2d.cpp b/corelib/src/Features2d.cpp
  	cv::Mat imgRoi(image, roi);
  	cv::Mat maskRoi;
  	if (!mask.empty())
-@@ -2426,7 +2444,7 @@
+@@ -2458,7 +2476,7 @@ std::vector<cv::KeyPoint> KAZE::generateKeypointsImpl(const cv::Mat & image, con
  	}
  	kaze_->detect(imgRoi, keypoints, maskRoi); // Opencv keypoints
  #else
@@ -490,7 +491,7 @@ diff -ruN a/corelib/src/Features2d.cpp b/corelib/src/Features2d.cpp
  #endif
  	return keypoints;
  }
-@@ -2435,10 +2453,10 @@
+@@ -2467,10 +2485,10 @@ cv::Mat KAZE::generateDescriptorsImpl(const cv::Mat & image, std::vector<cv::Key
  {
  	UASSERT(!image.empty() && image.channels() == 1 && image.depth() == CV_8U);
  	cv::Mat descriptors;
@@ -503,10 +504,25 @@ diff -ruN a/corelib/src/Features2d.cpp b/corelib/src/Features2d.cpp
  #endif
  	return descriptors;
  }
-diff -ruN a/corelib/src/Memory.cpp b/corelib/src/Memory.cpp
+diff --git a/corelib/src/MarkerDetector.cpp b/corelib/src/MarkerDetector.cpp
+index 1484082..afa8162 100644
+--- a/corelib/src/MarkerDetector.cpp
++++ b/corelib/src/MarkerDetector.cpp
+@@ -29,6 +29,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #include <rtabmap/core/util2d.h>
+ #include <rtabmap/utilite/ULogger.h>
+ #include <rtabmap/utilite/UStl.h>
++#if CV_MAJOR_VERSION >= 5
++#include <opencv2/geometry.hpp>
++#endif
+ 
+ #ifdef HAVE_OPENCV_ARUCO
+ #if CV_MAJOR_VERSION < 4 || (CV_MAJOR_VERSION == 4 && CV_MINOR_VERSION <8)
+diff --git a/corelib/src/Memory.cpp b/corelib/src/Memory.cpp
+index 37afdbf..bb1902b 100644
 --- a/corelib/src/Memory.cpp
 +++ b/corelib/src/Memory.cpp
-@@ -26,6 +26,9 @@
+@@ -26,6 +26,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
  
  #include <rtabmap/utilite/UEventsManager.h>
@@ -516,7 +532,7 @@ diff -ruN a/corelib/src/Memory.cpp b/corelib/src/Memory.cpp
  #include <rtabmap/utilite/ULogger.h>
  #include <rtabmap/utilite/UTimer.h>
  #include <rtabmap/utilite/UConversion.h>
-@@ -62,7 +65,6 @@
+@@ -62,7 +65,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <pcl/io/pcd_io.h>
  #include <pcl/common/common.h>
  #include <rtabmap/core/MarkerDetector.h>
@@ -524,7 +540,7 @@ diff -ruN a/corelib/src/Memory.cpp b/corelib/src/Memory.cpp
  #include <rtabmap/core/LocalGridMaker.h>
  
  namespace rtabmap {
-@@ -4930,7 +4932,7 @@
+@@ -5373,7 +5375,7 @@ Signature * Memory::createSignature(const SensorData & inputData, const Transfor
  			cv::Mat imageMono;
  			if(decimatedData.imageRaw().channels() == 3)
  			{
@@ -533,19 +549,20 @@ diff -ruN a/corelib/src/Memory.cpp b/corelib/src/Memory.cpp
  			}
  			else
  			{
-@@ -5239,7 +5241,7 @@
- 			cv::Mat imageMono;
- 			if(data.imageRaw().channels() == 3)
- 			{
--				cv::cvtColor(data.imageRaw(), imageMono, CV_BGR2GRAY);
-+				cv::cvtColor(data.imageRaw(), imageMono, cv::COLOR_BGR2GRAY);
- 			}
- 			else
- 			{
-diff -ruN a/corelib/src/RegistrationVis.cpp b/corelib/src/RegistrationVis.cpp
+@@ -5681,7 +5683,7 @@ Signature * Memory::createSignature(const SensorData & inputData, const Transfor
+ 				cv::Mat imageMono;
+ 				if(data.imageRaw().channels() == 3)
+ 				{
+-					cv::cvtColor(data.imageRaw(), imageMono, CV_BGR2GRAY);
++					cv::cvtColor(data.imageRaw(), imageMono, cv::COLOR_BGR2GRAY);
+ 				}
+ 				else
+ 				{
+diff --git a/corelib/src/RegistrationVis.cpp b/corelib/src/RegistrationVis.cpp
+index 738e72b..f4cfb00 100644
 --- a/corelib/src/RegistrationVis.cpp
 +++ b/corelib/src/RegistrationVis.cpp
-@@ -43,7 +43,9 @@
+@@ -43,7 +43,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UStl.h>
  #include <rtabmap/utilite/UTimer.h>
  #include <rtabmap/utilite/UMath.h>
@@ -556,18 +573,17 @@ diff -ruN a/corelib/src/RegistrationVis.cpp b/corelib/src/RegistrationVis.cpp
  
  #if defined(HAVE_OPENCV_XFEATURES2D) && (CV_MAJOR_VERSION > 3 || (CV_MAJOR_VERSION==3 && CV_MINOR_VERSION >=4 && CV_SUBMINOR_VERSION >= 1))
  #include <opencv2/xfeatures2d.hpp> // For GMS matcher
-@@ -52,7 +54,10 @@
+@@ -52,6 +54,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #ifdef HAVE_OPENCV_CUDAOPTFLOW
  #include <opencv2/cudaoptflow.hpp>
  #include <opencv2/cudaimgproc.hpp>
 +#if CV_MAJOR_VERSION >= 5
 +#include <opencv2/geometry.hpp>
- #endif
 +#endif
+ #endif
  
  #include <rtflann/flann.hpp>
- 
-@@ -2170,7 +2175,7 @@
+@@ -2172,7 +2177,7 @@ Transform RegistrationVis::computeTransformationImpl(
  			if(!transform.isNull() && !pcaData.empty())
  			{
  				cv::Mat pcaEigenVectors, pcaEigenValues;
@@ -576,10 +592,11 @@ diff -ruN a/corelib/src/RegistrationVis.cpp b/corelib/src/RegistrationVis.cpp
  				// We take the second eigen value
  				info.inliersDistribution = pca_analysis.eigenvalues.at<float>(0, 1);
  
-diff -ruN a/corelib/src/SensorCaptureThread.cpp b/corelib/src/SensorCaptureThread.cpp
+diff --git a/corelib/src/SensorCaptureThread.cpp b/corelib/src/SensorCaptureThread.cpp
+index 6414fb9..07858d5 100644
 --- a/corelib/src/SensorCaptureThread.cpp
 +++ b/corelib/src/SensorCaptureThread.cpp
-@@ -39,7 +39,6 @@
+@@ -39,7 +39,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/core/IMUFilter.h"
  #include "rtabmap/core/Features2d.h"
  #include "rtabmap/core/clams/discrete_depth_distortion_model.h"
@@ -587,7 +604,7 @@ diff -ruN a/corelib/src/SensorCaptureThread.cpp b/corelib/src/SensorCaptureThrea
  #include <opencv2/stitching/detail/exposure_compensate.hpp>
  #include <rtabmap/utilite/UTimer.h>
  #include <rtabmap/utilite/ULogger.h>
-@@ -742,11 +741,11 @@
+@@ -742,11 +741,11 @@ void SensorCaptureThread::postUpdate(SensorData * dataPtr, SensorCaptureInfo * i
  			else if(data.imageRaw().type() == CV_8UC3)
  			{
  				cv::Mat channels[3];
@@ -601,7 +618,7 @@ diff -ruN a/corelib/src/SensorCaptureThread.cpp b/corelib/src/SensorCaptureThrea
  			}
  			if(!data.depthRaw().empty())
  			{
-@@ -762,11 +761,11 @@
+@@ -762,11 +761,11 @@ void SensorCaptureThread::postUpdate(SensorData * dataPtr, SensorCaptureInfo * i
  				else if(data.rightRaw().type() == CV_8UC3)
  				{
  					cv::Mat channels[3];
@@ -615,7 +632,7 @@ diff -ruN a/corelib/src/SensorCaptureThread.cpp b/corelib/src/SensorCaptureThrea
  				}
  				data.setStereoImage(image, right, data.stereoCameraModels()[0]);
  			}
-@@ -781,11 +780,11 @@
+@@ -781,11 +780,11 @@ void SensorCaptureThread::postUpdate(SensorData * dataPtr, SensorCaptureInfo * i
  			else if(data.imageRaw().type() == CV_8UC3)
  			{
  				cv::Mat channels[3];
@@ -629,7 +646,7 @@ diff -ruN a/corelib/src/SensorCaptureThread.cpp b/corelib/src/SensorCaptureThrea
  			}
  			if(!data.depthRaw().empty())
  			{
-@@ -801,11 +800,11 @@
+@@ -801,11 +800,11 @@ void SensorCaptureThread::postUpdate(SensorData * dataPtr, SensorCaptureInfo * i
  				else if(data.rightRaw().type() == CV_8UC3)
  				{
  					cv::Mat channels[3];
@@ -643,10 +660,11 @@ diff -ruN a/corelib/src/SensorCaptureThread.cpp b/corelib/src/SensorCaptureThrea
  				}
  				data.setStereoImage(image, right, data.stereoCameraModels()[0]);
  			}
-diff -ruN a/corelib/src/StereoCameraModel.cpp b/corelib/src/StereoCameraModel.cpp
+diff --git a/corelib/src/StereoCameraModel.cpp b/corelib/src/StereoCameraModel.cpp
+index 421d3f4..938508e 100644
 --- a/corelib/src/StereoCameraModel.cpp
 +++ b/corelib/src/StereoCameraModel.cpp
-@@ -32,8 +32,11 @@
+@@ -32,8 +32,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UFile.h>
  #include <rtabmap/utilite/UConversion.h>
  #include <opencv2/imgproc/imgproc.hpp>
@@ -659,7 +677,7 @@ diff -ruN a/corelib/src/StereoCameraModel.cpp b/corelib/src/StereoCameraModel.cp
  #include <rtabmap/core/stereo/stereoRectifyFisheye.h>
  #endif
  
-@@ -179,12 +182,20 @@
+@@ -179,12 +182,20 @@ void StereoCameraModel::updateStereoRectification()
  	{
  		cv::Vec4d D_left(left_.D_raw().at<double>(0,0), left_.D_raw().at<double>(0,1), left_.D_raw().at<double>(0,4), left_.D_raw().at<double>(0,5));
  		cv::Vec4d D_right(right_.D_raw().at<double>(0,0), right_.D_raw().at<double>(0,1), right_.D_raw().at<double>(0,4), right_.D_raw().at<double>(0,5));
@@ -681,10 +699,11 @@ diff -ruN a/corelib/src/StereoCameraModel.cpp b/corelib/src/StereoCameraModel.cp
  
  		// Re-zoom to original focal distance
  		if(P1.at<double>(0,0) < 0)
-diff -ruN a/corelib/src/camera/CameraDepthAI.cpp b/corelib/src/camera/CameraDepthAI.cpp
+diff --git a/corelib/src/camera/CameraDepthAI.cpp b/corelib/src/camera/CameraDepthAI.cpp
+index beaca87..326d5bd 100644
 --- a/corelib/src/camera/CameraDepthAI.cpp
 +++ b/corelib/src/camera/CameraDepthAI.cpp
-@@ -32,7 +32,11 @@
+@@ -32,7 +32,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UEventsManager.h>
  #include <rtabmap/utilite/UConversion.h>
  #include <rtabmap/utilite/UFile.h>
@@ -697,10 +716,11 @@ diff -ruN a/corelib/src/camera/CameraDepthAI.cpp b/corelib/src/camera/CameraDept
  
  namespace rtabmap {
  
-diff -ruN a/corelib/src/camera/CameraFreenect.cpp b/corelib/src/camera/CameraFreenect.cpp
+diff --git a/corelib/src/camera/CameraFreenect.cpp b/corelib/src/camera/CameraFreenect.cpp
+index 9d48215..a402c7b 100644
 --- a/corelib/src/camera/CameraFreenect.cpp
 +++ b/corelib/src/camera/CameraFreenect.cpp
-@@ -28,7 +28,6 @@
+@@ -28,7 +28,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UThread.h>
  #include <rtabmap/utilite/UTimer.h>
  #include <rtabmap/core/util2d.h>
@@ -708,7 +728,7 @@ diff -ruN a/corelib/src/camera/CameraFreenect.cpp b/corelib/src/camera/CameraFre
  
  #ifdef RTABMAP_FREENECT
  #include <libfreenect.h>
-@@ -183,7 +182,7 @@
+@@ -183,7 +182,7 @@ private:
  
  		if(color_)
  		{
@@ -717,10 +737,11 @@ diff -ruN a/corelib/src/camera/CameraFreenect.cpp b/corelib/src/camera/CameraFre
  		}
  		else // IrDepth
  		{
-diff -ruN a/corelib/src/camera/CameraFreenect2.cpp b/corelib/src/camera/CameraFreenect2.cpp
+diff --git a/corelib/src/camera/CameraFreenect2.cpp b/corelib/src/camera/CameraFreenect2.cpp
+index 85f7bdf..1514311 100644
 --- a/corelib/src/camera/CameraFreenect2.cpp
 +++ b/corelib/src/camera/CameraFreenect2.cpp
-@@ -29,7 +29,6 @@
+@@ -29,7 +29,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UMath.h>
  #include <rtabmap/utilite/UTimer.h>
  #include <rtabmap/core/util2d.h>
@@ -728,7 +749,7 @@ diff -ruN a/corelib/src/camera/CameraFreenect2.cpp b/corelib/src/camera/CameraFr
  
  #ifdef RTABMAP_FREENECT2
  #include <libfreenect2/libfreenect2.hpp>
-@@ -430,11 +429,11 @@
+@@ -430,11 +429,11 @@ SensorData CameraFreenect2::captureImage(SensorCaptureInfo * info)
  					cv::Mat rgbMat; // rtabmap uses 3 channels RGB
  					#ifdef LIBFREENECT2_WITH_TEGRAJPEG_SUPPORT 
  
@@ -742,7 +763,7 @@ diff -ruN a/corelib/src/camera/CameraFreenect2.cpp b/corelib/src/camera/CameraFr
  
  					#endif 
  					cv::flip(rgbMat, rgb, 1);
-@@ -490,11 +489,11 @@
+@@ -490,11 +489,11 @@ SensorData CameraFreenect2::captureImage(SensorCaptureInfo * info)
  						cv::Mat rgbMat; // rtabmap uses 3 channels RGB
  						#ifdef LIBFREENECT2_WITH_TEGRAJPEG_SUPPORT 
  
@@ -756,7 +777,7 @@ diff -ruN a/corelib/src/camera/CameraFreenect2.cpp b/corelib/src/camera/CameraFr
  
  						#endif 
  						cv::flip(rgbMat, rgb, 1);
-@@ -607,11 +606,11 @@
+@@ -607,11 +606,11 @@ SensorData CameraFreenect2::captureImage(SensorCaptureInfo * info)
  							// rtabmap uses 3 channels RGB
  							#ifdef LIBFREENECT2_WITH_TEGRAJPEG_SUPPORT 
  
@@ -770,7 +791,7 @@ diff -ruN a/corelib/src/camera/CameraFreenect2.cpp b/corelib/src/camera/CameraFr
  
  							#endif 
  							cv::flip(rgb, rgb, 1);
-@@ -629,11 +628,11 @@
+@@ -629,11 +628,11 @@ SensorData CameraFreenect2::captureImage(SensorCaptureInfo * info)
  							// rtabmap uses 3 channels RGB
  							#ifdef LIBFREENECT2_WITH_TEGRAJPEG_SUPPORT 
  
@@ -784,10 +805,11 @@ diff -ruN a/corelib/src/camera/CameraFreenect2.cpp b/corelib/src/camera/CameraFr
  
  							#endif 
  							cv::flip(rgb, rgb, 1);	
-diff -ruN a/corelib/src/camera/CameraImages.cpp b/corelib/src/camera/CameraImages.cpp
+diff --git a/corelib/src/camera/CameraImages.cpp b/corelib/src/camera/CameraImages.cpp
+index 9767412..824c9be 100644
 --- a/corelib/src/camera/CameraImages.cpp
 +++ b/corelib/src/camera/CameraImages.cpp
-@@ -34,7 +34,7 @@
+@@ -34,7 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/core/util3d.h>
  #include <rtabmap/core/util3d_filtering.h>
  #include <rtabmap/core/Graph.h>
@@ -796,7 +818,7 @@ diff -ruN a/corelib/src/camera/CameraImages.cpp b/corelib/src/camera/CameraImage
  #include <fstream>
  
  namespace rtabmap
-@@ -914,7 +914,7 @@
+@@ -933,7 +933,7 @@ SensorData CameraImages::captureImage(SensorCaptureInfo * info)
  					{
  						UWARN("Conversion from 4 channels to 3 channels (file=%s)", imageFilePath.c_str());
  						cv::Mat out;
@@ -805,7 +827,7 @@ diff -ruN a/corelib/src/camera/CameraImages.cpp b/corelib/src/camera/CameraImage
  						img = out;
  					}
  					else if(!img.empty() && _bayerMode >= 0 && _bayerMode <=3)
-@@ -922,7 +922,7 @@
+@@ -941,7 +941,7 @@ SensorData CameraImages::captureImage(SensorCaptureInfo * info)
  						cv::Mat debayeredImg;
  						try
  						{
@@ -814,10 +836,11 @@ diff -ruN a/corelib/src/camera/CameraImages.cpp b/corelib/src/camera/CameraImage
  							img = debayeredImg;
  						}
  						catch(const cv::Exception & e)
-diff -ruN a/corelib/src/camera/CameraK4A.cpp b/corelib/src/camera/CameraK4A.cpp
+diff --git a/corelib/src/camera/CameraK4A.cpp b/corelib/src/camera/CameraK4A.cpp
+index ad5714d..caf659b 100644
 --- a/corelib/src/camera/CameraK4A.cpp
 +++ b/corelib/src/camera/CameraK4A.cpp
-@@ -29,7 +29,6 @@
+@@ -29,7 +29,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UThreadC.h>
  #include <rtabmap/core/util2d.h>
  #include <rtabmap/core/Compression.h>
@@ -825,7 +848,7 @@ diff -ruN a/corelib/src/camera/CameraK4A.cpp b/corelib/src/camera/CameraK4A.cpp
  
  #ifdef RTABMAP_K4A
  #include <k4a/k4a.h>
-@@ -508,7 +507,7 @@
+@@ -508,7 +507,7 @@ SensorData CameraK4A::captureImage(SensorCaptureInfo * info)
  						CV_8UC4,
  						(void*)k4a_image_get_buffer(rgb_image_));
  
@@ -834,10 +857,11 @@ diff -ruN a/corelib/src/camera/CameraK4A.cpp b/corelib/src/camera/CameraK4A.cpp
  			}
  			bgrCV = model_.rectifyImage(bgrCV);
  
-diff -ruN a/corelib/src/camera/CameraK4W2.cpp b/corelib/src/camera/CameraK4W2.cpp
+diff --git a/corelib/src/camera/CameraK4W2.cpp b/corelib/src/camera/CameraK4W2.cpp
+index e289029..9a96251 100644
 --- a/corelib/src/camera/CameraK4W2.cpp
 +++ b/corelib/src/camera/CameraK4W2.cpp
-@@ -28,7 +28,6 @@
+@@ -28,7 +28,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UTimer.h>
  #include <rtabmap/utilite/UThreadC.h>
  #include <rtabmap/core/util2d.h>
@@ -845,7 +869,7 @@ diff -ruN a/corelib/src/camera/CameraK4W2.cpp b/corelib/src/camera/CameraK4W2.cp
  
  #ifdef RTABMAP_K4W2
  #include <Kinect.h>
-@@ -486,11 +485,11 @@
+@@ -486,11 +485,11 @@ SensorData CameraK4W2::captureImage(SensorCaptureInfo * info)
  									{
  										cv::Mat tmp;
  										cv::resize(cv::Mat(nColorHeight, nColorWidth, CV_8UC4, pColorBuffer), tmp, cv::Size(), 0.5, 0.5, cv::INTER_AREA);
@@ -859,10 +883,11 @@ diff -ruN a/corelib/src/camera/CameraK4W2.cpp b/corelib/src/camera/CameraK4W2.cp
  									}
  									// loop over output pixels
  									for (int depthIndex = 0; depthIndex < (nDepthWidth*nDepthHeight); ++depthIndex)
-diff -ruN a/corelib/src/camera/CameraOpenNI2.cpp b/corelib/src/camera/CameraOpenNI2.cpp
+diff --git a/corelib/src/camera/CameraOpenNI2.cpp b/corelib/src/camera/CameraOpenNI2.cpp
+index 8be86b7..4d2ff1a 100644
 --- a/corelib/src/camera/CameraOpenNI2.cpp
 +++ b/corelib/src/camera/CameraOpenNI2.cpp
-@@ -29,7 +29,6 @@
+@@ -29,7 +29,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UFile.h>
  #include <rtabmap/utilite/UThreadC.h>
  #include <rtabmap/core/util2d.h>
@@ -870,7 +895,7 @@ diff -ruN a/corelib/src/camera/CameraOpenNI2.cpp b/corelib/src/camera/CameraOpen
  
  #ifdef RTABMAP_OPENNI2
  #include <OniVersion.h>
-@@ -514,7 +513,7 @@
+@@ -514,7 +513,7 @@ SensorData CameraOpenNI2::captureImage(SensorCaptureInfo * info)
  				cv::Mat tmp(h, w, CV_8UC3, (void *)colorFrame.getData());
  				if(_type==kTypeColorDepth)
  				{
@@ -879,10 +904,11 @@ diff -ruN a/corelib/src/camera/CameraOpenNI2.cpp b/corelib/src/camera/CameraOpen
  				}
  				else // IR
  				{
-diff -ruN a/corelib/src/camera/CameraOpenNICV.cpp b/corelib/src/camera/CameraOpenNICV.cpp
+diff --git a/corelib/src/camera/CameraOpenNICV.cpp b/corelib/src/camera/CameraOpenNICV.cpp
+index 13536d6..1359561 100644
 --- a/corelib/src/camera/CameraOpenNICV.cpp
 +++ b/corelib/src/camera/CameraOpenNICV.cpp
-@@ -26,9 +26,7 @@
+@@ -26,9 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
  #include <rtabmap/core/camera/CameraOpenNICV.h>
  #include <rtabmap/utilite/UTimer.h>
@@ -893,7 +919,7 @@ diff -ruN a/corelib/src/camera/CameraOpenNICV.cpp b/corelib/src/camera/CameraOpe
  
  namespace rtabmap
  {
-@@ -59,30 +57,34 @@
+@@ -59,30 +57,34 @@ bool CameraOpenNICV::init(const std::string & calibrationFolder, const std::stri
  	}
  
  	ULOGGER_DEBUG("Camera::init()");
@@ -943,7 +969,7 @@ diff -ruN a/corelib/src/camera/CameraOpenNICV.cpp b/corelib/src/camera/CameraOpe
  		}
  		else
  		{
-@@ -112,8 +114,8 @@
+@@ -112,8 +114,8 @@ SensorData CameraOpenNICV::captureImage(SensorCaptureInfo * info)
  	{
  		_capture.grab();
  		cv::Mat depth, rgb;
@@ -954,10 +980,11 @@ diff -ruN a/corelib/src/camera/CameraOpenNICV.cpp b/corelib/src/camera/CameraOpe
  
  		depth = depth.clone();
  		rgb = rgb.clone();
-diff -ruN a/corelib/src/camera/CameraOpenni.cpp b/corelib/src/camera/CameraOpenni.cpp
+diff --git a/corelib/src/camera/CameraOpenni.cpp b/corelib/src/camera/CameraOpenni.cpp
+index 9fb8dc7..68cba16 100644
 --- a/corelib/src/camera/CameraOpenni.cpp
 +++ b/corelib/src/camera/CameraOpenni.cpp
-@@ -28,7 +28,6 @@
+@@ -28,7 +28,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UFile.h>
  #include <rtabmap/utilite/UThreadC.h>
  #include <rtabmap/utilite/UTimer.h>
@@ -965,7 +992,7 @@ diff -ruN a/corelib/src/camera/CameraOpenni.cpp b/corelib/src/camera/CameraOpenn
  
  #ifdef RTABMAP_OPENNI
  #include <pcl/io/openni_grabber.h>
-@@ -94,7 +93,7 @@
+@@ -94,7 +93,7 @@ void CameraOpenni::image_cb (
  
  	cv::Mat rgbFrame(rgb->getHeight(), rgb->getWidth(), CV_8UC3);
  	rgb->fillRGB(rgb->getWidth(), rgb->getHeight(), rgbFrame.data);
@@ -974,10 +1001,11 @@ diff -ruN a/corelib/src/camera/CameraOpenni.cpp b/corelib/src/camera/CameraOpenn
  
  	depth_ = cv::Mat(rgb->getHeight(), rgb->getWidth(), CV_16UC1);
  	depth->fillDepthImageRaw(rgb->getWidth(), rgb->getHeight(), (unsigned short*)depth_.data);
-diff -ruN a/corelib/src/camera/CameraRealSense.cpp b/corelib/src/camera/CameraRealSense.cpp
+diff --git a/corelib/src/camera/CameraRealSense.cpp b/corelib/src/camera/CameraRealSense.cpp
+index 3f545bb..0136238 100644
 --- a/corelib/src/camera/CameraRealSense.cpp
 +++ b/corelib/src/camera/CameraRealSense.cpp
-@@ -29,7 +29,6 @@
+@@ -29,7 +29,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UMath.h>
  #include <rtabmap/utilite/UThreadC.h>
  #include <rtabmap/core/util2d.h>
@@ -985,7 +1013,7 @@ diff -ruN a/corelib/src/camera/CameraRealSense.cpp b/corelib/src/camera/CameraRe
  
  #ifdef RTABMAP_REALSENSE
  #include <librealsense/rs.hpp>
-@@ -938,7 +937,7 @@
+@@ -938,7 +937,7 @@ SensorData CameraRealSense::captureImage(SensorCaptureInfo * info)
  		}
  		else
  		{
@@ -994,21 +1022,23 @@ diff -ruN a/corelib/src/camera/CameraRealSense.cpp b/corelib/src/camera/CameraRe
  		}
  
  		bool rectified = false;
-diff -ruN a/corelib/src/camera/CameraRealSense2.cpp b/corelib/src/camera/CameraRealSense2.cpp
+diff --git a/corelib/src/camera/CameraRealSense2.cpp b/corelib/src/camera/CameraRealSense2.cpp
+index fb15b0c..444e757 100644
 --- a/corelib/src/camera/CameraRealSense2.cpp
 +++ b/corelib/src/camera/CameraRealSense2.cpp
-@@ -30,7 +30,6 @@
- #include <rtabmap/utilite/UThreadC.h>
+@@ -31,7 +31,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UConversion.h>
  #include <rtabmap/utilite/UStl.h>
+ #include <rtabmap/utilite/UDirectory.h>
 -#include <opencv2/imgproc/types_c.h>
  
  #ifdef RTABMAP_REALSENSE2
  #include <librealsense2/rsutil.h>
-diff -ruN a/corelib/src/camera/CameraStereoDC1394.cpp b/corelib/src/camera/CameraStereoDC1394.cpp
+diff --git a/corelib/src/camera/CameraStereoDC1394.cpp b/corelib/src/camera/CameraStereoDC1394.cpp
+index 691516b..2c21108 100644
 --- a/corelib/src/camera/CameraStereoDC1394.cpp
 +++ b/corelib/src/camera/CameraStereoDC1394.cpp
-@@ -28,7 +28,6 @@
+@@ -28,7 +28,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/core/camera/CameraStereoDC1394.h>
  #include <rtabmap/utilite/UTimer.h>
  #include <rtabmap/utilite/UConversion.h>
@@ -1016,7 +1046,7 @@ diff -ruN a/corelib/src/camera/CameraStereoDC1394.cpp b/corelib/src/camera/Camer
  
  #ifdef RTABMAP_DC1394
  #include <dc1394/dc1394.h>
-@@ -295,8 +294,8 @@
+@@ -295,8 +294,8 @@ public:
  
  			//DC1394_COLOR_CODING_RAW16:
  			//DC1394_COLOR_FILTER_BGGR
@@ -1027,10 +1057,11 @@ diff -ruN a/corelib/src/camera/CameraStereoDC1394.cpp b/corelib/src/camera/Camer
  
  			dc1394_capture_enqueue(camera_, frame);
  
-diff -ruN a/corelib/src/camera/CameraStereoImages.cpp b/corelib/src/camera/CameraStereoImages.cpp
+diff --git a/corelib/src/camera/CameraStereoImages.cpp b/corelib/src/camera/CameraStereoImages.cpp
+index c50a3b8..e0dd643 100644
 --- a/corelib/src/camera/CameraStereoImages.cpp
 +++ b/corelib/src/camera/CameraStereoImages.cpp
-@@ -27,7 +27,6 @@
+@@ -27,7 +27,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
  #include <rtabmap/core/camera/CameraStereoImages.h>
  #include <rtabmap/utilite/UStl.h>
@@ -1038,7 +1069,7 @@ diff -ruN a/corelib/src/camera/CameraStereoImages.cpp b/corelib/src/camera/Camer
  
  namespace rtabmap
  {
-@@ -184,7 +183,7 @@
+@@ -184,7 +183,7 @@ SensorData CameraStereoImages::captureImage(SensorCaptureInfo * info)
  			if(rightImage.type() != CV_8UC1 && rightGrayScale_)
  			{
  				cv::Mat tmp;
@@ -1047,10 +1078,11 @@ diff -ruN a/corelib/src/camera/CameraStereoImages.cpp b/corelib/src/camera/Camer
  				rightImage = tmp;
  			}
  			if(this->isImagesRectified() && stereoModel_.isValidForRectification())
-diff -ruN a/corelib/src/camera/CameraStereoTara.cpp b/corelib/src/camera/CameraStereoTara.cpp
+diff --git a/corelib/src/camera/CameraStereoTara.cpp b/corelib/src/camera/CameraStereoTara.cpp
+index e4ea3cd..f4ec60a 100644
 --- a/corelib/src/camera/CameraStereoTara.cpp
 +++ b/corelib/src/camera/CameraStereoTara.cpp
-@@ -34,9 +34,7 @@
+@@ -34,9 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UTimer.h>
  #include <rtabmap/utilite/UThreadC.h>
  #include <rtabmap/utilite/UConversion.h>
@@ -1061,7 +1093,7 @@ diff -ruN a/corelib/src/camera/CameraStereoTara.cpp b/corelib/src/camera/CameraS
  
  namespace rtabmap
  {
-@@ -81,18 +79,18 @@
+@@ -81,18 +79,18 @@ bool CameraStereoTara::init(const std::string & calibrationFolder, const std::st
  
  		capture_.open(usbDevice_);
  
@@ -1086,10 +1118,11 @@ diff -ruN a/corelib/src/camera/CameraStereoTara.cpp b/corelib/src/camera/CameraS
  		if (guid != 0 && guid != 0xffffffff)
  		{
  			cameraName_ = uFormat("%08x", guid);
-diff -ruN a/corelib/src/camera/CameraStereoVideo.cpp b/corelib/src/camera/CameraStereoVideo.cpp
+diff --git a/corelib/src/camera/CameraStereoVideo.cpp b/corelib/src/camera/CameraStereoVideo.cpp
+index f31f40b..5de23a6 100644
 --- a/corelib/src/camera/CameraStereoVideo.cpp
 +++ b/corelib/src/camera/CameraStereoVideo.cpp
-@@ -28,13 +28,7 @@
+@@ -28,13 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/core/camera/CameraStereoVideo.h>
  #include <rtabmap/utilite/UTimer.h>
  #include <rtabmap/utilite/UConversion.h>
@@ -1104,7 +1137,7 @@ diff -ruN a/corelib/src/camera/CameraStereoVideo.cpp b/corelib/src/camera/Camera
  
  namespace rtabmap
  {
-@@ -172,7 +166,7 @@
+@@ -172,7 +166,7 @@ bool CameraStereoVideo::init(const std::string & calibrationFolder, const std::s
  
  	if (cameraName_.empty())
  	{
@@ -1113,7 +1146,7 @@ diff -ruN a/corelib/src/camera/CameraStereoVideo.cpp b/corelib/src/camera/Camera
  		if (guid != 0 && guid != 0xffffffff)
  		{
  			cameraName_ = uFormat("%08x", guid);
-@@ -214,17 +208,17 @@
+@@ -214,17 +208,17 @@ bool CameraStereoVideo::init(const std::string & calibrationFolder, const std::s
  			if(capture_.isOpened())
  			{
  				bool resolutionSet = false;
@@ -1137,7 +1170,7 @@ diff -ruN a/corelib/src/camera/CameraStereoVideo.cpp b/corelib/src/camera/Camera
  				if(!resolutionSet ||
  				   actualWidth != stereoModel_.left().imageWidth()*(capture2_.isOpened()?1:2) ||
  				   actualHeight != stereoModel_.left().imageHeight())
-@@ -244,17 +238,17 @@
+@@ -244,17 +238,17 @@ bool CameraStereoVideo::init(const std::string & calibrationFolder, const std::s
  			if(capture_.isOpened())
  			{
  				bool resolutionSet = false;
@@ -1161,7 +1194,7 @@ diff -ruN a/corelib/src/camera/CameraStereoVideo.cpp b/corelib/src/camera/Camera
  				if(!resolutionSet ||
  				   actualWidth != _width*(capture2_.isOpened()?1:2) ||
  				   actualHeight != _height)
-@@ -273,10 +267,10 @@
+@@ -273,10 +267,10 @@ bool CameraStereoVideo::init(const std::string & calibrationFolder, const std::s
  		if (this->getFrameRate() > 0)
  		{
  			bool fpsSupported = false;
@@ -1174,7 +1207,7 @@ diff -ruN a/corelib/src/camera/CameraStereoVideo.cpp b/corelib/src/camera/Camera
  			}
  			if(fpsSupported)
  			{
-@@ -310,14 +304,14 @@
+@@ -310,14 +304,14 @@ bool CameraStereoVideo::init(const std::string & calibrationFolder, const std::s
  				std::string fourccUpperCase = uToUpperCase(_fourcc);
  				int fourcc = cv::VideoWriter::fourcc(fourccUpperCase.at(0), fourccUpperCase.at(1), fourccUpperCase.at(2), fourccUpperCase.at(3));
  				bool fourccSupported = false;
@@ -1192,7 +1225,7 @@ diff -ruN a/corelib/src/camera/CameraStereoVideo.cpp b/corelib/src/camera/Camera
  
  				if(!fourccSupported || actualFourcc != fourcc)
  				{
-@@ -386,7 +380,7 @@
+@@ -386,7 +380,7 @@ SensorData CameraStereoVideo::captureImage(SensorCaptureInfo * info)
  		if(rightImage.type() != CV_8UC1 && rightGrayScale_)
  		{
  			cv::Mat tmp;
@@ -1201,10 +1234,11 @@ diff -ruN a/corelib/src/camera/CameraStereoVideo.cpp b/corelib/src/camera/Camera
  			rightImage = tmp;
  			rightCvt = true;
  		}
-diff -ruN a/corelib/src/camera/CameraStereoZedOC.cpp b/corelib/src/camera/CameraStereoZedOC.cpp
+diff --git a/corelib/src/camera/CameraStereoZedOC.cpp b/corelib/src/camera/CameraStereoZedOC.cpp
+index 014976a..e3ba6d4 100644
 --- a/corelib/src/camera/CameraStereoZedOC.cpp
 +++ b/corelib/src/camera/CameraStereoZedOC.cpp
-@@ -38,6 +38,10 @@
+@@ -38,6 +38,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <zed-open-capture/sensorcapture.hpp>
  #include "SimpleIni.h"
  
@@ -1215,10 +1249,11 @@ diff -ruN a/corelib/src/camera/CameraStereoZedOC.cpp b/corelib/src/camera/Camera
  ///////////////////////////////////////////////////////////////////////////
  //
  // Copyright (c) 2018, STEREOLABS.
-diff -ruN a/corelib/src/camera/CameraVideo.cpp b/corelib/src/camera/CameraVideo.cpp
+diff --git a/corelib/src/camera/CameraVideo.cpp b/corelib/src/camera/CameraVideo.cpp
+index 9a0a70d..1776bca 100644
 --- a/corelib/src/camera/CameraVideo.cpp
 +++ b/corelib/src/camera/CameraVideo.cpp
-@@ -28,12 +28,7 @@
+@@ -28,12 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/core/camera/CameraVideo.h>
  #include <rtabmap/utilite/UTimer.h>
  #include <rtabmap/utilite/UConversion.h>
@@ -1232,7 +1267,7 @@ diff -ruN a/corelib/src/camera/CameraVideo.cpp b/corelib/src/camera/CameraVideo.
  
  namespace rtabmap
  {
-@@ -105,7 +100,7 @@
+@@ -105,7 +100,7 @@ bool CameraVideo::init(const std::string & calibrationFolder, const std::string
  	{
  		if (_guid.empty())
  		{
@@ -1241,7 +1276,7 @@ diff -ruN a/corelib/src/camera/CameraVideo.cpp b/corelib/src/camera/CameraVideo.
  			if (guid != 0 && guid != 0xffffffff)
  			{
  				_guid = uFormat("%08x", guid);
-@@ -143,12 +138,12 @@
+@@ -143,12 +138,12 @@ bool CameraVideo::init(const std::string & calibrationFolder, const std::string
  				}
  
  				bool resolutionSet = false;
@@ -1258,7 +1293,7 @@ diff -ruN a/corelib/src/camera/CameraVideo.cpp b/corelib/src/camera/CameraVideo.
  				if(!resolutionSet ||
  				   actualWidth != _model.imageWidth() ||
  				   actualHeight != _model.imageHeight())
-@@ -165,12 +160,12 @@
+@@ -165,12 +160,12 @@ bool CameraVideo::init(const std::string & calibrationFolder, const std::string
  			else if(_width > 0 && _height > 0)
  			{
  				int resolutionSet = false;
@@ -1275,7 +1310,7 @@ diff -ruN a/corelib/src/camera/CameraVideo.cpp b/corelib/src/camera/CameraVideo.
  				if(!resolutionSet || actualWidth != _width || actualHeight != _height)
  				{
  					UWARN("Desired resolution (%dx%d) cannot be set to camera driver, "
-@@ -182,7 +177,7 @@
+@@ -182,7 +177,7 @@ bool CameraVideo::init(const std::string & calibrationFolder, const std::string
  			}
  
  			// Set FPS
@@ -1284,7 +1319,7 @@ diff -ruN a/corelib/src/camera/CameraVideo.cpp b/corelib/src/camera/CameraVideo.
  			{
  				// Check if the FPS was set successfully
  				double actualFPS = _capture.get(cv::CAP_PROP_FPS);
-@@ -213,10 +208,10 @@
+@@ -213,10 +208,10 @@ bool CameraVideo::init(const std::string & calibrationFolder, const std::string
  					std::string fourccUpperCase = uToUpperCase(_fourcc);
  					int fourcc = cv::VideoWriter::fourcc(fourccUpperCase.at(0), fourccUpperCase.at(1), fourccUpperCase.at(2), fourccUpperCase.at(3));
  					
@@ -1297,10 +1332,11 @@ diff -ruN a/corelib/src/camera/CameraVideo.cpp b/corelib/src/camera/CameraVideo.
  
  					if(!fourccSupported || actualFourcc != fourcc)
  					{
-diff -ruN a/corelib/src/odometry/OdometryDVO.cpp b/corelib/src/odometry/OdometryDVO.cpp
+diff --git a/corelib/src/odometry/OdometryDVO.cpp b/corelib/src/odometry/OdometryDVO.cpp
+index 2f7190d..a1e425d 100644
 --- a/corelib/src/odometry/OdometryDVO.cpp
 +++ b/corelib/src/odometry/OdometryDVO.cpp
-@@ -31,7 +31,6 @@
+@@ -31,7 +31,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/ULogger.h"
  #include "rtabmap/utilite/UTimer.h"
  #include "rtabmap/utilite/UStl.h"
@@ -1308,7 +1344,7 @@ diff -ruN a/corelib/src/odometry/OdometryDVO.cpp b/corelib/src/odometry/Odometry
  
  #ifdef RTABMAP_DVO
  #include <dvo/dense_tracking.h>
-@@ -124,7 +123,7 @@
+@@ -124,7 +123,7 @@ Transform OdometryDVO::computeTransform(
  	{
  		if(data.imageRaw().type() == CV_8UC3)
  		{
@@ -1317,10 +1353,11 @@ diff -ruN a/corelib/src/odometry/OdometryDVO.cpp b/corelib/src/odometry/Odometry
  		}
  		else
  		{
-diff -ruN a/corelib/src/odometry/OdometryF2M.cpp b/corelib/src/odometry/OdometryF2M.cpp
+diff --git a/corelib/src/odometry/OdometryF2M.cpp b/corelib/src/odometry/OdometryF2M.cpp
+index 58d0e3a..63b096d 100644
 --- a/corelib/src/odometry/OdometryF2M.cpp
 +++ b/corelib/src/odometry/OdometryF2M.cpp
-@@ -42,7 +42,11 @@
+@@ -42,7 +42,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/UTimer.h"
  #include "rtabmap/utilite/UMath.h"
  #include "rtabmap/utilite/UConversion.h"
@@ -1332,10 +1369,11 @@ diff -ruN a/corelib/src/odometry/OdometryF2M.cpp b/corelib/src/odometry/Odometry
  #include <rtabmap/core/odometry/OdometryF2M.h>
  #include <pcl/common/io.h>
  
-diff -ruN a/corelib/src/odometry/OdometryFovis.cpp b/corelib/src/odometry/OdometryFovis.cpp
+diff --git a/corelib/src/odometry/OdometryFovis.cpp b/corelib/src/odometry/OdometryFovis.cpp
+index 673639a..c1f5a99 100644
 --- a/corelib/src/odometry/OdometryFovis.cpp
 +++ b/corelib/src/odometry/OdometryFovis.cpp
-@@ -31,7 +31,6 @@
+@@ -31,7 +31,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/ULogger.h"
  #include "rtabmap/utilite/UTimer.h"
  #include "rtabmap/utilite/UStl.h"
@@ -1343,7 +1381,7 @@ diff -ruN a/corelib/src/odometry/OdometryFovis.cpp b/corelib/src/odometry/Odomet
  
  #ifdef RTABMAP_FOVIS
  #include <libfovis/fovis.hpp>
-@@ -137,7 +136,7 @@
+@@ -137,7 +136,7 @@ Transform OdometryFovis::computeTransform(
  	cv::Mat gray;
  	if(data.imageRaw().type() == CV_8UC3)
  	{
@@ -1352,7 +1390,7 @@ diff -ruN a/corelib/src/odometry/OdometryFovis.cpp b/corelib/src/odometry/Odomet
  	}
  	else if(data.imageRaw().type() == CV_8UC1)
  	{
-@@ -302,7 +301,7 @@
+@@ -302,7 +301,7 @@ Transform OdometryFovis::computeTransform(
  		}
  		if(data.rightRaw().type() == CV_8UC3)
  		{
@@ -1361,10 +1399,11 @@ diff -ruN a/corelib/src/odometry/OdometryFovis.cpp b/corelib/src/odometry/Odomet
  		}
  		else if(data.rightRaw().type() == CV_8UC1)
  		{
-diff -ruN a/corelib/src/odometry/OdometryMSCKF.cpp b/corelib/src/odometry/OdometryMSCKF.cpp
+diff --git a/corelib/src/odometry/OdometryMSCKF.cpp b/corelib/src/odometry/OdometryMSCKF.cpp
+index ac62c25..6b6737c 100644
 --- a/corelib/src/odometry/OdometryMSCKF.cpp
 +++ b/corelib/src/odometry/OdometryMSCKF.cpp
-@@ -26,13 +26,15 @@
+@@ -26,13 +26,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
  
  #include "rtabmap/core/odometry/OdometryMSCKF.h"
@@ -1381,7 +1420,7 @@ diff -ruN a/corelib/src/odometry/OdometryMSCKF.cpp b/corelib/src/odometry/Odomet
  
  #ifdef RTABMAP_MSCKF_VIO
  #include <msckf_vio/image_processor.h>
-@@ -867,7 +869,7 @@
+@@ -867,7 +869,7 @@ Transform OdometryMSCKF::computeTransform(
  
  			if(data.imageRaw().type() == CV_8UC3)
  			{
@@ -1390,7 +1429,7 @@ diff -ruN a/corelib/src/odometry/OdometryMSCKF.cpp b/corelib/src/odometry/Odomet
  			}
  			else
  			{
-@@ -875,7 +877,7 @@
+@@ -875,7 +877,7 @@ Transform OdometryMSCKF::computeTransform(
  			}
  			if(data.rightRaw().type() == CV_8UC3)
  			{
@@ -1399,10 +1438,11 @@ diff -ruN a/corelib/src/odometry/OdometryMSCKF.cpp b/corelib/src/odometry/Odomet
  			}
  			else
  			{
-diff -ruN a/corelib/src/odometry/OdometryMono.cpp b/corelib/src/odometry/OdometryMono.cpp
+diff --git a/corelib/src/odometry/OdometryMono.cpp b/corelib/src/odometry/OdometryMono.cpp
+index b942aa8..051fac5 100644
 --- a/corelib/src/odometry/OdometryMono.cpp
 +++ b/corelib/src/odometry/OdometryMono.cpp
-@@ -43,8 +43,15 @@
+@@ -43,8 +43,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/UStl.h"
  #include "rtabmap/utilite/UMath.h"
  #include <opencv2/imgproc/imgproc.hpp>
@@ -1418,10 +1458,11 @@ diff -ruN a/corelib/src/odometry/OdometryMono.cpp b/corelib/src/odometry/Odometr
  #include <pcl/common/centroid.h>
  
  namespace rtabmap {
-diff -ruN a/corelib/src/odometry/OdometryORBSLAM2.cpp b/corelib/src/odometry/OdometryORBSLAM2.cpp
+diff --git a/corelib/src/odometry/OdometryORBSLAM2.cpp b/corelib/src/odometry/OdometryORBSLAM2.cpp
+index 1ae10bc..616678c 100644
 --- a/corelib/src/odometry/OdometryORBSLAM2.cpp
 +++ b/corelib/src/odometry/OdometryORBSLAM2.cpp
-@@ -33,7 +33,6 @@
+@@ -33,7 +33,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/UStl.h"
  #include "rtabmap/utilite/UDirectory.h"
  #include <pcl/common/transforms.h>
@@ -1429,7 +1470,7 @@ diff -ruN a/corelib/src/odometry/OdometryORBSLAM2.cpp b/corelib/src/odometry/Odo
  #include <rtabmap/core/odometry/OdometryORBSLAM2.h>
  
  #if defined(RTABMAP_ORB_SLAM) and RTABMAP_ORB_SLAM == 2
-@@ -426,7 +425,7 @@
+@@ -426,7 +425,7 @@ public:
  	        }
  	        else
  	        {
@@ -1438,7 +1479,7 @@ diff -ruN a/corelib/src/odometry/OdometryORBSLAM2.cpp b/corelib/src/odometry/Odo
  	        }
  	    }
  	    else if(mImGray.channels()==4)
-@@ -437,7 +436,7 @@
+@@ -437,7 +436,7 @@ public:
  	        }
  	        else
  	        {
@@ -1447,7 +1488,7 @@ diff -ruN a/corelib/src/odometry/OdometryORBSLAM2.cpp b/corelib/src/odometry/Odo
  	        }
  	    }
  	    if(imGrayRight.channels()==3)
-@@ -448,7 +447,7 @@
+@@ -448,7 +447,7 @@ public:
  			}
  			else
  			{
@@ -1456,7 +1497,7 @@ diff -ruN a/corelib/src/odometry/OdometryORBSLAM2.cpp b/corelib/src/odometry/Odo
  			}
  		}
  		else if(imGrayRight.channels()==4)
-@@ -459,7 +458,7 @@
+@@ -459,7 +458,7 @@ public:
  			}
  			else
  			{
@@ -1465,7 +1506,7 @@ diff -ruN a/corelib/src/odometry/OdometryORBSLAM2.cpp b/corelib/src/odometry/Odo
  			}
  		}
  
-@@ -480,14 +479,14 @@
+@@ -480,14 +479,14 @@ public:
  	        if(mbRGB)
  	            cvtColor(mImGray,mImGray,CV_RGB2GRAY);
  	        else
@@ -1482,18 +1523,19 @@ diff -ruN a/corelib/src/odometry/OdometryORBSLAM2.cpp b/corelib/src/odometry/Odo
  	    }
  
  	    UASSERT(imDepth.type()==CV_32F);
-diff -ruN a/corelib/src/odometry/OdometryORBSLAM3.cpp b/corelib/src/odometry/OdometryORBSLAM3.cpp
+diff --git a/corelib/src/odometry/OdometryORBSLAM3.cpp b/corelib/src/odometry/OdometryORBSLAM3.cpp
+index f0e5d64..77e7d45 100644
 --- a/corelib/src/odometry/OdometryORBSLAM3.cpp
 +++ b/corelib/src/odometry/OdometryORBSLAM3.cpp
-@@ -33,7 +33,6 @@
- #include "rtabmap/utilite/UStl.h"
+@@ -34,7 +34,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/UDirectory.h"
+ #include "rtabmap/utilite/UFile.h"
  #include <pcl/common/transforms.h>
 -#include <opencv2/imgproc/types_c.h>
  #include <rtabmap/core/odometry/OdometryORBSLAM3.h>
  
  #if defined(RTABMAP_ORB_SLAM) and RTABMAP_ORB_SLAM == 3
-@@ -450,12 +449,12 @@
+@@ -469,12 +468,12 @@ Transform OdometryORBSLAM3::computeTransform(
  		cv::Mat leftMono = data.imageRaw();
          if(data.imageRaw().channels() == 3) {
  			leftMono = cv::Mat();
@@ -1506,12 +1548,13 @@ diff -ruN a/corelib/src/odometry/OdometryORBSLAM3.cpp b/corelib/src/odometry/Odo
 -			cv::cvtColor(data.imageRaw(), rightMono, CV_BGR2GRAY);
 +			cv::cvtColor(data.imageRaw(), rightMono, cv::COLOR_BGR2GRAY);
  		}
+ 		UDEBUG("Adding Stereo Frame %f", data.stamp());
  		Tcw = orbslam_->TrackStereo(leftMono, rightMono, data.stamp(), orbslamImus_);
- 		orbslamImus_.clear();
-diff -ruN a/corelib/src/odometry/OdometryOkvis.cpp b/corelib/src/odometry/OdometryOkvis.cpp
+diff --git a/corelib/src/odometry/OdometryOkvis.cpp b/corelib/src/odometry/OdometryOkvis.cpp
+index 10497b9..7c97e27 100644
 --- a/corelib/src/odometry/OdometryOkvis.cpp
 +++ b/corelib/src/odometry/OdometryOkvis.cpp
-@@ -34,7 +34,6 @@
+@@ -34,7 +34,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/UThread.h"
  #include "rtabmap/utilite/UFile.h"
  #include "rtabmap/utilite/UDirectory.h"
@@ -1519,7 +1562,7 @@ diff -ruN a/corelib/src/odometry/OdometryOkvis.cpp b/corelib/src/odometry/Odomet
  
  #ifdef RTABMAP_OKVIS
  #include <iostream>
-@@ -427,7 +426,7 @@
+@@ -427,7 +426,7 @@ Transform OdometryOkvis::computeTransform(
  				cv::Mat gray;
  				if(images[i].type() == CV_8UC3)
  				{
@@ -1528,10 +1571,11 @@ diff -ruN a/corelib/src/odometry/OdometryOkvis.cpp b/corelib/src/odometry/Odomet
  				}
  				else if(images[i].type() == CV_8UC1)
  				{
-diff -ruN a/corelib/src/odometry/OdometryOpenVINS.cpp b/corelib/src/odometry/OdometryOpenVINS.cpp
+diff --git a/corelib/src/odometry/OdometryOpenVINS.cpp b/corelib/src/odometry/OdometryOpenVINS.cpp
+index e953968..4c9dcc4 100644
 --- a/corelib/src/odometry/OdometryOpenVINS.cpp
 +++ b/corelib/src/odometry/OdometryOpenVINS.cpp
-@@ -32,7 +32,6 @@
+@@ -32,7 +32,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/ULogger.h"
  #include "rtabmap/utilite/UTimer.h"
  #include <opencv2/core/eigen.hpp>
@@ -1539,7 +1583,7 @@ diff -ruN a/corelib/src/odometry/OdometryOpenVINS.cpp b/corelib/src/odometry/Odo
  
  #ifdef RTABMAP_OPENVINS
  #include "core/VioManager.h"
-@@ -340,7 +339,7 @@
+@@ -419,7 +418,7 @@ Transform OdometryOpenVINS::computeTransform(
  
  			cv::Mat image;
  			if(data.imageRaw().type() == CV_8UC3)
@@ -1548,7 +1592,7 @@ diff -ruN a/corelib/src/odometry/OdometryOpenVINS.cpp b/corelib/src/odometry/Odo
  			else if(data.imageRaw().type() == CV_8UC1)
  				image = data.imageRaw().clone();
  			else
-@@ -371,7 +370,7 @@
+@@ -450,7 +449,7 @@ Transform OdometryOpenVINS::computeTransform(
  			if(!data.rightRaw().empty())
  			{
  				if(data.rightRaw().type() == CV_8UC3)
@@ -1557,28 +1601,29 @@ diff -ruN a/corelib/src/odometry/OdometryOpenVINS.cpp b/corelib/src/odometry/Odo
  				else if(data.rightRaw().type() == CV_8UC1)
  					image = data.rightRaw().clone();
  				else
-diff -ruN a/corelib/src/odometry/OdometryVINS.cpp b/corelib/src/odometry/OdometryVINS.cpp
---- a/corelib/src/odometry/OdometryVINS.cpp
-+++ b/corelib/src/odometry/OdometryVINS.cpp
-@@ -26,6 +26,9 @@
+diff --git a/corelib/src/odometry/OdometryVINSFusion.cpp b/corelib/src/odometry/OdometryVINSFusion.cpp
+index 9c63360..681ce0c 100644
+--- a/corelib/src/odometry/OdometryVINSFusion.cpp
++++ b/corelib/src/odometry/OdometryVINSFusion.cpp
+@@ -26,6 +26,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   */
  
- #include "rtabmap/core/odometry/OdometryVINS.h"
+ #include "rtabmap/core/odometry/OdometryVINSFusion.h"
 +#if CV_MAJOR_VERSION >= 5
 +#include <opencv2/geometry.hpp>
 +#endif
  #include "rtabmap/core/OdometryInfo.h"
  #include "rtabmap/core/util3d_transforms.h"
  #include "rtabmap/utilite/ULogger.h"
-@@ -33,7 +36,6 @@
+@@ -33,7 +36,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/UStl.h"
  #include "rtabmap/utilite/UThread.h"
  #include "rtabmap/utilite/UDirectory.h"
 -#include <opencv2/imgproc/types_c.h>
  
- #ifdef RTABMAP_VINS
+ #ifdef RTABMAP_VINS_FUSION
  #include <estimator/estimator.h>
-@@ -388,7 +390,7 @@
+@@ -444,7 +446,7 @@ Transform OdometryVINSFusion::computeTransform(
  		cv::Mat right;
  		if(data.imageRaw().type() == CV_8UC3)
  		{
@@ -1587,7 +1632,7 @@ diff -ruN a/corelib/src/odometry/OdometryVINS.cpp b/corelib/src/odometry/Odometr
  		}
  		else if(data.imageRaw().type() == CV_8UC1)
  		{
-@@ -400,7 +402,7 @@
+@@ -456,7 +458,7 @@ Transform OdometryVINSFusion::computeTransform(
  		}
  		if(data.rightRaw().type() == CV_8UC3)
  		{
@@ -1596,10 +1641,11 @@ diff -ruN a/corelib/src/odometry/OdometryVINS.cpp b/corelib/src/odometry/Odometr
  		}
  		else if(data.rightRaw().type() == CV_8UC1)
  		{
-diff -ruN a/corelib/src/odometry/OdometryViso2.cpp b/corelib/src/odometry/OdometryViso2.cpp
+diff --git a/corelib/src/odometry/OdometryViso2.cpp b/corelib/src/odometry/OdometryViso2.cpp
+index 808e763..dc6192b 100644
 --- a/corelib/src/odometry/OdometryViso2.cpp
 +++ b/corelib/src/odometry/OdometryViso2.cpp
-@@ -31,7 +31,6 @@
+@@ -31,7 +31,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/ULogger.h"
  #include "rtabmap/utilite/UTimer.h"
  #include "rtabmap/utilite/UStl.h"
@@ -1607,7 +1653,7 @@ diff -ruN a/corelib/src/odometry/OdometryViso2.cpp b/corelib/src/odometry/Odomet
  
  #ifdef RTABMAP_VISO2
  #include <viso_stereo.h>
-@@ -131,7 +130,7 @@
+@@ -131,7 +130,7 @@ Transform OdometryViso2::computeTransform(
  	cv::Mat leftGray;
  	if(data.imageRaw().type() == CV_8UC3)
  	{
@@ -1616,7 +1662,7 @@ diff -ruN a/corelib/src/odometry/OdometryViso2.cpp b/corelib/src/odometry/Odomet
  	}
  	else if(data.imageRaw().type() == CV_8UC1)
  	{
-@@ -144,7 +143,7 @@
+@@ -144,7 +143,7 @@ Transform OdometryViso2::computeTransform(
  	cv::Mat rightGray;
  	if(data.rightRaw().type() == CV_8UC3)
  	{
@@ -1625,7 +1671,8 @@ diff -ruN a/corelib/src/odometry/OdometryViso2.cpp b/corelib/src/odometry/Odomet
  	}
  	else if(data.rightRaw().type() == CV_8UC1)
  	{
-diff -ruN a/corelib/src/opencv/ORBextractor.cc b/corelib/src/opencv/ORBextractor.cc
+diff --git a/corelib/src/opencv/ORBextractor.cc b/corelib/src/opencv/ORBextractor.cc
+index 2d3cd7c..542e169 100644
 --- a/corelib/src/opencv/ORBextractor.cc
 +++ b/corelib/src/opencv/ORBextractor.cc
 @@ -64,7 +64,11 @@
@@ -1640,7 +1687,8 @@ diff -ruN a/corelib/src/opencv/ORBextractor.cc b/corelib/src/opencv/ORBextractor
  #include <opencv2/imgproc/imgproc.hpp>
  #include <vector>
  #include <algorithm>
-diff -ruN a/corelib/src/opencv/ORBextractor.h b/corelib/src/opencv/ORBextractor.h
+diff --git a/corelib/src/opencv/ORBextractor.h b/corelib/src/opencv/ORBextractor.h
+index 861ca05..82ede5b 100644
 --- a/corelib/src/opencv/ORBextractor.h
 +++ b/corelib/src/opencv/ORBextractor.h
 @@ -31,8 +31,6 @@
@@ -1652,7 +1700,8 @@ diff -ruN a/corelib/src/opencv/ORBextractor.h b/corelib/src/opencv/ORBextractor.
  
  namespace rtabmap
  {
-diff -ruN a/corelib/src/opencv/Orb.cpp b/corelib/src/opencv/Orb.cpp
+diff --git a/corelib/src/opencv/Orb.cpp b/corelib/src/opencv/Orb.cpp
+index f56874e..c5034a7 100644
 --- a/corelib/src/opencv/Orb.cpp
 +++ b/corelib/src/opencv/Orb.cpp
 @@ -40,7 +40,6 @@
@@ -1663,7 +1712,7 @@ diff -ruN a/corelib/src/opencv/Orb.cpp b/corelib/src/opencv/Orb.cpp
  #include <algorithm>
  #include <iterator>
  
-@@ -252,7 +251,7 @@
+@@ -252,7 +251,7 @@ static void computeOrbDescriptor(const KeyPoint& kpt,
          }
      }
      else
@@ -1672,7 +1721,7 @@ diff -ruN a/corelib/src/opencv/Orb.cpp b/corelib/src/opencv/Orb.cpp
  
      #undef GET_VALUE
  }
-@@ -752,7 +751,7 @@
+@@ -752,7 +751,7 @@ void CV_ORB::operator()( InputArray _image, InputArray _mask, std::vector<KeyPoi
  
      Mat image = _image.getMat(), mask = _mask.getMat();
      if( image.type() != CV_8UC1 )
@@ -1681,7 +1730,8 @@ diff -ruN a/corelib/src/opencv/Orb.cpp b/corelib/src/opencv/Orb.cpp
  
      int levelsNum = this->nlevels;
  
-diff -ruN a/corelib/src/opencv/five-point.cpp b/corelib/src/opencv/five-point.cpp
+diff --git a/corelib/src/opencv/five-point.cpp b/corelib/src/opencv/five-point.cpp
+index 7e5c2c5..a389c9f 100644
 --- a/corelib/src/opencv/five-point.cpp
 +++ b/corelib/src/opencv/five-point.cpp
 @@ -30,6 +30,9 @@
@@ -1694,7 +1744,8 @@ diff -ruN a/corelib/src/opencv/five-point.cpp b/corelib/src/opencv/five-point.cp
  
  using namespace cv;
  
-diff -ruN a/corelib/src/opencv/five-point.h b/corelib/src/opencv/five-point.h
+diff --git a/corelib/src/opencv/five-point.h b/corelib/src/opencv/five-point.h
+index 1a5b778..f1aa8c7 100644
 --- a/corelib/src/opencv/five-point.h
 +++ b/corelib/src/opencv/five-point.h
 @@ -8,6 +8,10 @@
@@ -1708,10 +1759,11 @@ diff -ruN a/corelib/src/opencv/five-point.h b/corelib/src/opencv/five-point.h
  namespace cv3
  {
  
-diff -ruN a/corelib/src/opencv/solvepnp.cpp b/corelib/src/opencv/solvepnp.cpp
+diff --git a/corelib/src/opencv/solvepnp.cpp b/corelib/src/opencv/solvepnp.cpp
+index f5b3a07..ecd2be9 100644
 --- a/corelib/src/opencv/solvepnp.cpp
 +++ b/corelib/src/opencv/solvepnp.cpp
-@@ -53,7 +53,7 @@
+@@ -53,7 +53,7 @@ class PnPRansacCallback : public PointSetRegistrator::Callback
  
  public:
  
@@ -1720,7 +1772,7 @@ diff -ruN a/corelib/src/opencv/solvepnp.cpp b/corelib/src/opencv/solvepnp.cpp
              bool _useExtrinsicGuess=false, Mat _rvec=Mat(), Mat _tvec=Mat() )
          : cameraMatrix(_cameraMatrix), distCoeffs(_distCoeffs), flags(_flags), useExtrinsicGuess(_useExtrinsicGuess),
            rvec(_rvec), tvec(_tvec) {}
-@@ -142,12 +142,12 @@
+@@ -142,12 +142,12 @@ bool solvePnPRansac(InputArray _opoints, InputArray _ipoints,
      Mat cameraMatrix = _cameraMatrix.getMat(), distCoeffs = _distCoeffs.getMat();
  
      int model_points = 6;
@@ -1735,7 +1787,7 @@ diff -ruN a/corelib/src/opencv/solvepnp.cpp b/corelib/src/opencv/solvepnp.cpp
      }
  
      Ptr<PointSetRegistrator::Callback> cb; // pointer to callback
-@@ -178,7 +178,7 @@
+@@ -178,7 +178,7 @@ bool solvePnPRansac(InputArray _opoints, InputArray _ipoints,
          opoints_inliers.resize(npoints1);
          ipoints_inliers.resize(npoints1);
          result = solvePnP(opoints_inliers, ipoints_inliers, cameraMatrix,
@@ -1744,7 +1796,7 @@ diff -ruN a/corelib/src/opencv/solvepnp.cpp b/corelib/src/opencv/solvepnp.cpp
      }
  
      if( result <= 0 || _local_model.rows <= 0)
-@@ -213,7 +213,7 @@
+@@ -213,7 +213,7 @@ bool solvePnPRansac(InputArray _opoints, InputArray _ipoints,
  int RANSACUpdateNumIters( double p, double ep, int modelPoints, int maxIters )
  {
      if( modelPoints <= 0 )
@@ -1753,7 +1805,8 @@ diff -ruN a/corelib/src/opencv/solvepnp.cpp b/corelib/src/opencv/solvepnp.cpp
  
      p = MAX(p, 0.);
      p = MIN(p, 1.);
-diff -ruN a/corelib/src/opencv/solvepnp.h b/corelib/src/opencv/solvepnp.h
+diff --git a/corelib/src/opencv/solvepnp.h b/corelib/src/opencv/solvepnp.h
+index e88b570..382f9db 100644
 --- a/corelib/src/opencv/solvepnp.h
 +++ b/corelib/src/opencv/solvepnp.h
 @@ -45,9 +45,10 @@
@@ -1769,7 +1822,7 @@ diff -ruN a/corelib/src/opencv/solvepnp.h b/corelib/src/opencv/solvepnp.h
  #endif
  
  namespace cv3 {
-@@ -95,7 +96,7 @@
+@@ -95,7 +96,7 @@ bool solvePnPRansac( cv::InputArray objectPoints, cv::InputArray imagePoints,
  					cv::OutputArray rvec, cv::OutputArray tvec,
  					bool useExtrinsicGuess = false, int iterationsCount = 100,
  					float reprojectionError = 8.0, double confidence = 0.99,
@@ -1778,10 +1831,11 @@ diff -ruN a/corelib/src/opencv/solvepnp.h b/corelib/src/opencv/solvepnp.h
  
  int RANSACUpdateNumIters( double p, double ep, int modelPoints, int maxIters );
  
-diff -ruN a/corelib/src/optimizer/OptimizerCeres.cpp b/corelib/src/optimizer/OptimizerCeres.cpp
+diff --git a/corelib/src/optimizer/OptimizerCeres.cpp b/corelib/src/optimizer/OptimizerCeres.cpp
+index 046d401..d2d64c3 100644
 --- a/corelib/src/optimizer/OptimizerCeres.cpp
 +++ b/corelib/src/optimizer/OptimizerCeres.cpp
-@@ -26,6 +26,12 @@
+@@ -26,6 +26,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
  #include "rtabmap/core/Graph.h"
  
@@ -1794,10 +1848,11 @@ diff -ruN a/corelib/src/optimizer/OptimizerCeres.cpp b/corelib/src/optimizer/Opt
  #include <rtabmap/utilite/ULogger.h>
  #include <rtabmap/utilite/UStl.h>
  #include <rtabmap/utilite/UMath.h>
-diff -ruN a/corelib/src/stereo/StereoBM.cpp b/corelib/src/stereo/StereoBM.cpp
+diff --git a/corelib/src/stereo/StereoBM.cpp b/corelib/src/stereo/StereoBM.cpp
+index 1b390c6..57f6b7d 100644
 --- a/corelib/src/stereo/StereoBM.cpp
 +++ b/corelib/src/stereo/StereoBM.cpp
-@@ -27,9 +27,13 @@
+@@ -27,9 +27,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
  #include <rtabmap/core/stereo/StereoBM.h>
  #include <rtabmap/utilite/ULogger.h>
@@ -1812,7 +1867,7 @@ diff -ruN a/corelib/src/stereo/StereoBM.cpp b/corelib/src/stereo/StereoBM.cpp
  
  namespace rtabmap {
  
-@@ -88,7 +92,7 @@
+@@ -88,7 +92,7 @@ cv::Mat StereoBM::computeDisparity(
  	cv::Mat leftMono;
  	if(leftImage.channels() == 3)
  	{
@@ -1821,7 +1876,7 @@ diff -ruN a/corelib/src/stereo/StereoBM.cpp b/corelib/src/stereo/StereoBM.cpp
  	}
  	else
  	{
-@@ -98,7 +102,7 @@
+@@ -98,7 +102,7 @@ cv::Mat StereoBM::computeDisparity(
  	cv::Mat rightMono;
  	if(rightImage.channels() == 3)
  	{
@@ -1830,10 +1885,11 @@ diff -ruN a/corelib/src/stereo/StereoBM.cpp b/corelib/src/stereo/StereoBM.cpp
  	}
  	else
  	{
-diff -ruN a/corelib/src/stereo/StereoSGBM.cpp b/corelib/src/stereo/StereoSGBM.cpp
+diff --git a/corelib/src/stereo/StereoSGBM.cpp b/corelib/src/stereo/StereoSGBM.cpp
+index 6763aeb..d8e651a 100644
 --- a/corelib/src/stereo/StereoSGBM.cpp
 +++ b/corelib/src/stereo/StereoSGBM.cpp
-@@ -27,9 +27,13 @@
+@@ -27,9 +27,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
  #include <rtabmap/core/stereo/StereoSGBM.h>
  #include <rtabmap/utilite/ULogger.h>
@@ -1848,7 +1904,7 @@ diff -ruN a/corelib/src/stereo/StereoSGBM.cpp b/corelib/src/stereo/StereoSGBM.cp
  
  namespace rtabmap {
  
-@@ -77,7 +81,7 @@
+@@ -77,7 +81,7 @@ cv::Mat StereoSGBM::computeDisparity(
  	cv::Mat leftMono;
  	if(leftImage.channels() == 3)
  	{
@@ -1857,7 +1913,7 @@ diff -ruN a/corelib/src/stereo/StereoSGBM.cpp b/corelib/src/stereo/StereoSGBM.cp
  	}
  	else
  	{
-@@ -87,7 +91,7 @@
+@@ -87,7 +91,7 @@ cv::Mat StereoSGBM::computeDisparity(
  	cv::Mat rightMono;
  	if(rightImage.channels() == 3)
  	{
@@ -1866,10 +1922,11 @@ diff -ruN a/corelib/src/stereo/StereoSGBM.cpp b/corelib/src/stereo/StereoSGBM.cp
  	}
  	else
  	{
-diff -ruN a/corelib/src/util2d.cpp b/corelib/src/util2d.cpp
+diff --git a/corelib/src/util2d.cpp b/corelib/src/util2d.cpp
+index 0251d0f..0c9318f 100644
 --- a/corelib/src/util2d.cpp
 +++ b/corelib/src/util2d.cpp
-@@ -34,11 +34,9 @@
+@@ -34,11 +34,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <rtabmap/utilite/UStl.h>
  #include <rtabmap/core/util3d_transforms.h>
  #include <rtabmap/core/StereoDense.h>
@@ -1881,7 +1938,7 @@ diff -ruN a/corelib/src/util2d.cpp b/corelib/src/util2d.cpp
  #include <map>
  #include <Eigen/Core>
  
-@@ -46,6 +44,12 @@
+@@ -46,6 +44,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <opencv2/photo/photo.hpp>
  #endif
  
@@ -1894,7 +1951,7 @@ diff -ruN a/corelib/src/util2d.cpp b/corelib/src/util2d.cpp
  namespace rtabmap
  {
  
-@@ -747,7 +751,7 @@
+@@ -747,7 +751,7 @@ cv::Mat disparityFromStereoImages(
  	cv::Mat leftMono;
  	if(leftImage.channels() == 3)
  	{
@@ -1903,7 +1960,7 @@ diff -ruN a/corelib/src/util2d.cpp b/corelib/src/util2d.cpp
  	}
  	else
  	{
-@@ -2042,8 +2046,8 @@
+@@ -2042,8 +2046,8 @@ cv::Mat brightnessAndContrastAuto(const cv::Mat &src, const cv::Mat & mask, floa
      //to calculate grayscale histogram
      cv::Mat gray;
      if (src.type() == CV_8UC1) gray = src;
@@ -1914,10 +1971,11 @@ diff -ruN a/corelib/src/util2d.cpp b/corelib/src/util2d.cpp
      if (clipLowHistPercent == 0 && clipHighHistPercent == 0)
      {
          // keep full available range
-diff -ruN a/corelib/src/util3d.cpp b/corelib/src/util3d.cpp
+diff --git a/corelib/src/util3d.cpp b/corelib/src/util3d.cpp
+index facb0d6..dfad02a 100644
 --- a/corelib/src/util3d.cpp
 +++ b/corelib/src/util3d.cpp
-@@ -41,7 +41,6 @@
+@@ -41,7 +41,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include <pcl/common/transforms.h>
  #include <pcl/common/common.h>
  #include <opencv2/imgproc/imgproc.hpp>
@@ -1925,7 +1983,7 @@ diff -ruN a/corelib/src/util3d.cpp b/corelib/src/util3d.cpp
  
  namespace rtabmap
  {
-@@ -892,7 +891,7 @@
+@@ -892,7 +891,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudFromStereoImages(
  	cv::Mat leftMono;
  	if(leftColor.channels() == 3)
  	{
@@ -1934,7 +1992,7 @@ diff -ruN a/corelib/src/util3d.cpp b/corelib/src/util3d.cpp
  	}
  	else
  	{
-@@ -902,7 +901,7 @@
+@@ -902,7 +901,7 @@ pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloudFromStereoImages(
  	cv::Mat rightMono;
  	if(rightColor.channels() == 3)
  	{
@@ -1943,7 +2001,7 @@ diff -ruN a/corelib/src/util3d.cpp b/corelib/src/util3d.cpp
  	}
  	else
  	{
-@@ -1038,7 +1037,7 @@
+@@ -1038,7 +1037,7 @@ std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloudsFromSensorData(
  		cv::Mat leftMono;
  		if(sensorData.imageRaw().channels() == 3)
  		{
@@ -1952,7 +2010,7 @@ diff -ruN a/corelib/src/util3d.cpp b/corelib/src/util3d.cpp
  		}
  		else
  		{
-@@ -1048,7 +1047,7 @@
+@@ -1048,7 +1047,7 @@ std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> cloudsFromSensorData(
  		cv::Mat rightMono;
  		if(sensorData.rightRaw().channels() == 3)
  		{
@@ -1961,10 +2019,11 @@ diff -ruN a/corelib/src/util3d.cpp b/corelib/src/util3d.cpp
  		}
  		else
  		{
-diff -ruN a/corelib/src/util3d_correspondences.cpp b/corelib/src/util3d_correspondences.cpp
+diff --git a/corelib/src/util3d_correspondences.cpp b/corelib/src/util3d_correspondences.cpp
+index 5a81869..41cc1e6 100644
 --- a/corelib/src/util3d_correspondences.cpp
 +++ b/corelib/src/util3d_correspondences.cpp
-@@ -30,7 +30,11 @@
+@@ -30,7 +30,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  
  #include <rtabmap/utilite/UStl.h>
  #include <rtabmap/core/EpipolarGeometry.h>
@@ -1976,10 +2035,11 @@ diff -ruN a/corelib/src/util3d_correspondences.cpp b/corelib/src/util3d_correspo
  #include <pcl/search/kdtree.h>
  #include <pcl/common/point_tests.h>
  
-diff -ruN a/corelib/src/util3d_motion_estimation.cpp b/corelib/src/util3d_motion_estimation.cpp
+diff --git a/corelib/src/util3d_motion_estimation.cpp b/corelib/src/util3d_motion_estimation.cpp
+index 63ed9ac..41ea2a0 100644
 --- a/corelib/src/util3d_motion_estimation.cpp
 +++ b/corelib/src/util3d_motion_estimation.cpp
-@@ -26,6 +26,9 @@
+@@ -26,6 +26,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
  
  #include "rtabmap/core/util3d_motion_estimation.h"
@@ -1989,10 +2049,11 @@ diff -ruN a/corelib/src/util3d_motion_estimation.cpp b/corelib/src/util3d_motion
  
  #include "rtabmap/utilite/UStl.h"
  #include "rtabmap/utilite/UMath.h"
-diff -ruN a/corelib/src/util3d_surface.cpp b/corelib/src/util3d_surface.cpp
+diff --git a/corelib/src/util3d_surface.cpp b/corelib/src/util3d_surface.cpp
+index bccae36..3625426 100644
 --- a/corelib/src/util3d_surface.cpp
 +++ b/corelib/src/util3d_surface.cpp
-@@ -39,8 +39,6 @@
+@@ -39,8 +39,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  #include "rtabmap/utilite/UConversion.h"
  #include "rtabmap/utilite/UMath.h"
  #include "rtabmap/utilite/UTimer.h"
@@ -2001,7 +2062,7 @@ diff -ruN a/corelib/src/util3d_surface.cpp b/corelib/src/util3d_surface.cpp
  #include <pcl/search/kdtree.h>
  #include <pcl/surface/gp3.h>
  #include <pcl/features/normal_3d_omp.h>
-@@ -1745,7 +1743,7 @@
+@@ -1745,7 +1743,7 @@ cv::Mat mergeTextures(
  							if(resizedImage.type() == CV_8UC1)
  							{
  								cv::Mat resizedImageColor;
@@ -2010,7 +2071,7 @@ diff -ruN a/corelib/src/util3d_surface.cpp b/corelib/src/util3d_surface.cpp
  								resizedImage = resizedImageColor;
  							}
  							UASSERT(resizedImage.type() == globalTextures.type());
-@@ -2609,7 +2607,7 @@
+@@ -2609,7 +2607,7 @@ bool multiBandTexturing(
  				if(imageRoi.channels() == 1)
  				{
  					cv::Mat imageRoiColor;
@@ -2019,7 +2080,7 @@ diff -ruN a/corelib/src/util3d_surface.cpp b/corelib/src/util3d_surface.cpp
  					imageRoi = imageRoiColor;
  				}
  
-@@ -3218,7 +3216,7 @@
+@@ -3218,7 +3216,7 @@ float computeNormalsComplexity(
  		}
  		if(oi>1)
  		{
@@ -2028,7 +2089,7 @@ diff -ruN a/corelib/src/util3d_surface.cpp b/corelib/src/util3d_surface.cpp
  
  			if(pcaEigenVectors)
  			{
-@@ -3279,7 +3277,7 @@
+@@ -3279,7 +3277,7 @@ float computeNormalsComplexity(
  	}
  	if(oi>1)
  	{
@@ -2037,7 +2098,7 @@ diff -ruN a/corelib/src/util3d_surface.cpp b/corelib/src/util3d_surface.cpp
  
  		if(pcaEigenVectors)
  		{
-@@ -3335,7 +3333,7 @@
+@@ -3335,7 +3333,7 @@ float computeNormalsComplexity(
  	}
  	if(oi>1)
  	{
@@ -2046,7 +2107,7 @@ diff -ruN a/corelib/src/util3d_surface.cpp b/corelib/src/util3d_surface.cpp
  
  		if(pcaEigenVectors)
  		{
-@@ -3391,7 +3389,7 @@
+@@ -3391,7 +3389,7 @@ float computeNormalsComplexity(
  	}
  	if(oi>1)
  	{
@@ -2055,7 +2116,7 @@ diff -ruN a/corelib/src/util3d_surface.cpp b/corelib/src/util3d_surface.cpp
  
  		if(pcaEigenVectors)
  		{
-@@ -3447,7 +3445,7 @@
+@@ -3447,7 +3445,7 @@ float computeNormalsComplexity(
  	}
  	if(oi>1)
  	{
@@ -2064,22 +2125,8 @@ diff -ruN a/corelib/src/util3d_surface.cpp b/corelib/src/util3d_surface.cpp
  
  		if(pcaEigenVectors)
  		{
-
-diff -ruN a/app/src/main.cpp b/app/src/main.cpp
---- a/app/src/main.cpp
-+++ b/app/src/main.cpp
-@@ -25,6 +25,10 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
- 
-+#ifdef WIN32
-+#include <objbase.h>
-+#endif
-+
- #include <QApplication>
- #include <QtCore/QDir>
- #include "rtabmap/utilite/UEventsManager.h"
-diff -ruN a/tools/DatabaseViewer/main.cpp b/tools/DatabaseViewer/main.cpp
+diff --git a/tools/DatabaseViewer/main.cpp b/tools/DatabaseViewer/main.cpp
+index 597655d..06215c9 100644
 --- a/tools/DatabaseViewer/main.cpp
 +++ b/tools/DatabaseViewer/main.cpp
 @@ -25,6 +25,10 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
