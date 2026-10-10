@@ -131,6 +131,9 @@ gz_sim_vendor:
 ros2cli:
   # Rebuild with the shell completions under the names bash/zsh/fish load (patch).
   build_number: 28
+rosidl_cli:
+  # Rebuild with the shell completions installed under the names bash/zsh/fish load (patch).
+  build_number: 28
 rqt_plot:
   build_number: 28
 rqt_py_common:

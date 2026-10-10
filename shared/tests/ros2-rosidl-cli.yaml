@@ -1,0 +1,14 @@
+tests:
+  # the completion scripts are installed under the names the shells load on demand,
+  # like ros2cli's (https://github.com/RoboStack/ros-humble/issues/271)
+  - script:
+    - if: unix
+      then:
+        - test -f ${PREFIX}/share/bash-completion/completions/rosidl
+        - test -f ${PREFIX}/share/zsh/site-functions/_rosidl
+        # only rolling's and lyrical's ros2cli install a fish completion, rosidl_cli follows
+        - if: ros_distro in ["rolling", "lyrical"]
+          then:
+            - test -f ${PREFIX}/share/fish/vendor_completions.d/rosidl.fish
+        # and the bash one registers a completion for rosidl (as pixi shell sources it)
+        - bash -c ". ${PREFIX}/share/bash-completion/completions/rosidl && complete -p rosidl"
