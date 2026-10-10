@@ -10,3 +10,4 @@ pinning_overrides:
   libzenohcxx: [1.9.0]
   xtensor: [0.25.0]
   python: [3.12.* *_cpython]
+rosdistro_sync: jazzy/2026-10-05
