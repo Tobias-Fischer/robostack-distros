@@ -916,7 +916,7 @@ oneloop:
 openblas:
   - 0.3.*
 openexr:
-  - '3.5'
+  - 3.4
 openh264:
   - 2.6.0
 openjpeg:
@@ -1002,6 +1002,7 @@ python:
 python_impl:
   - cpython
 
+  # ros-lyrical specific (distros/lyrical/distro.yaml)
 python_min:
   # minimum supported python version per CFEP-25
   # bump to next minor version when we drop python versions
