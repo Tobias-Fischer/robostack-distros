@@ -263,7 +263,7 @@ def task(distro: str, name: str, args: list[str]) -> int:
         return rc or run(["vinca-sort-yaml-keys", *args, *files], d)
     if name == "upload":
         return upload(distro, args, w if w.is_dir() else d)
-    if name in ("update-snapshot", "find-stale", "update-pinning"):
+    if name in ("update-snapshot", "find-stale", "update-pinning", "dependency-report"):
         import maintenance
 
         return maintenance.main(name, args, distro)
@@ -378,7 +378,8 @@ def changed_distros(base: str) -> list[str]:
     return sorted({f.split("/")[1] for f in out if f.count("/") >= 2} & set(distros()))
 
 
-REPO_COMMANDS = ("check", "update-pinning", "new-distro", "parse-command", "add-package", "rosdistro-syncs")
+REPO_COMMANDS = ("check", "update-pinning", "new-distro", "parse-command", "add-package", "rosdistro-syncs",
+                 "rebuild", "rebuild-dependents", "update-vinca")
 
 
 def main() -> int:

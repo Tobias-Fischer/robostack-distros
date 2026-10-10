@@ -6,11 +6,18 @@
 #   pinning version or a migration became usable (only packages using a changed pin, and
 #   what depends on them, are rebuilt; the PR is labelled dependency-conflict when the
 #   new pins can't be installed together).
+# - weekly (Mondays): a dependency check of every distribution, kept in one issue per
+#   distribution ("<distro>: dependency report", label dependency-report), closed when
+#   nothing conflicts.
 # - on demand (owners, members and collaborators):
 #     Actions > robostack-bot > Run workflow, an issue from the "robostack-bot command"
 #     template, or a comment: @robostack-bot <command> [<distro>]
 #   commands: update-rosdistro-snapshot [<distro>...|all] | find-stale-packages [<distro>...|all] |
-#             update-conda-forge-pinning [<distro>...|all] | add-package <pkg>... [<distro>...]
+#             update-conda-forge-pinning [<distro>...|all] | add-package <pkg>... [<distro>...] |
+#             rebuild <pkg>... [<distro>...|all] [--with-dependents] | update-vinca [<ref>] |
+#             dependency-report [<distro>...|all] |
+#             rebuild-dependents (a comment on a pull request: commits the rebuilds its ABI
+#             check suggests to its branch; not possible for pull requests from forks)
 # - package requests (the "Package request" issue form or `@robostack-bot add-package`,
 #   from anyone): the bot opens a PR that adds the packages; maintainers review it.
 #   Every other command is for owners, members and collaborators.
@@ -22,16 +29,20 @@ name: robostack-bot
 on:
   schedule:
     - cron: "17 3 * * *"
+    - cron: "43 4 * * 1"  # weekly dependency report (the plan job matches this string)
   workflow_dispatch:
     inputs:
       command:
         type: choice
-        options: [add-package, update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning]
+        options: [add-package, update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning, rebuild,
+                  update-vinca, dependency-report]
       distro:
-        description: Distribution (for update-rosdistro-snapshot / find-stale-packages; empty = all)
+        description: Distribution (for the per-distribution commands; empty = all)
         required: false
       packages:
-        description: For add-package, ROS packages and optionally distributions, e.g. "foxglove_bridge humble jazzy"
+        description: >-
+          For add-package / rebuild, ROS packages and optionally distributions, e.g. "foxglove_bridge humble jazzy"
+          (rebuild: add --with-dependents to rebuild what depends on them); for update-vinca, a vinca ref (empty = the pinned branch)
         required: false
   issue_comment:
     types: [created]
@@ -72,15 +83,22 @@ jobs:
           PACKAGES: ${{ inputs.packages }}
           BODY: ${{ github.event.comment.body || github.event.issue.body }}
           ASSOCIATION: ${{ github.event.comment.author_association || github.event.issue.author_association }}
+          PULL_REQUEST: ${{ github.event.issue.pull_request && github.event.issue.number || '' }}
+          SCHEDULE: ${{ github.event.schedule }}
         run: |
           case "$EVENT" in
             schedule)
+              if [ "$SCHEDULE" = "43 4 * * 1" ]; then
+                jobs=$(ROBOSTACK_BOT_BODY="@robostack-bot dependency-report all" ROBOSTACK_BOT_ASSOCIATION=OWNER pixi run -q rs parse-command)
+                echo "jobs=$jobs" | tee -a "$GITHUB_OUTPUT"
+                exit 0
+              fi
               # rosdistro syncs, and the conda-forge pinning of every distribution
               jobs=$(pixi run -q rs rosdistro-syncs | python3 -c 'import json,sys; print(json.dumps(json.load(sys.stdin) + [{"command":"update-conda-forge-pinning","distro":d,"args":"","preview":False} for d in sys.argv[1:]]))' $(ls distros)) ;;
             workflow_dispatch)  # only people with write access can dispatch
               jobs=$(ROBOSTACK_BOT_BODY="@robostack-bot $COMMAND $PACKAGES $DISTRO" ROBOSTACK_BOT_ASSOCIATION=OWNER pixi run -q rs parse-command) ;;
             *)
-              jobs=$(ROBOSTACK_BOT_BODY="$BODY" ROBOSTACK_BOT_ASSOCIATION="$ASSOCIATION" pixi run -q rs parse-command) ;;
+              jobs=$(ROBOSTACK_BOT_BODY="$BODY" ROBOSTACK_BOT_ASSOCIATION="$ASSOCIATION" ROBOSTACK_BOT_PULL_REQUEST="$PULL_REQUEST" pixi run -q rs parse-command) ;;
           esac
           echo "jobs=$jobs" | tee -a "$GITHUB_OUTPUT"
 
@@ -126,6 +144,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           set +e
+          # shellcheck disable=SC2086  # ARGS is a list of words (package names, flags, a ref)
           case "$COMMAND" in
             add-package)
               extra=(); [ "$PREVIEW" == "true" ] && extra+=(--preview)
@@ -134,22 +153,28 @@ jobs:
             update-rosdistro-snapshot) pixi run rs "$DISTRO" update-snapshot --summary "$RUNNER_TEMP/summary.md" ;;
             find-stale-packages) pixi run rs "$DISTRO" find-stale --summary "$RUNNER_TEMP/summary.md" ;;
             update-conda-forge-pinning) pixi run rs "$DISTRO" update-pinning --summary "$RUNNER_TEMP/summary.md" ;;
+            rebuild) pixi run rs rebuild $ARGS --summary "$RUNNER_TEMP/summary.md" ;;
+            # pushes to the pull request's branch itself (with this job's checkout token)
+            rebuild-dependents) pixi run rs rebuild-dependents "$ARGS" --summary "$RUNNER_TEMP/summary.md" ;;
+            update-vinca) pixi run rs update-vinca $ARGS --summary "$RUNNER_TEMP/summary.md" ;;
+            # creates / updates the distribution's dependency-report issue
+            dependency-report) pixi run rs "$DISTRO" dependency-report --summary "$RUNNER_TEMP/summary.md" ;;
           esac
           status=$?
           cat "$RUNNER_TEMP/summary.md" >> "$GITHUB_STEP_SUMMARY" 2>/dev/null
           exit $status
       - name: Link the request
-        if: steps.bot.outputs.changed == 'true' && github.event.issue.number
+        if: steps.bot.outputs.changed == 'true' && github.event.issue.number && matrix.command != 'rebuild-dependents'
         env:
           NUMBER: ${{ github.event.issue.number }}
         run: |
           printf '\nCloses #%s\n' "$NUMBER" >> "$RUNNER_TEMP/summary.md"
       - name: Open or update the pull request
-        if: steps.bot.outputs.changed == 'true' && !matrix.preview
+        if: steps.bot.outputs.changed == 'true' && !matrix.preview && matrix.command != 'rebuild-dependents'
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ steps.app.outputs.token || secrets.GHA_PAT || github.token }}
-          branch: bot/${{ matrix.command }}${{ matrix.distro && format('-{0}', matrix.distro) || '' }}${{ matrix.command == 'add-package' && format('-{0}', github.run_id) || '' }}
+          branch: bot/${{ matrix.command }}${{ matrix.distro && format('-{0}', matrix.distro) || '' }}${{ (matrix.command == 'add-package' || matrix.command == 'rebuild') && format('-{0}', github.run_id) || '' }}
           delete-branch: true
           commit-message: ${{ steps.bot.outputs.title }}
           title: ${{ steps.bot.outputs.title }}

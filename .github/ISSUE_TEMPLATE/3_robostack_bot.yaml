@@ -15,18 +15,24 @@ body:
         | `update-rosdistro-snapshot` | maintainers | Refresh `rosdistro_snapshot.yaml` to the latest rosdistro sync (master for rolling) and bump the build number (highest released + 1, per-package build numbers removed) and mutex: a full rebuild. The PR lists the version bumps. Runs daily when a new sync is tagged. |
         | `find-stale-packages` | maintainers | List published packages built against pins that no longer match, with the build-number snippet to rebuild them. Replies only. |
         | `update-conda-forge-pinning` | maintainers | Move the distribution's conda-forge pinning to the latest version, with the migrations that are done for its dependencies; rebuilds only the packages that use a changed pin and what depends on them (a full rebuild when that is most of them). The PR lists the packages, the migrations and a dependency check. Runs daily. |
+        | `rebuild` | maintainers | New builds of the given ROS packages (per-package build numbers above every released build); add `--with-dependents` to the packages to also rebuild everything that depends on them. The PR lists the packages. |
+        | `update-vinca` | maintainers | Move the vinca pin in `pixi.toml` to the newest commit of its branch (or the ref given under Packages), lock and check. The PR lists the vinca commits. |
+        | `dependency-report` | maintainers | Check the dependencies against the pins and update the distribution's dependency-report issue (closed when nothing conflicts). Runs weekly. |
+
+        On a pull request, `@robostack-bot rebuild-dependents` (maintainers) commits the rebuilds its ABI check suggests to the pull request's branch.
   - type: dropdown
     id: command
     attributes:
       label: Command
-      options: [add-package, update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning]
+      options: [add-package, update-rosdistro-snapshot, find-stale-packages, update-conda-forge-pinning, rebuild, update-vinca,
+                dependency-report]
     validations:
       required: true
   - type: input
     id: packages
     attributes:
       label: Packages
-      description: For add-package, ROS package names (as in rosdistro), comma separated
+      description: "For add-package and rebuild, ROS package names (as in rosdistro), comma separated (rebuild: add --with-dependents to rebuild what depends on them); for update-vinca, an optional vinca ref"
       placeholder: foxglove_bridge, rqt_gauges
   - type: dropdown
     id: distributions
