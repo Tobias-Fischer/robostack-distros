@@ -68,7 +68,7 @@ jobs:
       - name: Bot token (pushing workflow files needs more than GITHUB_TOKEN)
         id: app
         if: vars.ROBOSTACK_BOT_APP_ID != ''
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.ROBOSTACK_BOT_APP_ID }}
           private-key: ${{ secrets.ROBOSTACK_BOT_PRIVATE_KEY }}
