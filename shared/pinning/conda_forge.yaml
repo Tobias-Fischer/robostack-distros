@@ -1,8 +1,9 @@
-# Shared conda-forge pinning of all distributions, rendered into each
-# distribution's vinca_pinning.yaml (template/vinca_pinning.yaml.jinja).
-# Updated by `robostack-bot update-conda-forge-pinning`; a distribution can stay on
-# an older version with the `conda_forge_pinning_version` /
-# `conda_forge_migrations` copier answers.
+# Shared conda-forge pinning: the conda-forge-pinning version and the migrations on
+# top of it. `pixi run rs <distro> render-pinning` combines it with overrides.yaml into
+# distros/<d>/conda_build_config.yaml (tools/robostack.py, vinca_pinning). A
+# distribution that sets conda_forge_pinning_version / conda_forge_migrations in its
+# distro.yaml uses those instead (see #54: the goal is every distribution on this one).
+# Updated by `robostack-bot update-conda-forge-pinning`.
 conda_forge_pinning_version: 2026.09.25.23.22.04
 migrations:
   - elfutils0196
