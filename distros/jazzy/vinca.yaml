@@ -22,16 +22,6 @@ packages_exclude:
   # gone in Boost 1.89+ (patch/ros2-sick-safetyscanners-base.patch is for 1.0.3); jazzy
   # never built it
   - sick_safetyscanners2
-  # 0.1.8's Python bindings hit MSVC C3881/C3210 on PyStage's inherited constructors
-  # (python/bindings/src/core.h), although rolling's identical 0.1.6 code builds there;
-  # ros-jazzy never built these on Windows
-  - if: win
-    then:
-      - moveit2_tutorials  # find_package(moveit_task_constructor_core)
-      - moveit_task_constructor_capabilities
-      - moveit_task_constructor_core
-      - moveit_task_constructor_demo
-      - moveit_task_constructor_visualization
 
 packages_select_by_deps:
 
