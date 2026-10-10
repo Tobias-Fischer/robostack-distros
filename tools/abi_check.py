@@ -209,10 +209,12 @@ def header_changes(old: Path, new: Path) -> list[str] | None:
 
 
 def _is_compatibility_package(rec: dict) -> bool:
-    """vinca's ros-<distro>-<pkg> packages (package_name_mode: both) are empty and
-    only depend on ros2-<pkg> of the same version."""
+    """vinca's ros-<distro>-<pkg> packages (package_name_mode: both) are empty and only
+    depend on ros2-<pkg> of the same version (and, since RoboStack/vinca#171, on the
+    distribution's mutex)."""
     deps = rec.get("depends", [])
-    return len(deps) == 1 and deps[0].startswith("ros2-") and "==" in deps[0]
+    return (bool(deps) and deps[0].startswith("ros2-") and "==" in deps[0]
+            and all(d.startswith("ros2-distro-mutex") for d in deps[1:]))
 
 
 def short_name(name: str, distro: str) -> str | None:

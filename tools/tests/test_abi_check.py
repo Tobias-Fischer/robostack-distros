@@ -42,3 +42,13 @@ def test_next_build_number_is_above_vinca_and_every_published_build(tmp_path, mo
     monkeypatch.setattr(rs, "DISTROS", tmp_path)
     assert abi_check.next_build_number({"a": {"1": {"build_number": 30}}, "b": {"2": {"build_number": 7}}}, "jazzy") == 31
     assert abi_check.next_build_number({"a": {"1": {"build_number": 3}}}, "jazzy") == 26
+
+
+def test_compatibility_packages_with_and_without_the_mutex():
+    assert abi_check._is_compatibility_package({"depends": ["ros2-rclcpp ==28.1.22"]})
+    assert abi_check._is_compatibility_package(
+        {"depends": ["ros2-rclcpp ==28.1.22", "ros2-distro-mutex 0.19.* jazzy_*"]})
+    assert not abi_check._is_compatibility_package(
+        {"depends": ["ros2-rclcpp ==28.1.22", "libboost >=1.90"]})
+    assert not abi_check._is_compatibility_package({"depends": ["ros2-distro-mutex 0.19.* jazzy_*", "libfoo"]})
+    assert not abi_check._is_compatibility_package({"depends": []})
