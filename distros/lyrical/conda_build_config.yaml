@@ -226,27 +226,27 @@ assimp:
 attr:
   - 2.5
 aws_c_auth:
-  - 0.10.4
+  - '1.0'
 aws_c_cal:
-  - 0.9.15
+  - '1.0'
 aws_c_common:
-  - 0.14.3
+  - '1.0'
 aws_c_compression:
-  - 0.3.2
+  - '1.0'
 aws_c_event_stream:
-  - 0.7.1
+  - '1.0'
 aws_c_http:
-  - 0.11.0
+  - '1.0'
 aws_c_io:
-  - 0.27.5
+  - '1.0'
 aws_c_mqtt:
-  - 0.16.0
+  - '1.0'
 aws_c_s3:
-  - 0.13.1
+  - '1.1'
 aws_c_sdkutils:
-  - 0.2.7
+  - '1.0'
 aws_checksums:
-  - 0.2.10
+  - '1.0'
 aws_crt_cpp:
   - 0.42.3
 aws_sdk_cpp:
@@ -320,6 +320,8 @@ cutensor:
   - 2
 curl:
   - 8
+dagmc:
+  - '3.2'
 dartsim_cpp:
   - '6.19'
 # Since v1.3.0, the dav1d feedstock has used a sonamed runtime library package to prevent
@@ -334,6 +336,8 @@ dcap:
   - 2.47
 delphes:
   - 3.5.1
+double_down:
+  - '1.1'
 eclib:
   - '20250627'
 eigen_abi_devel:
@@ -383,7 +387,7 @@ gnuradio_core:
 gnutls:
   - '3.8'
 gsl:
-  - 2.7
+  - '2.8'
 gsoap:
   - 2.8.123
 gstreamer:
@@ -399,7 +403,7 @@ libgdal_core:
 geant4:
   - 10.7.4
   - 11.3.2
-  - 11.4.2
+  - 11.4.3
 geos:
   - 3.14.1
 geotiff:
@@ -459,7 +463,7 @@ icu:
 idyntree:
   - '15'
 imath:
-  - 3.2.2
+  - 3.2.3
 impi_devel:
   - 2021.16.0
 ipopt:
@@ -636,7 +640,7 @@ libheif:
 libhugetlbfs:
   - 2
 libhwloc:
-  - 2.13.0
+  - 2.15.0
 libhwy:
   - '1.4'
 libiconv:
@@ -682,11 +686,11 @@ libode:
 libogg:
   - 1.3
 libonnx:
-  - 1.23.0
+  - 1.23.2
 libopencolorio:
   - '2.5'
 libopenimageio:
-  - '3.1'
+  - '3.2'
 libopencv:
   - 5.0.0
 libopentelemetry_cpp:
@@ -779,6 +783,8 @@ libtorch:
   - '2.12'
 libudev:
   - '257'
+libultrahdr:
+  - 2.0.2
 libumfpack:
   - '6'
 libunwind:
@@ -793,6 +799,8 @@ libvips:
   - 8
 libvpl:
   - '2.16'
+libvpx:
+  - '1.17'
 libwebp:
   - 1
 libwebp_base:
@@ -805,6 +813,10 @@ libxml2:
   - '2.15'
 libxml2_devel:
   - '2.15'
+libxmlpp_4_0:
+  - '4.0'
+libxmlpp_5_0:
+  - '5.4'
 libxrootd_devel:
   - '6'
 libxsmm:
@@ -823,6 +835,8 @@ log4cxx:
   - 1.8.0
 lol_html:
   - 3.0.1
+looptools:
+  - '2.16'
 ls_hpack:
   - 2.3.5
 lwtnn:
@@ -843,6 +857,8 @@ mkl:
 mkl_devel:
   - '2026'  # [not osx]
   - '2023'  # [osx]
+moab:
+  - '5.6'
 mpg123:
   - '1.33'
 mpich:
@@ -900,13 +916,13 @@ oneloop:
 openblas:
   - 0.3.*
 openexr:
-  - '3.4'
+  - 3.4
 openh264:
   - 2.6.0
 openjpeg:
   - '2'
 openjph:
-  - '0.31'
+  - '0.32'
 openmpi:
   - '5'
 openslide:
@@ -986,6 +1002,7 @@ python:
 python_impl:
   - cpython
 
+  # ros-lyrical specific (distros/lyrical/distro.yaml)
 python_min:
   # minimum supported python version per CFEP-25
   # bump to next minor version when we drop python versions
@@ -1118,6 +1135,8 @@ tbb_devel:
   - '2023'
 tensorflow:
   - '2.16'
+thepeg:
+  - '2.2'
 thrift_cpp:
   - 0.22.0
 tinyxml2:
