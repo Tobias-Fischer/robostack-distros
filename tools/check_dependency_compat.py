@@ -4,8 +4,8 @@
 Three modes, all platform-agnostic (default platform: the current machine):
 
 1. ``solve`` (default): collect every non-ROS ``host``/``run`` dependency from the
-   generated ``recipes/`` tree, add the ``mutex_package.run_constraints`` from
-   ``vinca.yaml`` as hard requirements, write them into a single fake recipe and
+   generated ``recipes/`` tree (plus any ``--pin`` as a hard requirement), write
+   them into a single fake recipe and
    solve it with ``rattler-build --render-only --with-solve`` against the real
    ``conda_build_config.yaml``.  Nothing is built or downloaded except repodata.
    If the solve fails, the offending dependencies are removed iteratively so that
@@ -19,7 +19,7 @@ Three modes, all platform-agnostic (default platform: the current machine):
 
 3. ``--stale``: inspect already-built artifacts (``output/<platform>/repodata.json``
    or a channel URL) and list ROS packages whose ``depends`` cannot be satisfied
-   under the current mutex constraints / pins.  With ``--delete`` the local
+   under the current pins.  With ``--delete`` the local
    artifacts are removed (and the local index refreshed) so that a subsequent
    ``pixi run build`` (``--skip-existing``) rebuilds only those packages.  A
    ``pkg_additional_info.yaml`` build-number snippet is printed for the case where
@@ -242,13 +242,6 @@ def collect_requirements_from_vinca(
     return requirements
 
 
-def mutex_constraints(vinca_conf: dict[str, Any]) -> list[str]:
-    mutex = vinca_conf.get("mutex_package")
-    if isinstance(mutex, dict):
-        return [str(item) for item in mutex.get("run_constraints", []) or []]
-    return []
-
-
 def write_fake_recipe(
     path: Path,
     pins: list[str],
@@ -406,7 +399,7 @@ def parse_culprits(text: str, candidates: set[str], protected: set[str]) -> set[
 
 
 def pin_consistency(pins: list[str], variant: dict[str, str]) -> list[tuple[str, str]]:
-    """Mutex run_constraints that contradict the rendered conda_build_config.yaml pins."""
+    """--pin specs that contradict the rendered conda_build_config.yaml pins."""
     problems = []
     for spec in pins:
         parts = spec.split()
@@ -499,8 +492,7 @@ def solve_mode(args: argparse.Namespace) -> int:
         raise SystemExit(
             f"No recipes found in {recipes_dir}; run `pixi run generate-recipes` first."
         )
-    vinca_conf = load_vinca(Path(args.vinca), getattr(args, "platform", None))
-    pins = mutex_constraints(vinca_conf) + list(args.pin)
+    pins = list(args.pin)
     variant = variant_pins(Path(args.variant_config), args.platform)
     host_names: Optional[set[str]] = set() if args.source != "recipes" else None
     if args.source == "recipes":
@@ -523,17 +515,16 @@ def solve_mode(args: argparse.Namespace) -> int:
     print(f"Hard pins:      {', '.join(pins) if pins else '(none)'}")
     print()
 
-    # 1. static check: mutex constraints vs. rendered conda_build_config.yaml
+    # 1. static check: --pin specs vs. rendered conda_build_config.yaml
     pin_conflicts: dict[str, dict[str, Any]] = {}
     for spec, pinned in pin_consistency(pins, variant):
-        print(f"PIN MISMATCH: mutex run_constraint '{spec}' vs {args.variant_config} '{pinned}'")
-        pin_conflicts[spec_name(spec)] = {"mutex": spec, "variant": pinned, "explanation": "static"}
+        print(f"PIN MISMATCH: --pin '{spec}' vs {args.variant_config} '{pinned}'")
+        pin_conflicts[spec_name(spec)] = {"pin": spec, "variant": pinned, "explanation": "static"}
     if pin_conflicts:
-        print("  -> align mutex_package.run_constraints in vinca.yaml with the rendered pins"
-              " (or drop the migration from vinca_pinning.yaml).\n")
+        print("  -> the --pin contradicts the rendered pins (or drop the migration).\n")
 
-    # 2. iterative solve of the whole dependency set (the mutex run_constraints are
-    # installed too, so each of them must be satisfiable on its own as well)
+    # 2. iterative solve of the whole dependency set (the --pin specs are installed
+    # too, so each of them must be satisfiable on its own as well)
     protected = {spec_name(spec) for spec in pins}
     active_pins = list(pins)
     excluded: dict[str, str] = {}
@@ -561,9 +552,9 @@ def solve_mode(args: argparse.Namespace) -> int:
                 active = {key: value for key, value in active.items() if spec_name(key[1]) != culprit}
         elif blamed_pins:
             for name in sorted(blamed_pins):
-                mutex_spec = next(s for s in active_pins if spec_name(s) == name)
-                print(f"    pin conflict: {mutex_spec} (dropping it to continue)")
-                pin_conflicts.setdefault(name, {"mutex": mutex_spec, "variant": variant.get(normalized(name))})
+                pin_spec = next(s for s in active_pins if spec_name(s) == name)
+                print(f"    pin conflict: {pin_spec} (dropping it to continue)")
+                pin_conflicts.setdefault(name, {"pin": pin_spec, "variant": variant.get(normalized(name))})
                 pin_conflicts[name]["explanation"] = collapse_versions(solver_block(text))
                 active_pins = [s for s in active_pins if spec_name(s) != name]
                 protected.discard(name)
@@ -601,12 +592,12 @@ def report_conflicts(
     """Print the conflicts; returns how many are real (not just notes)."""
     protected = {spec_name(spec) for spec in pins}
     if pin_conflicts:
-        print(f"{len(pin_conflicts)} mutex constraint(s) contradict {args.variant_config}:")
+        print(f"{len(pin_conflicts)} --pin spec(s) contradict {args.variant_config}:")
         for name, info in pin_conflicts.items():
             if info.get("variant") is None:
-                print(f"== {info['mutex']}  was blamed by the solver for {args.platform} (no rendered pin to compare):")
+                print(f"== {info['pin']}  was blamed by the solver for {args.platform} (no rendered pin to compare):")
             else:
-                print(f"== {info['mutex']}  vs  {info['variant']}")
+                print(f"== {info['pin']}  vs  {info['variant']}")
             if info.get("explanation") not in (None, "static"):
                 for line in info["explanation"].splitlines()[: args.max_lines]:
                     print("   | " + line)
@@ -634,7 +625,7 @@ def report_conflicts(
         block = collapse_versions(solver_block(text)) if not ok else (
             "(no clash reproducible in isolation; it only appears in the full set)"
         )
-        # Precise attribution: which single mutex pin, when dropped, makes it solvable?
+        # Precise attribution: which single --pin, when dropped, makes it solvable?
         blamed_pins: list[str] = []
         if not ok:
             for pin in pins:
@@ -650,7 +641,7 @@ def report_conflicts(
         clash = [
             f"{name} (pinned {variant[normalized(name)]} by {args.variant_config})"
             if normalized(name) in variant and name not in protected
-            else f"{name} (mutex run_constraint)" if name in protected
+            else f"{name} (--pin)" if name in protected
             else name
             for name in blamed
         ]
@@ -745,8 +736,8 @@ def report_migrations(
 
     for name, info in pin_conflicts.items():
         if info.get("variant") is None:
-            print(f"  mutex '{info['mutex']}' has no installable candidate together with the other pins and"
-                  " dependencies (see explanation above); relax or drop the constraint, or fix the feedstock.")
+            print(f"  --pin '{info['pin']}' has no installable candidate together with the other pins and"
+                  " dependencies (see explanation above); relax or drop it, or fix the feedstock.")
             continue
         lib = normalized(name)
         setters = sorted(
@@ -756,9 +747,8 @@ def report_migrations(
         origin = ", ".join(
             f"{m} ({'applied' if m in applied else 'not applied'} in {pinning_path.name})" for m in setters
         ) or "the conda-forge-pinning base file"
-        print(f"  mutex '{info['mutex']}' vs rendered pin '{info['variant']}' set by {origin}")
-        print(f"    -> either update mutex_package.run_constraints in vinca.yaml to '{name} "
-              f"{str(info['variant']).split()[-1]}.*' (mutex build-number bump), or remove the migration.")
+        print(f"  --pin '{info['pin']}' vs rendered pin '{info['variant']}' set by {origin}")
+        print(f"    -> either change the --pin to '{name} {str(info['variant']).split()[-1]}.*', or remove the migration.")
 
     for culprit, info in details.items():
         libs = [normalized(name) for name in info["pins"]] or [normalized(spec_name(p)) for p in pins]
@@ -952,28 +942,25 @@ def stale_mode(args: argparse.Namespace) -> int:
     distro = vinca_conf.get("ros_distro", "")
     prefixes = ("ros2-", f"ros-{distro}-")
     pins: dict[str, str] = {}
-    if not args.mutex_only:
-        for key, value in variant_pins(Path(args.variant_config), args.platform).items():
-            pins[key] = value
-            # conda_build_config.yaml pins the -devel package (libboost_devel), while the
-            # built packages depend on what its run_exports name (libboost)
-            if key.endswith("-devel"):
-                pins.setdefault(key[: -len("-devel")], value)
-    mutex_pins = {}
-    for spec in mutex_constraints(vinca_conf) + list(args.pin):
+    for key, value in variant_pins(Path(args.variant_config), args.platform).items():
+        pins[key] = value
+        # conda_build_config.yaml pins the -devel package (libboost_devel), while the
+        # built packages depend on what its run_exports name (libboost)
+        if key.endswith("-devel"):
+            pins.setdefault(key[: -len("-devel")], value)
+    hard_pins = {}
+    for spec in args.pin:
         parts = spec.split()
         if len(parts) >= 2:
-            mutex_pins[normalized(parts[0])] = parts[1]
-    pins.update(mutex_pins)  # mutex constraints win
-    mutex_name = (vinca_conf.get("mutex_package") or {}).get("name") if isinstance(
-        vinca_conf.get("mutex_package"), dict) else None
+            hard_pins[normalized(parts[0])] = parts[1]
+    pins.update(hard_pins)  # --pin wins
 
     source = args.repodata or f"output/{args.platform}"
     packages, remote = load_repodata(source, args.platform)
     packages = {
         filename: record
         for filename, record in packages.items()
-        if record.get("name", "").startswith(prefixes) or record.get("name") == mutex_name
+        if record.get("name", "").startswith(prefixes)
     }
     if not args.all_builds:
         # Only the newest build of every package matters for what users install now.
@@ -987,9 +974,8 @@ def stale_mode(args: argparse.Namespace) -> int:
         }
     scope = "all build numbers" if args.all_builds else "newest build of each package (see --all-builds)"
     print(f"Platform: {args.platform}   repodata: {source}   {distro} packages: {len(packages)} ({scope})")
-    print(f"Pins checked: {', '.join(f'{k} {v}' for k, v in sorted(mutex_pins.items()))}")
-    if not args.mutex_only:
-        print(f"              + {len(pins) - len(mutex_pins)} single-valued pins from {args.variant_config}")
+    print(f"Pins checked: {len(pins) - len(hard_pins)} single-valued pins from {args.variant_config}"
+          + (f" + --pin {', '.join(f'{k} {v}' for k, v in sorted(hard_pins.items()))}" if hard_pins else ""))
     print()
 
     stale: dict[str, list[tuple[str, str, str]]] = {}
@@ -1005,7 +991,7 @@ def stale_mode(args: argparse.Namespace) -> int:
             if pin is None or is_ros_dependency(parts[0]):
                 continue
             if not constraint_compatible(parts[1], pin):
-                severity = "CONFLICT" if key in mutex_pins else "drift"
+                severity = "CONFLICT" if key in hard_pins else "drift"
                 problems.append((dep, f"{parts[0]} {pin}", severity))
         if problems:
             stale[filename] = problems
@@ -1015,7 +1001,7 @@ def stale_mode(args: argparse.Namespace) -> int:
         return 0
 
     print(f"{len(stale)} stale artifact(s) whose dependencies conflict with the current pins")
-    print("(CONFLICT = violates a mutex run_constraint, i.e. not installable next to the new mutex;")
+    print("(CONFLICT = violates a --pin;")
     print(" drift    = built against an older conda_build_config.yaml pin, rebuild recommended):\n")
     by_dep: dict[str, int] = defaultdict(int)
     for filename, problems in stale.items():
@@ -1031,8 +1017,6 @@ def stale_mode(args: argparse.Namespace) -> int:
     mapping = ros_name_map(vinca_conf)
     ros_names = []
     for name in names:
-        if name == mutex_name:
-            continue
         prefix = next((p for p in prefixes if name.startswith(p)), "")
         suffix = name[len(prefix):]
         ros_names.append(mapping.get(normalized(suffix), suffix.replace("-", "_")))
@@ -1043,12 +1027,9 @@ def stale_mode(args: argparse.Namespace) -> int:
     print("A) artifacts only exist locally: delete them (see --delete) and run `pixi run build`;")
     print("   --skip-existing then rebuilds exactly the missing packages.")
     print("B) artifacts are already on the channel: bump the build number of just these packages")
-    print("   (and of the mutex, so its run_constraints are refreshed) and rebuild, then remove the")
-    print("   old files from the channel.  pkg_additional_info.yaml snippet:\n")
+    print("   and rebuild, then remove the old files from the channel.  pkg_additional_info.yaml snippet:\n")
     for ros_name in ros_names:
         print(f"{ros_name}:\n  build_number: {build_number}")
-    if mutex_name:
-        print(f"\n# vinca.yaml -> mutex_package:\n#   build_number: {build_number}")
     print()
     if remote:
         channel = source.split("://", 1)[1].split("/")[1] if "anaconda.org" in source else source
@@ -1114,11 +1095,6 @@ def parse_args() -> argparse.Namespace:
         "--all-builds",
         action="store_true",
         help="with --stale: inspect every build number, not just the current vinca.yaml build_number",
-    )
-    parser.add_argument(
-        "--mutex-only",
-        action="store_true",
-        help="with --stale: only check the mutex run_constraints, ignore conda_build_config.yaml drift",
     )
     return parser.parse_args()
 
