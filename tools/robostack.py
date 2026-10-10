@@ -348,6 +348,10 @@ def generate_gha(distro: str, args: list[str]) -> int:
 
 
 def changed_distros(base: str) -> list[str]:
+    # no common history (main's history was rewritten and force-pushed): nothing to
+    # diff against, so every distribution counts as changed
+    if subprocess.run(["git", "merge-base", base, "HEAD"], cwd=ROOT, capture_output=True).returncode:
+        return distros()
     out = subprocess.run(["git", "diff", "--name-only", f"{base}...HEAD"], cwd=ROOT,
                          capture_output=True, text=True, check=True).stdout.split()
     out = [f for f in out if not f.endswith(".md") and f != "LICENSE"]  # docs don't need builds
