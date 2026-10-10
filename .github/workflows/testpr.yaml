@@ -195,6 +195,25 @@ jobs:
         pixi run python tools/summarize_rattler_build.py --log rattler-build.log \
           --platform "$DISTRO $PLATFORM" --outcome "${{ steps.build-recipes.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
+    # Compare what the pull request built with the released builds, so single packages
+    # can be bumped without a full rebuild; it reports and never fails the build.
+    - name: ABI check against the released builds
+      id: abi-check
+      if: ${{ always() && matrix.target.platform == 'linux-64' && contains(fromJSON('["success","failure"]'), steps.build-recipes.outcome) }}
+      continue-on-error: true
+      shell: bash -l {0}
+      run: |
+        pixi run abi-check --distro "$DISTRO" --platform "$PLATFORM" --pr-builds "$CACHE_DIR" --summary "abi-check-$DISTRO.md"
+        cat "abi-check-$DISTRO.md" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload the ABI check
+      if: ${{ always() && steps.abi-check.outcome == 'success' }}
+      uses: actions/upload-artifact@v6
+      with:
+        name: abi-check-${{ matrix.distro }}
+        path: abi-check-${{ matrix.distro }}.md
+        retention-days: 7
+
     - name: Upload build log
       if: always()
       uses: actions/upload-artifact@v6
@@ -230,6 +249,51 @@ jobs:
           echo "Workflow generation attempt ${attempt} failed; retrying..." >&2
           sleep 15
         done
+
+  # The ABI checks of all distributions as one pull-request comment, updated on every
+  # push. Pull requests from forks get a read-only token: they only have the job summaries.
+  abi-comment:
+    name: ABI check comment
+    needs: build
+    if: ${{ always() && github.event_name == 'pull_request' && needs.build.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: abi-check-*
+          merge-multiple: true
+      - name: Post or update the comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          shopt -s nullglob
+          files=(abi-check-*.md)
+          marker='<!-- robostack-abi-check -->'
+          existing=$(gh api "repos/$REPO/issues/$PR/comments" --paginate -q ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
+          # no comment for pull requests that build nothing released before
+          if ! grep -q '^| package |' "${files[@]}" /dev/null && [ -z "$existing" ]; then exit 0; fi
+          {
+            echo "$marker"
+            echo "### ABI check (linux-64)"
+            echo
+            echo "Each package this pull request built, compared with its newest released build (\`tools/abi_check.py\`, libabigail):"
+            echo "- **compatible** / **additions**: the package can be bumped on its own;"
+            echo "- **soname** / **incompatible**: the packages that depend on it need a rebuild (build number bump) in the same pull request."
+            echo
+            cat "${files[@]}"
+            echo "Exported symbols are compared (the released packages are stripped, so struct layouts aren't); unchanged installed headers rule out layout and inline changes, changed ones are listed for review. Dependents to rebuild are the released ones linking to a changed library. A changed pin is part of the comparison."
+          } > body.md
+          if [ -n "$existing" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing" -F body=@body.md > /dev/null
+          else
+            gh api "repos/$REPO/issues/$PR/comments" -F body=@body.md > /dev/null
+          fi
 
   # One stable check for branch protection / auto-merge: the build matrix differs
   # from PR to PR, so require this job instead of the individual builds.
