@@ -5,6 +5,9 @@ upload_target: anaconda
 conda_forge_pinning_version: 2026.10.09.13.11.31
 conda_forge_migrations: [elfutils0196, giflib6, go_macos, gsl28, gstreamer128, hdf52, libboost190, libhwloc2150, proj99, urdfdom6]
 pinning_overrides:
+  # libopencv 5.0.0 builds for openexr 3.5 need qt6-main >= 6.12, but pyqt6 6.11 (via
+  # qt6-multimedia 6.11) still requires qt6-main 6.11: stay on openexr 3.4 until pyqt6 is rebuilt
+  openexr: ['3.4']
   libzenohc: [1.9.0]
   libzenohcxx: [1.9.0]
   xtensor: [0.25.0]
