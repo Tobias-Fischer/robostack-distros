@@ -105,8 +105,9 @@ def vinca_pinning(distro: str) -> str:
            f"# distros/{distro}/distro.yaml; edit those instead.", ""]
     if s.get("conda_forge_pinning_version"):
         out.append(f"conda_forge_pinning_version: {s['conda_forge_pinning_version']}")
-        out.append("migrations:")
-        out += [f"  - {m}" for m in s.get("conda_forge_migrations") or []]
+        migrations = s.get("conda_forge_migrations") or []
+        out.append("migrations:" if migrations else "migrations: []")
+        out += [f"  - {m}" for m in migrations]
     else:
         out += [l for l in (SHARED / "pinning" / "conda_forge.yaml").read_text().splitlines()
                 if not l.startswith("#")]
@@ -217,28 +218,23 @@ def upload(distro: str, files: list[str], cwd: Path) -> int:
     ROBOSTACK_UPLOAD_CHANNEL (set by the staged build workflows from the repository
     variable of the same name) redirects uploads to another prefix.dev channel, e.g.
     a test channel (the builds then also read from it, see rattler_build); "none"
-    skips uploading. prefix.dev uploads use trusted publishing
-    (with an attestation), or the PREFIX_API_KEY secret if it is set.
+    skips uploading. prefix.dev uploads use trusted publishing (Repository Access,
+    OIDC; no stored key) and publish an attestation.
     """
     override = os.environ.get("ROBOSTACK_UPLOAD_CHANNEL", "").strip()
     if override == "none":
         print(f"ROBOSTACK_UPLOAD_CHANNEL=none: not uploading {' '.join(files)}")
         return 0
     s = settings(distro)
-    if override or s.get("upload_target", "prefix") == "prefix":
-        channel = override or s.get("channel_name", f"robostack-{distro}")
-        cmd = ["rattler-build", "upload", "prefix", "-c", channel, "--skip-existing"]
-        if not os.environ.get("PREFIX_API_KEY"):
-            # the build workflows pass the secret through; without it the variable is
-            # set but empty, and rattler-build would still take it for an API key
-            # ("--generate-attestation cannot be used with an API key")
-            os.environ.pop("PREFIX_API_KEY", None)
-            cmd.append("--generate-attestation")
-    else:
-        token = os.environ.get("ANACONDA_API_TOKEN", "")
-        cmd = ["rattler-build", "upload", "anaconda", "-o", s.get("channel_name", f"robostack-{distro}"), "-a", token, "--force"]
-    # Sigstore (attestations) and the channels fail now and then; uploads are
-    # idempotent (--skip-existing / --force), so retry.
+    if not override and s.get("upload_target", "prefix") != "prefix":
+        # anaconda.org has no trusted publishing, and we keep no tokens
+        print(f"{distro}'s channel {s.get('channel_name')} is on anaconda.org: uploads go to prefix.dev only "
+              "(set ROBOSTACK_UPLOAD_CHANNEL, or move the channel to prefix.dev)", file=sys.stderr)
+        return 1
+    channel = override or s.get("channel_name", f"robostack-{distro}")
+    cmd = ["rattler-build", "upload", "prefix", "-c", channel, "--skip-existing", "--generate-attestation"]
+    # Sigstore (attestations) and the channel fail now and then; uploads are
+    # idempotent (--skip-existing), so retry.
     for attempt in range(1, 4):
         rc = run(cmd + files, cwd)
         if rc == 0 or attempt == 3:
@@ -285,7 +281,9 @@ def task(distro: str, name: str, args: list[str]) -> int:
     if name == "check-orphaned-patches":
         return run(py + [str(TOOLS / "check_orphaned_platform_patches.py"), "--patch-dir", str(d / "patch"), *args], w)
     if name == "check-patches":
-        return run(py + [str(TOOLS / "check_patches_clean_apply.py"), "--patch-dir", str(d / "patch"), *args], w)
+        # shared/patch too, which the distribution's patches for the same package replace
+        dirs = ["--patch-dir", str(SHARED / "patch"), "--patch-dir", str(d / "patch")]
+        return run(py + [str(TOOLS / "check_patches_clean_apply.py"), *dirs, *args], w)
     if name == "check-deps":
         return run(py + [str(TOOLS / "check_dependency_compat.py"), *args], w)
     if name == "gap-report":
@@ -325,6 +323,8 @@ def generate_gha(distro: str, args: list[str]) -> int:
         # all build branches share .github/workflows/build.yaml, which GitHub lists as one
         # workflow: run-name tells the runs apart
         lines = [f"name: build\nrun-name: {distro} {ns.platform}" if l.startswith("name: ") else l for l in lines]
+        # uploads use prefix.dev trusted publishing only: no anaconda.org token
+        lines = [l for l in lines if "ANACONDA_API_TOKEN" not in l]
         if ns.platform == "win-64" and not any("build-ci" in l for l in lines):
             raise SystemExit(f"{wf}: the Windows workflow doesn't use .scripts/build_win.bat")
         if any(l.startswith("env:") for l in lines):
@@ -335,8 +335,6 @@ def generate_gha(distro: str, args: list[str]) -> int:
             "  # optional repository variable: upload to this prefix.dev channel instead",
             "  # (e.g. a test channel), or 'none' to only build",
             "  ROBOSTACK_UPLOAD_CHANNEL: ${{ vars.ROBOSTACK_UPLOAD_CHANNEL }}",
-            "  # optional secret: prefix.dev API key, for channels without Repository Access (OIDC)",
-            "  PREFIX_API_KEY: ${{ secrets.PREFIX_API_KEY }}",
         ]
         # one file name on every build branch (each branch carries only its own
         # workflow), so a single prefix.dev Repository Access source matches them all

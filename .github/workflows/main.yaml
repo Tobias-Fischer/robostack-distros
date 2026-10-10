@@ -50,6 +50,11 @@ jobs:
     needs: plan
     if: needs.plan.outputs.distros != '[]'
     runs-on: ubuntu-latest
+    # one generation per distribution at a time: two merges in quick succession must
+    # not push build branches in parallel (a newer pending run replaces an older one)
+    concurrency:
+      group: generate-${{ matrix.distro }}
+      cancel-in-progress: false
     strategy:
       fail-fast: false
       matrix:
@@ -75,7 +80,7 @@ jobs:
         run: git config --global maintenance.auto false && git config --global gc.auto 0 && git config --global core.longpaths true
       - uses: prefix-dev/setup-pixi@v0.11.0
         with:
-          frozen: true
+          locked: true  # the lock file must match pixi.toml
           pixi-version: v0.81.0
           # one job saves the shared pixi environment cache (same key for all)
           cache-write: ${{ matrix.distro == fromJSON(needs.plan.outputs.distros)[0] }}
