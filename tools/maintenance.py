@@ -549,7 +549,18 @@ def new_distro(name: str, source: str) -> Result:
     src, dest = rs.DISTROS / source, rs.DISTROS / name
     if dest.exists():
         raise SystemExit(f"{dest} exists")
+    if not (src / "vinca.yaml").is_file():
+        raise SystemExit(f"no distribution {source!r} to start from (distros/{source}/vinca.yaml)")
     dest.mkdir(parents=True)
+    try:
+        return _populate_new_distro(name, source, src, dest)
+    except BaseException:
+        # leave nothing behind, so the corrected command can run again
+        shutil.rmtree(dest, ignore_errors=True)
+        raise
+
+
+def _populate_new_distro(name: str, source: str, src: Path, dest: Path) -> Result:
     settings = rs.settings(source)
     keep = {k: settings[k] for k in ("upload_target",) if k in settings}
     (dest / "distro.yaml").write_text(
