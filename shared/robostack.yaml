@@ -595,6 +595,11 @@ libreadline:
   robostack: [readline]
 libreadline-dev:
   robostack: [readline]
+libserial-dev:
+  robostack:
+    linux: [libserial]
+    osx: [libserial]
+    win64: []  # not on conda-forge for Windows
 libshaderc-dev:
   robostack: [shaderc]
 libsndfile1-dev:

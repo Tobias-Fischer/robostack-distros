@@ -12,8 +12,11 @@ the [RoboStack documentation](https://robostack.github.io/GettingStarted.html).
 | humble | [robostack-staging](https://anaconda.org/robostack-staging) |
 
 Packages are named `ros2-<package>`, e.g. `ros2-desktop` or `ros2-rclcpp`; the
-distribution comes from the channel. The older `ros-<distro>-<package>` names are no
-longer built.
+distribution comes from the channel. The older names keep working: for every package
+there is also a small `ros-<distro>-<package>` package that just depends on
+`ros2-<package>` of the same version (vinca's `package_name_mode: both` in
+`shared/vinca.yaml`), so existing environments and instructions such as
+`pixi add ros-jazzy-desktop` don't break.
 
 **A package is missing?** Open a *Package request* issue. robostack-bot opens a pull
 request that adds it to the build, and a maintainer reviews it.
