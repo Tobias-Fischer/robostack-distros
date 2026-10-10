@@ -9,17 +9,25 @@ script, so temporary rebuild controls live in ci.yaml instead of in the
       - rosidl_generator_py     # ROS name (dashes or underscores)
       - roboplan*               # or a glob
 
+The controls apply once per configuration: a marker in the cache records them, so a
+retry of the same rebuild keeps the packages the earlier attempt built (a full
+rebuild that takes longer than one runner's time limit can finish across retries).
+Changing full_rebuild or evict_cache applies them again.
+
 Each evict_cache entry matches both package name prefixes (``ros2-`` and
 ``ros-<distro>-``, for builds made before ``package_name_mode: new``) and the plain
 name (packages that vinca built under a conda-forge name).
 """
 
 import argparse
+import json
 import shutil
 import sys
 from pathlib import Path
 
 import yaml
+
+MARKER = ".ci-controls"
 
 
 def main() -> int:
@@ -34,8 +42,18 @@ def main() -> int:
         config = yaml.safe_load(args.config.read_text()) or {}
     distro = yaml.safe_load(args.vinca.read_text())["ros_distro"]
     cache = args.cache_dir
+    controls = json.dumps({"full_rebuild": bool(config.get("full_rebuild", False)),
+                           "evict_cache": [str(e) for e in config.get("evict_cache") or []]}, sort_keys=True)
+    marker = cache / MARKER
     if not cache.is_dir():
+        # nothing restored: this attempt starts clean, its packages count for the retries
         print(f"No cache directory {cache}; nothing to do.")
+        cache.mkdir(parents=True)
+        marker.write_text(controls)
+        return 0
+
+    if marker.is_file() and marker.read_text() == controls:
+        print("ci.yaml: controls already applied to this cache (a retry); keeping its packages.")
         return 0
 
     if config.get("full_rebuild", False):
@@ -45,6 +63,7 @@ def main() -> int:
                 shutil.rmtree(child)
             else:
                 child.unlink()
+        marker.write_text(controls)
         return 0
 
     for entry in config.get("evict_cache") or []:
@@ -56,6 +75,7 @@ def main() -> int:
             for path in sorted(cache.glob(prefix + suffix)):
                 print(f"ci.yaml: evicting {path.name}")
                 path.unlink()
+    marker.write_text(controls)
     return 0
 
 

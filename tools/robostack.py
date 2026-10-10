@@ -288,6 +288,10 @@ def task(distro: str, name: str, args: list[str]) -> int:
         return run(py + [str(TOOLS / "check_dependency_compat.py"), *args], w)
     if name == "gap-report":
         return run(py + [str(TOOLS / "build_gap_report.py"), *args], w)
+    if name in ("build", "build-one") and not any((w / "recipes").glob("*/recipe.yaml")):
+        print(f"No recipes in {(w / 'recipes').relative_to(ROOT)}: run `pixi run rs {distro} generate-recipes` first",
+              file=sys.stderr)
+        return 1
     if name == "build":
         return run(rattler_build(distro, ["--recipe-dir", "./recipes", *args]), w)
     if name == "build-ci":  # used by .scripts/build_unix.sh / build_win.bat
@@ -322,7 +326,13 @@ def generate_gha(distro: str, args: list[str]) -> int:
         lines = wf.read_text().splitlines()
         # all build branches share .github/workflows/build.yaml, which GitHub lists as one
         # workflow: run-name tells the runs apart
-        lines = [f"name: build\nrun-name: {distro} {ns.platform}" if l.startswith("name: ") else l for l in lines]
+        # one run per distribution and platform at a time: an older run can't upload
+        # alongside a newer one; a newer pending run replaces older pending ones (not
+        # cancel-in-progress: re-running a failed job of an older run would cancel the
+        # newer run)
+        lines = [f"name: build\nrun-name: {distro} {ns.platform}\n"
+                 f"concurrency:\n  group: build-{distro}-{ns.platform}\n  cancel-in-progress: false"
+                 if l.startswith("name: ") else l for l in lines]
         # uploads use prefix.dev trusted publishing only: no anaconda.org token
         lines = [l for l in lines if "ANACONDA_API_TOKEN" not in l]
         # jobs that declare permissions get none they don't list: checking out the
