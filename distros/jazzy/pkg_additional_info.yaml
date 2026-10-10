@@ -134,3 +134,7 @@ urdfdom_headers:
     override_version: '3.0'
 zenoh_cpp_vendor:
   additional_cmake_args: "-DAMENT_VENDOR_POLICY=NEVER_VENDOR_IGNORE_SATISFIED_CHECK -DUSE_SYSTEM_ZENOH=ON"
+# Remove build_number fields below on new full rebuild
+ros2cli:
+  # Rebuild with the shell completions under the names bash and zsh load (patch).
+  build_number: 26
