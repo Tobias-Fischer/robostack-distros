@@ -326,6 +326,10 @@ def run_solve(
     ]
     for channel in channels:
         cmd += ["-c", channel]
+    # like the builds (tools/robostack.py): with strict priority, a package in an earlier
+    # channel (e.g. a test channel holding several distributions) hides every build of
+    # it in the later ones
+    cmd += ["--channel-priority", "disabled"]
     env = dict(os.environ, COLUMNS="500", NO_COLOR="1", RATTLER_BUILD_NO_SPINNER="1")
     # Solving for a foreign platform yields __glibc=0 / __osx=0 virtual packages, which
     # makes every package look uninstallable.  Provide sane defaults unless overridden.
