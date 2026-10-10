@@ -208,6 +208,9 @@ def bump_partial(distro: str, packages: dict[str, str]) -> list[str]:
             entry["build_number"] = number
     with info.open("w") as fh:
         ry.dump(data, fh)
+    from vinca.sort_yaml_keys import sort_mapping_keys
+
+    sort_mapping_keys(info)  # `pixi run sort` order (rs check fails otherwise): build-number entries last
     return [f"{len(packages)} packages get `build_number: {number}` in `distros/{distro}/pkg_additional_info.yaml`"]
 
 

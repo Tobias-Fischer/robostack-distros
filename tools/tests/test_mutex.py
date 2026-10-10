@@ -44,3 +44,20 @@ def test_partial_rebuild_leaves_the_mutex_alone(tmp_path, monkeypatch):
     info = maintenance.yaml.safe_load((distro / "pkg_additional_info.yaml").read_text())
     assert info == {"rclcpp": {"build_number": 8, "add_host": ["foo"]}, "std_msgs": {"build_number": 8}}
     assert (distro / "vinca.yaml").read_text() == vinca
+
+
+def test_partial_rebuild_keeps_pkg_additional_info_sorted(tmp_path, monkeypatch):
+    from vinca.sort_yaml_keys import sort_mapping_keys
+
+    distro = tmp_path / "distros" / "testdistro"
+    distro.mkdir(parents=True)
+    (distro / "vinca.yaml").write_text("ros_distro: testdistro\nbuild_number: 5\n")
+    (distro / "pkg_additional_info.yaml").write_text("zeta:\n  add_host: [foo]\nalpha:\n  build_number: 3\n")
+    monkeypatch.setattr(rs, "DISTROS", tmp_path / "distros")
+    monkeypatch.setattr(maintenance, "released_builds", lambda d: {"ros2-alpha": 7})
+    monkeypatch.setattr(rs, "read_vinca", lambda d, platform=None: {"mutex_package": {"name": "ros2-distro-mutex"}})
+
+    maintenance.bump_partial("testdistro", {"mid": "uses libboost", "beta": "uses libboost"})
+
+    info = distro / "pkg_additional_info.yaml"
+    assert sort_mapping_keys(info) is False  # already in `pixi run sort` order: nothing to change
