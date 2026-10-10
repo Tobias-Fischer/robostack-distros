@@ -1,5 +1,6 @@
-# Pinning overrides shared by all distributions, rendered into each
-# distribution's vinca_pinning.yaml (template/vinca_pinning.yaml.jinja).
+# Pinning overrides shared by all distributions, applied on top of the conda-forge
+# pinning by `pixi run rs <distro> render-pinning`; a distribution's own
+# pinning_overrides in distro.yaml replace the entries of the same name.
 pinning_overrides:
   # Build commands provide their channels with `-c`, so omit the inherited
   # conda-forge-pinning channel_sources value from the rendered configuration.
