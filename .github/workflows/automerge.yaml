@@ -28,10 +28,10 @@ jobs:
       # workflow's own token would not trigger the main build workflow.
       - name: Bot token
         id: app
-        if: vars.ROBOSTACK_BOT_APP_ID != ''
+        if: vars.ROBOSTACK_BOT_CLIENT_ID != ''
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.ROBOSTACK_BOT_APP_ID }}
+          client-id: ${{ vars.ROBOSTACK_BOT_CLIENT_ID }}
           private-key: ${{ secrets.ROBOSTACK_BOT_PRIVATE_KEY }}
       - name: Turn auto-merge on or off
         env:
@@ -44,7 +44,7 @@ jobs:
           enabled=$(gh pr view "$PR" --json labels --jq 'any(.labels[]; .name == "automerge")')
           if [ "$enabled" = true ]; then
             if [ -z "$BOT_TOKEN" ]; then
-              echo "::error::auto-merge needs the bot app (ROBOSTACK_BOT_APP_ID + ROBOSTACK_BOT_PRIVATE_KEY) or GHA_PAT: a merge with the workflow token doesn't start the build workflow"
+              echo "::error::auto-merge needs the bot app (ROBOSTACK_BOT_CLIENT_ID + ROBOSTACK_BOT_PRIVATE_KEY) or GHA_PAT: a merge with the workflow token doesn't start the build workflow"
               exit 1
             fi
             GH_TOKEN="$BOT_TOKEN" gh pr merge "$PR" --auto --merge
