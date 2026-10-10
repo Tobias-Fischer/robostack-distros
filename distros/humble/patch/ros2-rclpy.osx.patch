@@ -25,7 +25,7 @@ index a9966c0..30cb145 100644
  endfunction()
  
  # Split from main extension and converted to pybind11
--pybind11_add_module(_rclpy_pybind11 SHARED
+-pybind11_add_module(_rclpy_pybind11
 +pybind11_add_module(_rclpy_pybind11 MODULE NO_EXTRAS
    src/rclpy/_rclpy_logging.cpp
    src/rclpy/_rclpy_pybind11.cpp
