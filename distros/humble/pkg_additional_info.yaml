@@ -82,12 +82,6 @@ py_trees:
     dep_name: py-trees
     max_pin: 'x.x.x'
     override_version: '2.5.0'
-rtabmap:
-  additional_cmake_args:
-    if: win
-    then: "-DWITH_QT=OFF -DBUILD_TOOLS=OFF -DBUILD_EXAMPLES=OFF -DWITH_GTSAM=OFF"
-    else: "-DWITH_QT=OFF -DBUILD_TOOLS=OFF -DBUILD_EXAMPLES=OFF"
-  build_number: 21
 urdfdom:
   generate_dummy_package_with_run_deps:
     dep_name: urdfdom
@@ -102,20 +96,29 @@ urdfdom_headers:
 zenoh_cpp_vendor:
   additional_cmake_args: "-DAMENT_VENDOR_POLICY=NEVER_VENDOR_IGNORE_SATISFIED_CHECK"
 # Remove build_number fields below on new full rebuild
-ros2cli:
-  # Rebuild with the shell completions under the names bash and zsh load (patch).
-  build_number: 21
-backward_ros:
-  build_number: 21
-spatio_temporal_voxel_layer:
-  build_number: 21
-visp:
-  build_number: 21
 ackermann_steering_controller:
   build_number: 21
 admittance_controller:
   build_number: 21
+backward_ros:
+  build_number: 21
 bicycle_steering_controller:
+  build_number: 21
+chomp_motion_planner:
+  build_number: 21
+clearpath_common:
+  build_number: 21
+clearpath_control:
+  build_number: 21
+clearpath_description:
+  build_number: 21
+clearpath_generator_common:
+  build_number: 21
+clearpath_manipulators:
+  build_number: 21
+clearpath_manipulators_description:
+  build_number: 21
+clearpath_mecanum_drive_controller:
   build_number: 21
 controller_manager:
   build_number: 21
@@ -127,117 +130,97 @@ force_torque_sensor_broadcaster:
   build_number: 21
 forward_command_controller:
   build_number: 21
-franka_robot_state_broadcaster:
-  build_number: 21
-gripper_controllers:
-  build_number: 21
-imu_sensor_broadcaster:
-  build_number: 21
-joint_state_broadcaster:
-  build_number: 21
-joint_trajectory_controller:
-  build_number: 21
-mecanum_drive_controller:
-  build_number: 21
-moveit_common:
-  build_number: 21
-mujoco_ros2_control:
-  build_number: 21
-mujoco_ros2_control_plugins:
-  build_number: 21
-orbbec_camera:
-  build_number: 21
-pid_controller:
-  build_number: 21
-pose_broadcaster:
-  build_number: 21
-position_controllers:
-  build_number: 21
-range_sensor_broadcaster:
-  build_number: 21
-ros2_fmt_logger:
-  build_number: 21
-steering_controllers_library:
-  build_number: 21
-tricycle_controller:
-  build_number: 21
-tricycle_steering_controller:
-  build_number: 21
-ur_robot_driver:
-  build_number: 21
-velocity_controllers:
-  build_number: 21
-gz_ros2_control_demos:
-  build_number: 21
-ros2_controllers:
-  build_number: 21
-clearpath_control:
-  build_number: 21
-clearpath_mecanum_drive_controller:
-  build_number: 21
 franka_bringup:
   build_number: 21
 franka_example_controllers:
   build_number: 21
 franka_fr3_moveit_config:
   build_number: 21
+franka_gazebo_bringup:
+  build_number: 21
 franka_ign_ros2_control:
+  build_number: 21
+franka_robot_state_broadcaster:
+  build_number: 21
+franka_ros2:
   build_number: 21
 gazebo_ros2_control:
   build_number: 21
+gazebo_ros2_control_demos:
+  build_number: 21
 gpio_controllers:
+  build_number: 21
+gripper_controllers:
   build_number: 21
 gz_ros2_control:
   build_number: 21
-lbr_bringup:
+gz_ros2_control_demos:
   build_number: 21
-moveit_hybrid_planning:
+ign_ros2_control:
   build_number: 21
-moveit_servo:
+iiwa14_moveit_config:
   build_number: 21
-mujoco_ros2_control_demos:
+iiwa7_moveit_config:
   build_number: 21
-ros2_control:
+imu_sensor_broadcaster:
   build_number: 21
-ros2controlcli:
-  build_number: 21
-rqt_controller_manager:
-  build_number: 21
-ur_controllers:
-  build_number: 21
-webots_ros2_control:
-  build_number: 21
-webots_ros2_epuck:
-  build_number: 21
-webots_ros2_husarion:
-  build_number: 21
-webots_ros2_tiago:
-  build_number: 21
-webots_ros2_turtlebot:
-  build_number: 21
-webots_ros2_universal_robot:
-  build_number: 21
-gazebo_ros2_control_demos:
-  build_number: 21
-clearpath_manipulators:
-  build_number: 21
-turtlebot3_manipulation_gazebo:
+irobot_create_common_bringup:
   build_number: 21
 irobot_create_control:
   build_number: 21
+irobot_create_ignition_bringup:
+  build_number: 21
+joint_state_broadcaster:
+  build_number: 21
+joint_trajectory_controller:
+  build_number: 21
 kortex_description:
   build_number: 21
-chomp_motion_planner:
+lbr_bringup:
+  build_number: 21
+lbr_demos_cpp:
+  build_number: 21
+lbr_demos_py:
+  build_number: 21
+lbr_fri_ros2_stack:
+  build_number: 21
+lbr_moveit_cpp:
+  build_number: 21
+lbr_ros2_control:
+  build_number: 21
+mecanum_drive_controller:
+  build_number: 21
+med14_moveit_config:
+  build_number: 21
+med7_moveit_config:
+  build_number: 21
+moveit:
   build_number: 21
 moveit_chomp_optimizer_adapter:
   build_number: 21
+moveit_common:
+  build_number: 21
 moveit_core:
   build_number: 21
+moveit_hybrid_planning:
+  build_number: 21
 moveit_kinematics:
+  build_number: 21
+moveit_planners:
   build_number: 21
 moveit_planners_chomp:
   build_number: 21
 moveit_planners_ompl:
+  build_number: 21
+moveit_plugins:
+  build_number: 21
+moveit_resources_prbt_ikfast_manipulator_plugin:
+  build_number: 21
+moveit_resources_prbt_moveit_config:
+  build_number: 21
+moveit_resources_prbt_pg70_support:
+  build_number: 21
+moveit_ros:
   build_number: 21
 moveit_ros_benchmarks:
   build_number: 21
@@ -259,59 +242,23 @@ moveit_ros_visualization:
   build_number: 21
 moveit_ros_warehouse:
   build_number: 21
+moveit_runtime:
+  build_number: 21
+moveit_servo:
+  build_number: 21
+moveit_setup_app_plugins:
+  build_number: 21
+moveit_setup_assistant:
+  build_number: 21
+moveit_setup_controllers:
+  build_number: 21
+moveit_setup_core_plugins:
+  build_number: 21
 moveit_setup_framework:
   build_number: 21
+moveit_setup_srdf_plugins:
+  build_number: 21
 moveit_simple_controller_manager:
-  build_number: 21
-moveit_visual_tools:
-  build_number: 21
-pilz_industrial_motion_planner:
-  build_number: 21
-pilz_industrial_motion_planner_testutils:
-  build_number: 21
-rviz_marker_tools:
-  build_number: 21
-ur:
-  build_number: 21
-ur_calibration:
-  build_number: 21
-lbr_ros2_control:
-  build_number: 21
-clearpath_common:
-  build_number: 21
-clearpath_generator_common:
-  build_number: 21
-franka_ros2:
-  build_number: 21
-franka_gazebo_bringup:
-  build_number: 21
-ign_ros2_control:
-  build_number: 21
-lbr_demos_cpp:
-  build_number: 21
-lbr_demos_py:
-  build_number: 21
-lbr_fri_ros2_stack:
-  build_number: 21
-ur_moveit_config:
-  build_number: 21
-ur_simulation_gz:
-  build_number: 21
-webots_ros2:
-  build_number: 21
-webots_ros2_tests:
-  build_number: 21
-turtlebot3_simulations:
-  build_number: 21
-irobot_create_common_bringup:
-  build_number: 21
-clearpath_manipulators_description:
-  build_number: 21
-moveit:
-  build_number: 21
-moveit_resources_prbt_ikfast_manipulator_plugin:
-  build_number: 21
-moveit_runtime:
   build_number: 21
 moveit_task_constructor_capabilities:
   build_number: 21
@@ -319,43 +266,96 @@ moveit_task_constructor_core:
   build_number: 21
 moveit_task_constructor_demo:
   build_number: 21
+moveit_visual_tools:
+  build_number: 21
+mujoco_ros2_control:
+  build_number: 21
+mujoco_ros2_control_demos:
+  build_number: 21
+mujoco_ros2_control_plugins:
+  build_number: 21
+orbbec_camera:
+  build_number: 21
 pick_ik:
   build_number: 21
-iiwa14_moveit_config:
+pid_controller:
   build_number: 21
-iiwa7_moveit_config:
+pilz_industrial_motion_planner:
   build_number: 21
-med14_moveit_config:
+pilz_industrial_motion_planner_testutils:
   build_number: 21
-med7_moveit_config:
+pose_broadcaster:
   build_number: 21
-moveit_planners:
+position_controllers:
   build_number: 21
-moveit_ros:
+range_sensor_broadcaster:
   build_number: 21
-moveit_resources_prbt_moveit_config:
+ros2_control:
   build_number: 21
-lbr_moveit_cpp:
+ros2_controllers:
   build_number: 21
-moveit_setup_app_plugins:
+ros2_fmt_logger:
   build_number: 21
-moveit_setup_core_plugins:
+ros2cli:
+  # Rebuild with the shell completions under the names bash and zsh load (patch).
   build_number: 21
-moveit_setup_assistant:
+ros2controlcli:
   build_number: 21
-moveit_setup_controllers:
+rqt_controller_manager:
   build_number: 21
-moveit_setup_srdf_plugins:
+rtabmap:
+  additional_cmake_args:
+    if: win
+    then: "-DWITH_QT=OFF -DBUILD_TOOLS=OFF -DBUILD_EXAMPLES=OFF -DWITH_GTSAM=OFF"
+    else: "-DWITH_QT=OFF -DBUILD_TOOLS=OFF -DBUILD_EXAMPLES=OFF"
   build_number: 21
-moveit_plugins:
+rviz_marker_tools:
   build_number: 21
-irobot_create_ignition_bringup:
+spatio_temporal_voxel_layer:
+  build_number: 21
+steering_controllers_library:
+  build_number: 21
+tricycle_controller:
+  build_number: 21
+tricycle_steering_controller:
+  build_number: 21
+turtlebot3_manipulation_gazebo:
+  build_number: 21
+turtlebot3_simulations:
   build_number: 21
 turtlebot4_ignition_bringup:
   build_number: 21
-clearpath_description:
-  build_number: 21
-moveit_resources_prbt_pg70_support:
-  build_number: 21
 turtlebot4_simulator:
+  build_number: 21
+ur:
+  build_number: 21
+ur_calibration:
+  build_number: 21
+ur_controllers:
+  build_number: 21
+ur_moveit_config:
+  build_number: 21
+ur_robot_driver:
+  build_number: 21
+ur_simulation_gz:
+  build_number: 21
+velocity_controllers:
+  build_number: 21
+visp:
+  build_number: 21
+webots_ros2:
+  build_number: 21
+webots_ros2_control:
+  build_number: 21
+webots_ros2_epuck:
+  build_number: 21
+webots_ros2_husarion:
+  build_number: 21
+webots_ros2_tests:
+  build_number: 21
+webots_ros2_tiago:
+  build_number: 21
+webots_ros2_turtlebot:
+  build_number: 21
+webots_ros2_universal_robot:
   build_number: 21
