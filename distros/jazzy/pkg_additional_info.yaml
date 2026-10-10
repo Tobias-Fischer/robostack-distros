@@ -118,9 +118,6 @@ roboplan_toppra:
   generate_dummy_package_with_run_deps:
     dep_name: roboplan-toppra-python
     max_pin: 'x.x'
-rtabmap:
-  additional_cmake_args: -DBUILD_TESTING=OFF
-  build_number: 26
 rviz_ogre_vendor:
   additional_cmake_args: "-DRVIZ_OGRE_VENDOR_MANGLE_NAME_OF_LIBRARIES_USED_BY_RVIZ=ON"
 urdfdom:
@@ -136,26 +133,31 @@ urdfdom_headers:
 zenoh_cpp_vendor:
   additional_cmake_args: "-DAMENT_VENDOR_POLICY=NEVER_VENDOR_IGNORE_SATISFIED_CHECK -DUSE_SYSTEM_ZENOH=ON"
 # Remove build_number fields below on new full rebuild
-ros2cli:
-  # Rebuild with the shell completions under the names bash and zsh load (patch).
-  build_number: 26
-backward_ros:
-  build_number: 26
-rviz_satellite:
-  build_number: 26
-spatio_temporal_voxel_layer:
-  build_number: 26
-visp:
-  build_number: 26
 ackermann_steering_controller:
   build_number: 26
 admittance_controller:
+  build_number: 26
+backward_ros:
   build_number: 26
 battery_state_broadcaster:
   build_number: 26
 bicycle_steering_controller:
   build_number: 26
+chained_filter_controller:
+  build_number: 26
+chomp_motion_planner:
+  build_number: 26
+clearpath_common:
+  build_number: 26
+clearpath_control:
+  build_number: 26
+clearpath_generator_common:
+  build_number: 26
+clearpath_manipulators:
+  build_number: 26
 control_toolbox:
+  build_number: 26
+controller_interface:
   build_number: 26
 controller_manager:
   build_number: 26
@@ -167,11 +169,35 @@ force_torque_sensor_broadcaster:
   build_number: 26
 forward_command_controller:
   build_number: 26
+gpio_controllers:
+  build_number: 26
+gps_sensor_broadcaster:
+  build_number: 26
 gripper_controllers:
+  build_number: 26
+gz_ros2_control:
+  build_number: 26
+gz_ros2_control_demos:
   build_number: 26
 hardware_interface:
   build_number: 26
+hardware_interface_testing:
+  build_number: 26
+iiwa14_moveit_config:
+  build_number: 26
+iiwa7_moveit_config:
+  build_number: 26
 imu_sensor_broadcaster:
+  build_number: 26
+irobot_create_common_bringup:
+  build_number: 26
+irobot_create_control:
+  build_number: 26
+irobot_create_description:
+  build_number: 26
+irobot_create_gz_bringup:
+  build_number: 26
+irobot_create_gz_sim:
   build_number: 26
 joint_limits:
   build_number: 26
@@ -183,131 +209,75 @@ kinematics_interface:
   build_number: 26
 kinematics_interface_kdl:
   build_number: 26
+kinova_gen3_7dof_robotiq_2f_85_moveit_config:
+  build_number: 26
+kortex_description:
+  build_number: 26
+lbr_bringup:
+  build_number: 26
+lbr_demos_advanced_cpp:
+  build_number: 26
+lbr_demos_advanced_py:
+  build_number: 26
+lbr_demos_cpp:
+  build_number: 26
+lbr_demos_py:
+  build_number: 26
+lbr_description:
+  build_number: 26
+lbr_fri_ros2:
+  build_number: 26
+lbr_fri_ros2_stack:
+  build_number: 26
+lbr_moveit_cpp:
+  build_number: 26
+lbr_ros2_control:
+  build_number: 26
 magnetometer_broadcaster:
   build_number: 26
 mecanum_drive_controller:
   build_number: 26
-moveit_common:
+med14_moveit_config:
   build_number: 26
-mujoco_ros2_control:
+med7_moveit_config:
   build_number: 26
-mujoco_ros2_control_plugins:
-  build_number: 26
-nav2_route:
-  build_number: 26
-orbbec_camera:
-  build_number: 26
-parallel_gripper_controller:
-  build_number: 26
-pid_controller:
-  build_number: 26
-pose_broadcaster:
-  build_number: 26
-position_controllers:
-  build_number: 26
-range_sensor_broadcaster:
-  build_number: 26
-ros2_fmt_logger:
-  build_number: 26
-state_interfaces_broadcaster:
-  build_number: 26
-steering_controllers_library:
-  build_number: 26
-tricycle_controller:
-  build_number: 26
-tricycle_steering_controller:
-  build_number: 26
-ur_robot_driver:
-  build_number: 26
-velocity_controllers:
-  build_number: 26
-gz_ros2_control_demos:
-  build_number: 26
-ros2_controllers:
-  build_number: 26
-chained_filter_controller:
-  build_number: 26
-clearpath_control:
-  build_number: 26
-gpio_controllers:
-  build_number: 26
-gps_sensor_broadcaster:
-  build_number: 26
-gz_ros2_control:
-  build_number: 26
-kinova_gen3_7dof_robotiq_2f_85_moveit_config:
-  build_number: 26
-lbr_bringup:
+moveit:
   build_number: 26
 moveit2_tutorials:
   build_number: 26
-moveit_hybrid_planning:
-  build_number: 26
-moveit_resources_fanuc_moveit_config:
-  build_number: 26
-moveit_resources_panda_moveit_config:
-  build_number: 26
-moveit_servo:
-  build_number: 26
-moveit_task_constructor_capabilities:
-  build_number: 26
-moveit_task_constructor_demo:
-  build_number: 26
-mujoco_ros2_control_demos:
-  build_number: 26
-omni_wheel_drive_controller:
-  build_number: 26
-roboplan_ros_franka:
-  build_number: 26
-ros2_control:
-  build_number: 26
-ros2controlcli:
-  build_number: 26
-rqt_controller_manager:
-  build_number: 26
-topic_based_ros2_control:
-  build_number: 26
-ur_controllers:
-  build_number: 26
-webots_ros2_control:
-  build_number: 26
-webots_ros2_epuck:
-  build_number: 26
-webots_ros2_husarion:
-  build_number: 26
-webots_ros2_tiago:
-  build_number: 26
-webots_ros2_turtlebot:
-  build_number: 26
-webots_ros2_universal_robot:
-  build_number: 26
-nav2_bringup:
-  build_number: 26
-clearpath_manipulators:
-  build_number: 26
-controller_interface:
-  build_number: 26
-hardware_interface_testing:
-  build_number: 26
-lbr_ros2_control:
-  build_number: 26
-transmission_interface:
-  build_number: 26
-irobot_create_control:
-  build_number: 26
-kortex_description:
-  build_number: 26
-chomp_motion_planner:
+moveit_common:
   build_number: 26
 moveit_core:
   build_number: 26
+moveit_hybrid_planning:
+  build_number: 26
 moveit_kinematics:
+  build_number: 26
+moveit_planners:
   build_number: 26
 moveit_planners_chomp:
   build_number: 26
 moveit_planners_ompl:
   build_number: 26
 moveit_planners_stomp:
+  build_number: 26
+moveit_plugins:
+  build_number: 26
+moveit_py:
+  build_number: 26
+moveit_resources:
+  build_number: 26
+moveit_resources_fanuc_moveit_config:
+  build_number: 26
+moveit_resources_panda_moveit_config:
+  build_number: 26
+moveit_resources_prbt_ikfast_manipulator_plugin:
+  build_number: 26
+moveit_resources_prbt_moveit_config:
+  build_number: 26
+moveit_resources_prbt_pg70_support:
+  build_number: 26
+moveit_ros:
   build_number: 26
 moveit_ros_benchmarks:
   build_number: 26
@@ -331,133 +301,163 @@ moveit_ros_visualization:
   build_number: 26
 moveit_ros_warehouse:
   build_number: 26
+moveit_runtime:
+  build_number: 26
+moveit_servo:
+  build_number: 26
+moveit_setup_app_plugins:
+  build_number: 26
+moveit_setup_assistant:
+  build_number: 26
+moveit_setup_controllers:
+  build_number: 26
+moveit_setup_core_plugins:
+  build_number: 26
 moveit_setup_framework:
+  build_number: 26
+moveit_setup_srdf_plugins:
   build_number: 26
 moveit_simple_controller_manager:
   build_number: 26
+moveit_task_constructor_capabilities:
+  build_number: 26
+moveit_task_constructor_core:
+  build_number: 26
+moveit_task_constructor_demo:
+  build_number: 26
+moveit_task_constructor_visualization:
+  build_number: 26
 moveit_visual_tools:
   build_number: 26
-pilz_industrial_motion_planner:
+mujoco_ros2_control:
   build_number: 26
-pilz_industrial_motion_planner_testutils:
+mujoco_ros2_control_demos:
   build_number: 26
-rviz_marker_tools:
+mujoco_ros2_control_plugins:
+  build_number: 26
+nav2_bringup:
+  build_number: 26
+nav2_route:
   build_number: 26
 nav2_rviz_plugins:
   build_number: 26
 navigation2:
   build_number: 26
-ur:
+omni_wheel_drive_controller:
   build_number: 26
-ur_calibration:
+orbbec_camera:
   build_number: 26
-clearpath_common:
-  build_number: 26
-clearpath_generator_common:
-  build_number: 26
-irobot_create_gz_bringup:
-  build_number: 26
-lbr_description:
-  build_number: 26
-ur_simulation_gz:
-  build_number: 26
-lbr_demos_cpp:
-  build_number: 26
-lbr_demos_py:
-  build_number: 26
-lbr_fri_ros2_stack:
-  build_number: 26
-moveit_resources:
-  build_number: 26
-moveit_setup_controllers:
-  build_number: 26
-moveit_task_constructor_core:
-  build_number: 26
-moveit_setup_assistant:
+parallel_gripper_controller:
   build_number: 26
 pick_ik:
-  build_number: 26
-ur_moveit_config:
-  build_number: 26
-webots_ros2:
-  build_number: 26
-webots_ros2_tests:
-  build_number: 26
-turtlebot3_navigation2:
-  build_number: 26
-turtlebot4_navigation:
   build_number: 26
 picknik_reset_fault_controller:
   build_number: 26
 picknik_twist_controller:
   build_number: 26
+pid_controller:
+  build_number: 26
+pilz_industrial_motion_planner:
+  build_number: 26
+pilz_industrial_motion_planner_testutils:
+  build_number: 26
+pose_broadcaster:
+  build_number: 26
+position_controllers:
+  build_number: 26
+range_sensor_broadcaster:
+  build_number: 26
+roboplan_ros_franka:
+  build_number: 26
 robotiq_controllers:
   build_number: 26
-irobot_create_common_bringup:
+ros2_control:
   build_number: 26
-irobot_create_description:
+ros2_controllers:
   build_number: 26
-moveit:
+ros2_fmt_logger:
   build_number: 26
-moveit_py:
+ros2cli:
+  # Rebuild with the shell completions under the names bash and zsh load (patch).
   build_number: 26
-moveit_resources_prbt_ikfast_manipulator_plugin:
+ros2controlcli:
   build_number: 26
-moveit_runtime:
+rqt_controller_manager:
   build_number: 26
-moveit_task_constructor_visualization:
+rtabmap:
+  additional_cmake_args: -DBUILD_TESTING=OFF
   build_number: 26
-trac_ik_kinematics_plugin:
+rviz_marker_tools:
   build_number: 26
-iiwa14_moveit_config:
+rviz_satellite:
   build_number: 26
-iiwa7_moveit_config:
+spatio_temporal_voxel_layer:
   build_number: 26
-med14_moveit_config:
+state_interfaces_broadcaster:
   build_number: 26
-med7_moveit_config:
+steering_controllers_library:
   build_number: 26
-moveit_planners:
-  build_number: 26
-moveit_ros:
-  build_number: 26
-moveit_resources_prbt_moveit_config:
-  build_number: 26
-lbr_moveit_cpp:
-  build_number: 26
-moveit_setup_app_plugins:
-  build_number: 26
-moveit_setup_core_plugins:
-  build_number: 26
-moveit_setup_srdf_plugins:
-  build_number: 26
-moveit_plugins:
-  build_number: 26
-irobot_create_gz_sim:
-  build_number: 26
-turtlebot4_gz_bringup:
-  build_number: 26
-lbr_demos_advanced_cpp:
-  build_number: 26
-lbr_demos_advanced_py:
-  build_number: 26
-lbr_fri_ros2:
-  build_number: 26
-turtlebot3:
-  build_number: 26
-turtlebot4_description:
-  build_number: 26
-moveit_resources_prbt_pg70_support:
+topic_based_ros2_control:
   build_number: 26
 trac_ik:
   build_number: 26
-turtlebot4_simulator:
+trac_ik_kinematics_plugin:
+  build_number: 26
+transmission_interface:
+  build_number: 26
+tricycle_controller:
+  build_number: 26
+tricycle_steering_controller:
+  build_number: 26
+turtlebot3:
+  build_number: 26
+turtlebot3_navigation2:
   build_number: 26
 turtlebot4_bringup:
   build_number: 26
-turtlebot4_viz:
+turtlebot4_description:
+  build_number: 26
+turtlebot4_desktop:
+  build_number: 26
+turtlebot4_gz_bringup:
+  build_number: 26
+turtlebot4_navigation:
   build_number: 26
 turtlebot4_robot:
   build_number: 26
-turtlebot4_desktop:
+turtlebot4_simulator:
+  build_number: 26
+turtlebot4_viz:
+  build_number: 26
+ur:
+  build_number: 26
+ur_calibration:
+  build_number: 26
+ur_controllers:
+  build_number: 26
+ur_moveit_config:
+  build_number: 26
+ur_robot_driver:
+  build_number: 26
+ur_simulation_gz:
+  build_number: 26
+velocity_controllers:
+  build_number: 26
+visp:
+  build_number: 26
+webots_ros2:
+  build_number: 26
+webots_ros2_control:
+  build_number: 26
+webots_ros2_epuck:
+  build_number: 26
+webots_ros2_husarion:
+  build_number: 26
+webots_ros2_tests:
+  build_number: 26
+webots_ros2_tiago:
+  build_number: 26
+webots_ros2_turtlebot:
+  build_number: 26
+webots_ros2_universal_robot:
   build_number: 26
