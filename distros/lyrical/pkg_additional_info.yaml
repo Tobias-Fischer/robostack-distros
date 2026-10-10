@@ -161,4 +161,6 @@ turtlesim:
   build_number: 28
 visp:
   # the published build depends on visp 3.6 (OpenCV 4 / protobuf < 7); rebuild for 3.7.0
-  build_number: 28
+  build_number: 29
+spatio_temporal_voxel_layer:
+  build_number: 29
