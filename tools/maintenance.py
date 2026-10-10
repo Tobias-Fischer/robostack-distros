@@ -706,9 +706,20 @@ def mutex_problems(vinca: dict) -> list[str]:
     return []
 
 
+PATCH_NAME = re.compile(r"^ros2-(?P<package>[a-z0-9-]+)(\.(osx|linux|win|unix|emscripten))?\.patch$")
+
+
+def unmatched_patches(patches: list[str], packages: set[str]) -> list[str]:
+    """Patches named after none of `packages`: vinca only applies ros2-<package>[.<platform>].patch,
+    so a misnamed patch (or one for a package that left the distribution) silently does nothing."""
+    names = {p.replace("_", "-") for p in packages}
+    return [p for p in patches if (m := PATCH_NAME.match(p)) and m["package"] not in names]
+
+
 def check() -> Result:
     """Sanity checks: every distribution assembles and its generated files are consistent."""
     problems: list[str] = []
+    all_packages: set[str] = set()
     known = {"channel_name", "upload_target", "conda_forge_pinning_version", "conda_forge_migrations", "pinning_overrides",
              "rosdistro_sync"}
     for distro in rs.distros():
@@ -738,14 +749,23 @@ def check() -> Result:
             if not vinca.get(key):
                 problems.append(f"{distro}: vinca.yaml has no {key}")
         problems += [f"{distro}: {p}" for p in mutex_problems(vinca)]
-        for patch in (d / "patch").glob("*.patch"):
-            if not re.match(r"^ros2-[a-z0-9-]+(\.(osx|linux|win|unix|emscripten))?\.patch$", patch.name):
-                problems.append(f"{distro}: patch {patch.name} should be named ros2-<package>[.<platform>].patch")
+        patches = sorted(p.name for p in (d / "patch").glob("*.patch"))
+        for patch in patches:
+            if not PATCH_NAME.match(patch):
+                problems.append(f"{distro}: patch {patch} should be named ros2-<package>[.<platform>].patch")
+        packages = _available(distro)
+        all_packages |= packages
+        for patch in unmatched_patches(patches, packages):
+            problems.append(f"{distro}: patch {patch} matches no package of the distribution, so it is never applied")
         rendered = d / "conda_build_config.yaml"
         before = rendered.read_text() if rendered.is_file() else ""
         if rs.task(distro, "render-pinning", []) or rendered.read_text() != before:
             problems.append(f"{distro}: conda_build_config.yaml is out of date (pixi run rs {distro} render-pinning)")
             rendered.write_text(before)
+    # a shared patch applies to every distribution that has the package
+    shared = sorted(p.name for p in (rs.SHARED / "patch").glob("*.patch"))
+    for patch in unmatched_patches(shared, all_packages):
+        problems.append(f"shared: patch {patch} matches no package of any distribution, so it is never applied")
     # file names: .yaml everywhere (GitHub requires FUNDING.yml by that name)
     for yml in sorted(p for p in (rs.ROOT / ".github").rglob("*.yml") if p.name != "FUNDING.yml"):
         problems.append(f"{yml.relative_to(rs.ROOT)}: use the .yaml extension")

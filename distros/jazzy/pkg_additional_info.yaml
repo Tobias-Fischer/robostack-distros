@@ -135,6 +135,12 @@ urdfdom_headers:
 zenoh_cpp_vendor:
   additional_cmake_args: "-DAMENT_VENDOR_POLICY=NEVER_VENDOR_IGNORE_SATISFIED_CHECK -DUSE_SYSTEM_ZENOH=ON"
 # Remove build_number fields below on new full rebuild
+rmw_implementation_cmake:
+  # Rebuild with CycloneDDS as the default RMW on macOS (patch, misnamed before so never applied).
+  build_number: 26
 ros2cli:
   # Rebuild with the shell completions under the names bash and zsh load (patch).
+  build_number: 26
+rosidl_cli:
+  # Rebuild with the shell completions installed under the names bash and zsh load (patch).
   build_number: 26

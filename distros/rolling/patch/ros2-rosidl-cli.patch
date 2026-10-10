@@ -1,0 +1,54 @@
+diff --git a/rosidl_cli/completion/conda/_rosidl b/rosidl_cli/completion/conda/_rosidl
+new file mode 100644
+index 0000000..3cfe0ce
+--- /dev/null
++++ b/rosidl_cli/completion/conda/_rosidl
+@@ -0,0 +1,8 @@
++#compdef rosidl
++# zsh autoloads this from $fpath (site-functions) the first time rosidl is
++# completed: register argcomplete's completion function for rosidl, which
++# replaces this one, and complete with it
++if (( $+commands[register-python-argcomplete] )); then
++  eval "$(register-python-argcomplete rosidl)"
++  _python_argcomplete "$@"
++fi
+diff --git a/rosidl_cli/completion/conda/rosidl b/rosidl_cli/completion/conda/rosidl
+new file mode 100644
+index 0000000..17666fb
+--- /dev/null
++++ b/rosidl_cli/completion/conda/rosidl
+@@ -0,0 +1,5 @@
++# bash completion for rosidl, under the name bash-completion loads on demand
++# (completions/<command>); pixi shell sources this directory when activating
++if type register-python-argcomplete > /dev/null 2>&1; then
++  eval "$(register-python-argcomplete rosidl)"
++fi
+diff --git a/rosidl_cli/completion/conda/rosidl.fish b/rosidl_cli/completion/conda/rosidl.fish
+new file mode 100644
+index 0000000..cb164c7
+--- /dev/null
++++ b/rosidl_cli/completion/conda/rosidl.fish
+@@ -0,0 +1,5 @@
++# fish completion for rosidl, under the name fish loads on demand
++# (vendor_completions.d/<command>.fish)
++if type -q register-python-argcomplete
++    register-python-argcomplete --shell fish rosidl | source
++end
+diff --git a/rosidl_cli/setup.py b/rosidl_cli/setup.py
+index 7b41f65..b1bf3a9 100644
+--- a/rosidl_cli/setup.py
++++ b/rosidl_cli/setup.py
+@@ -23,6 +23,13 @@ setup(
+             'completion/rosidl-argcomplete.bash',
+             'completion/rosidl-argcomplete.zsh'
+         ]),
++
++        # [conda] completion scripts under the names the shells load on demand
++        # (bash-completion: completions/<command>, zsh: $fpath/_<command>, fish:
++        # vendor_completions.d/<command>.fish), which pixi shell activates
++        ('share/bash-completion/completions', ['completion/conda/rosidl']),
++        ('share/zsh/site-functions', ['completion/conda/_rosidl']),
++        ('share/fish/vendor_completions.d', ['completion/conda/rosidl.fish']),
+     ],
+     package_data={'': ['py.typed']},
+     zip_safe=False,
