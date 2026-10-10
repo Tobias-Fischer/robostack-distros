@@ -1,0 +1,78 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a98cb77..4d92e1b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,6 +1,14 @@
+ cmake_minimum_required(VERSION 3.5)
+ project(microstrain_inertial_driver)
+ 
++# Windows headers pulled in transitively by the MIP SDK's serial-port code
++# define min/max as function-like macros unless NOMINMAX is set first,
++# which corrupts any std::chrono::duration::max()/min() call downstream
++# (rcpputils/time.hpp, included via rclcpp) with cryptic syntax errors.
++if(WIN32)
++  add_compile_definitions(NOMINMAX)
++endif()
++
+ # C++ 14 required
+ set(CMAKE_CXX_STANDARD 14)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+@@ -236,7 +244,10 @@ target_link_libraries(${LIFECYCLE_NAME} PUBLIC
+ )
+ 
+ # Annoying, but the ROS types don't match up with the MIP types for floats and doubles, so ignore those warnings for now
+-set_source_files_properties(${COMMON_SRC_DIR}/services.cpp PROPERTIES COMPILE_OPTIONS "-Wno-narrowing")
++# (GCC/Clang-only flag; MSVC doesn't error on narrowing conversions by default anyway)
++if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
++  set_source_files_properties(${COMMON_SRC_DIR}/services.cpp PROPERTIES COMPILE_OPTIONS "-Wno-narrowing")
++endif()
+ 
+ # Tell the code the version of the driver that is being build
+ add_definitions(-DMICROSTRAIN_DRIVER_VERSION="${DRIVER_GIT_VERSION}")
+diff --git a/include/microstrain_inertial_driver/microstrain_inertial_driver.h b/include/microstrain_inertial_driver/microstrain_inertial_driver.h
+index 8e9c2f0..63edec0 100644
+--- a/include/microstrain_inertial_driver/microstrain_inertial_driver.h
++++ b/include/microstrain_inertial_driver/microstrain_inertial_driver.h
+@@ -14,7 +14,9 @@
+ #define _MICROSTRAIN_INERTIAL_DRIVER_MICROSTRAIN_INERTIAL_DRIVER_H
+ 
+ #include <cstdio>
++#ifndef _WIN32
+ #include <unistd.h>
++#endif
+ #include <time.h>
+ #include <iostream>
+ #include <fstream>
+diff --git a/include/microstrain_inertial_driver/microstrain_inertial_driver_lifecycle.h b/include/microstrain_inertial_driver/microstrain_inertial_driver_lifecycle.h
+index c8ef84e..931163c 100644
+--- a/include/microstrain_inertial_driver/microstrain_inertial_driver_lifecycle.h
++++ b/include/microstrain_inertial_driver/microstrain_inertial_driver_lifecycle.h
+@@ -14,7 +14,9 @@
+ #define _MICROSTRAIN_INERTIAL_DRIVER_MICROSTRAIN_INERTIAL_DRIVER_LIFECYCLE_H
+ 
+ #include <cstdio>
++#ifndef _WIN32
+ #include <unistd.h>
++#endif
+ #include <time.h>
+ #include <iostream>
+ #include <fstream>
+diff --git a/microstrain_inertial_driver_common/src/utils/mip/ros_connection.cpp b/microstrain_inertial_driver_common/src/utils/mip/ros_connection.cpp
+index e2eae44..826b8c2 100644
+--- a/microstrain_inertial_driver_common/src/utils/mip/ros_connection.cpp
++++ b/microstrain_inertial_driver_common/src/utils/mip/ros_connection.cpp
+@@ -10,6 +10,14 @@
+ 
+ #include <sys/stat.h>
+ 
++#ifdef _WIN32
++// POSIX localtime_r() has no Windows equivalent; localtime_s() is the
++// closest match, but takes its arguments in the opposite order (struct tm*
++// destination first, time_t* source second) and returns errno_t instead of
++// struct tm*, which the single call site below doesn't check anyway.
++#define localtime_r(timep, result) localtime_s(result, timep)
++#endif
++
+ #include <vector>
+ #include <chrono>
+ #include <string>

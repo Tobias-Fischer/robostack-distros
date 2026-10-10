@@ -1,0 +1,23 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 36bc9c8..0651cbf 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -9,6 +9,9 @@ find_package(pluginlib REQUIRED)
+ find_package(point_cloud_interfaces REQUIRED)
+ find_package(point_cloud_transport REQUIRED)
+ find_package(rclcpp REQUIRED)
++# a bare "zstd" is no library name MSVC can link (LNK1181: zstd.lib), so use
++# zstd's CMake package (as 6.x does via zstd_cmake_module)
++find_package(zstd CONFIG REQUIRED)
+ 
+ set(dependencies
+   pluginlib
+@@ -31,7 +34,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
+   ${point_cloud_interfaces_TARGETS}
+   point_cloud_transport::point_cloud_transport
+   rclcpp::rclcpp
+-  zstd
++  zstd::libzstd_shared
+ )
+ 
+ install(TARGETS ${PROJECT_NAME}
