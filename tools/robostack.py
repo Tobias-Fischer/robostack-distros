@@ -325,6 +325,12 @@ def generate_gha(distro: str, args: list[str]) -> int:
         lines = [f"name: build\nrun-name: {distro} {ns.platform}" if l.startswith("name: ") else l for l in lines]
         # uploads use prefix.dev trusted publishing only: no anaconda.org token
         lines = [l for l in lines if "ANACONDA_API_TOKEN" not in l]
+        # jobs that declare permissions get none they don't list: checking out the
+        # repository needs contents: read (only works without it while it is public)
+        lines = [f"{l}\n{l[:len(l) - len(l.lstrip())]}contents: read" if l.strip() == "id-token: write" else l
+                 for l in lines]
+        if sum("permissions:" in l for l in lines) != sum("contents: read" in l for l in lines):
+            raise SystemExit(f"{wf}: a job with permissions but without contents: read")
         if ns.platform == "win-64" and not any("build-ci" in l for l in lines):
             raise SystemExit(f"{wf}: the Windows workflow doesn't use .scripts/build_win.bat")
         if any(l.startswith("env:") for l in lines):
