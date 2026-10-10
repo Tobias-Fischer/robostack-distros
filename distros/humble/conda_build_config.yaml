@@ -918,7 +918,7 @@ oneloop:
 openblas:
   - 0.3.*
 openexr:
-  - '3.5'
+  - 3.4
 openh264:
   - 2.6.0
 openjpeg:
